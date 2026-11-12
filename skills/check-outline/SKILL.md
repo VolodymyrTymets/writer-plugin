@@ -20,7 +20,8 @@ does not count. `background: false` makes the caller wait for the verdict.
 2. Otherwise the most recently modified `articles/*/outline.md` (Glob).
 
 Name the file on line 2 of your output (`Artifact:`, as a path relative to the workspace). If there is none, the
-verdict is `BLOCK: no outline found`, and the fix is "run the outline stage first".
+verdict is
+`## G2 outline gate: BLOCK (1 blocking, 0 advisory)` with `Artifact: none` and one finding whose fix is "run the outline stage first".
 
 ## Inputs
 `outline.md`; `brief.md` (goal, CTA, keyword, target length, must avoid); `research.md` (the fact bank, for the IDs).

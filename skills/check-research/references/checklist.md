@@ -19,8 +19,8 @@ For each row of the fact bank, fetch the source URL, then decide in this order:
 - **FACT-1** A statistic, date, named claim or quote in the competitor-coverage or gap prose that has no fact ID next
   to it is a finding. The fact bank is where claims live; prose around it cites them.
 - **FACT-3** A quote must also be attributed: the publisher column names who said it.
-- **FACT-4** A statistic older than the age limit in the workspace style guide is a finding unless the row says it is
-  dated. If there is no style guide, you cannot judge age: say so under Not checked, and do not invent a limit.
+- **FACT-4** A statistic older than the age limit in the workspace style guide is a **blocking** finding unless the row
+  says it is dated (in the claim, for example "as of 2021"). If there is no style guide, you cannot judge age: say so under Not checked, and do not invent a limit.
 - **FACT-6** For every question in `brief.md`, the Questions table lists fact IDs that exist in the bank, or the
   question appears under Open gaps with what that means for the outline. A question in neither place is blocking. A
   listed fact ID that is not in the bank is blocking.

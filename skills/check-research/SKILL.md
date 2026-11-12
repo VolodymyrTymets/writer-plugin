@@ -19,8 +19,8 @@ made in chat but not written into `research.md` does not count. `background: fal
 1. If `$ARGUMENTS` names a slug: `articles/<slug>/research.md`.
 2. Otherwise the most recently modified `articles/*/research.md` (Glob).
 
-Name the file on line 2 of your output (`Artifact:`, as a path relative to the workspace). If there is none, the verdict is `BLOCK: no research found`, and
-the fix is "run the research stage first".
+Name the file on line 2 of your output (`Artifact:`, as a path relative to the workspace). If there is none, the verdict is
+`## G1 research gate: BLOCK (1 blocking, 0 advisory)` with `Artifact: none` and one finding whose fix is "run the research stage first".
 
 ## Inputs
 `research.md`; `brief.md` next to it (for the questions); the workspace `.claude/rules/style.md` if present (for the
@@ -40,7 +40,7 @@ least one. Every fact you could not open counts as one blocking FACT-2 finding. 
 Artifact: articles/<slug>/research.md
 
 ### Advisory
-1. [FACT-4] F3 cites a 2021 statistic and the style guide's limit is 36 months. Fix: replace it or mark it as dated.
+1. [FACT-2] F3: the page shows 2023-02-01, the row says 2023-02-10; the age check is unaffected. Fix: correct the published date.
 
 ### Not checked
 - <anything you could not verify, and why>

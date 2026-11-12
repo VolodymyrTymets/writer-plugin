@@ -16,12 +16,13 @@ enforce FLOW-1. A format that says one thing in the prose and another to a parse
   The gate number and the stage are a fixed pair. A PASS carries no blockers; a BLOCK carries at least one. A fact the
   fact gate could not open counts as one blocking FACT-2 finding.
 - Line 2 is `Artifact: <path relative to the workspace>`. Everything else is free text for the human and the actor.
-- `k` is 1 plus the number of existing files for that gate. Files are never edited.
+- `k` is 1 plus the highest `r<k>` found in `gates/` and in `gates/archive/` for that gate. A count would reuse a number
+  after an archive and overwrite a saved verdict. Files are never edited.
 - The actor checks line 1 against the pattern before saving. No match means "no PASS", and nothing is saved.
 - Only an actor-saved verdict counts for FLOW-1. A gate run on its own is not recorded. A forked gate cannot tell who
   called it, so it prints no notice about that.
 - FLOW-3 is counted on disk: two BLOCK files for an artifact stop every later run of that actor. A human resumes by
-  moving those files into `gates/archive/`.
+  moving **every** verdict file of that gate, PASS ones too, into `gates/archive/`, so no stale PASS can unlock the next stage.
 - `tests/test_skills.py` holds the pattern and asserts each gate skill's literal PASS and BLOCK examples match it and use
   that gate's own pair.
 

@@ -54,7 +54,7 @@ articles/<slug>/
 
 ## Actors
 
-Each actor reads its inputs from disk, writes exactly one artifact, publishes its Google Doc copy, then invokes its
+Each actor reads its inputs from disk, writes exactly one artifact, publishes its Google Doc copy (from Phase 7), then invokes its
 gate. An actor never edits an earlier stage's artifact; if it finds a problem upstream it stops and says so.
 
 - **`/brief`** — turns whatever the user supplied (paste, file, Google Doc) into `brief.md` using the brief template.
@@ -78,7 +78,7 @@ gate. An actor never edits an earlier stage's artifact; if it finds a problem up
   fact part of G4, which must open the sources).
 - Verdict: `PASS | BLOCK`, every finding with a rule ID, the offending line and a concrete fix. Three real findings beat
   twelve stylistic ones. The caller saves the verdict to `gates/`.
-- A BLOCK sends the work back to the same actor. **Two BLOCKs on the same artifact stop the run** and hand it to the
+- A BLOCK sends the work back to the same actor. **Two BLOCKs on the same artifact stop the run** (counted from the verdict files on disk, so a rerun cannot skip it; a human resumes by archiving that gate's verdicts; ADR-004) and hand it to the
   human (FLOW-3).
 
 ## Editorial constitution — rule IDs

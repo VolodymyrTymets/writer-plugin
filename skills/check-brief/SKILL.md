@@ -21,7 +21,7 @@ made in chat but not written into `brief.md` does not count. `background: false`
 2. Otherwise the most recently modified `articles/*/brief.md` (Glob).
 
 Name the file you settled on on line 2 of your output (`Artifact:`, as a path relative to the workspace). If there is none, the verdict is
-`BLOCK: no brief found`, with the fix "run the brief stage first". Do not judge a chat summary instead.
+`## G0 brief gate: BLOCK (1 blocking, 0 advisory)` with `Artifact: none` and one finding whose fix is "run the brief stage first". Do not judge a chat summary instead.
 
 ## Inputs
 `brief.md`; `brief.source.md` next to it (the brief as supplied); the workspace `CLAUDE.md` if present. The style guide
@@ -41,7 +41,7 @@ verdict: a PASS has `0 blocking`, a BLOCK has at least one. Both forms below are
 Artifact: articles/<slug>/brief.md
 
 ### Advisory
-1. [BRF-4] Target length is "about 1500". Fix: write a number, 1500.
+1. [BRF-3] A secondary keyword repeats the primary keyword. Fix: drop it from the secondary list.
 
 ### Not checked
 - <anything you could not verify, and why>

@@ -124,13 +124,13 @@ chaining follows `../rln-agent/skills/develop-feature/SKILL.md` (calls the gate,
   brief stage reaches G0 BLOCK twice and must stop; a rerun of the stage must stop at once, naming both verdict files. Every R commit and the final tree run the full pytest green.
 
 ## Docs to update in this PR
-- [ ] docs/DESIGN.md — Phase 3 status (built; real-brief run pending); rule table in R0
-- [ ] rules/core/CLAUDE.template.md and templates/brief.md — FACT-2, BRF-6, FACT-6, heading tag
-- [ ] docs/decisions/ADR-004-verdict-file-contract.md — the regex and why Phase 4 depends on it
-- [ ] docs/ARCHITECTURE.md, CONTRIBUTING.md — skills, agents, tests rows
-- [ ] docs/DOMAIN_GLOSSARY.md — "Verdict file"
-- [ ] CHANGELOG.md — Added (Deleted: nothing yet)
-- [ ] docs/decisions/ADR-005-actor-template-source.md — either branch of R1; the gate pattern follows rln-agent
+- [x] docs/DESIGN.md — Phase 3 status (built; real-brief run pending); rule table in R0
+- [x] rules/core/CLAUDE.template.md and templates/brief.md — FACT-2, BRF-6, FACT-6, heading tag
+- [x] docs/decisions/ADR-004-verdict-file-contract.md — the regex and why Phase 4 depends on it
+- [x] docs/ARCHITECTURE.md, CONTRIBUTING.md — skills, agents, tests rows
+- [x] docs/DOMAIN_GLOSSARY.md — "Verdict file"
+- [x] CHANGELOG.md — Added (Deleted: nothing yet)
+- [x] docs/decisions/ADR-005-actor-template-source.md — either branch of R1; the gate pattern follows rln-agent
 
 ## Risks
 | Risk | Impact | Cheapest way to find out early |
@@ -142,6 +142,8 @@ chaining follows `../rln-agent/skills/develop-feature/SKILL.md` (calls the gate,
 | Planned commands named in skill text fail the doc test | red test | this plan and spec name commands by stage, never as a slash code span; each R commit runs the full pytest, green |
 
 ## Assumptions
+- Settled in R1 from the docs (2026-11-12): `${CLAUDE_PLUGIN_ROOT}` expands in skill content (ADR-005); `claude -p
+  --plugin-dir` exists; a forked skill called through the Skill tool returned its verdict to the calling skill in every run.
 - Verification uses synthetic neutral briefs in the scratchpad, never inside this repo (`articles/` is protected, PLG-1).
 - Skill directories follow the existing `PLANNED` names: `intake-brief`, `research`, `outline`, `check-*`.
 - Actors do not publish Doc copies until Phase 7. One draft PR on `feat/phase-3-vertical-slice` (A4); plan ships in it.

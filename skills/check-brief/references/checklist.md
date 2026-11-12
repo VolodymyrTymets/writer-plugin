@@ -15,7 +15,8 @@ advisory and rare.
 
 ## Cross-checks
 - If `brief.md` states something `brief.source.md` contradicts, cite the BRF rule of that section. A field the source
-  never gave must appear under "Assumptions made while normalising"; if it is silently invented, that is a finding on
+  never gave must appear under "Assumptions made while normalising", either as an assumption or as
+  `<field>: answered by the user, round <n>` (a sourced field); if it is silently invented, that is a finding on
   the rule of its section.
 - Ambiguity counts: a field that two readers would fill differently fails its rule.
 

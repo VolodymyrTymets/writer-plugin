@@ -43,6 +43,12 @@ ACTORS = {
     'research': ('G1-research', 'check-research'),
     'outline': ('G2-outline', 'check-outline'),
 }
+# Rules a gate's checklist must still carry. Deleting one of these rows must turn a test red.
+MUST_CITE = {
+    'check-brief': {f'BRF-{n}' for n in range(1, 7)},
+    'check-research': {'FACT-2', 'FACT-3', 'FACT-5', 'FACT-6'},
+    'check-outline': {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'},
+}
 RULE_ID = re.compile(r'\b(?:BRF|FACT|STR|VOI|SEO|FLOW|PLG)-\d+\b')
 
 
@@ -111,3 +117,20 @@ def test_outline_actor_never_writes_the_approval():
 
 def test_outline_gate_does_not_judge_the_approval_line():
     assert 'Approved-by' in skill_text('check-outline') and 'no rule here covers it' in skill_text('check-outline')
+
+
+@pytest.mark.parametrize('d', GATES)
+def test_gate_checklist_keeps_its_must_cite_rules(d):
+    cited = set(RULE_ID.findall((ROOT / 'skills' / d / 'references' / 'checklist.md').read_text(encoding='utf-8')))
+    assert not MUST_CITE[d] - cited, f'{d} checklist lost: {sorted(MUST_CITE[d] - cited)}'
+
+
+@pytest.mark.parametrize('d', GATES)
+def test_gate_resolves_its_input_from_disk_and_names_the_artifact(d):
+    text = skill_text(d)
+    assert '$ARGUMENTS' in text and 'most recently modified' in text, f'{d} must resolve its input itself'
+    assert 'Artifact: none' in text, f'{d} must give a contract-conforming verdict when the artifact is missing'
+
+
+def test_research_gate_reads_the_style_guide_at_the_path_design_uses():
+    assert '.claude/rules/style.md' in skill_text('check-research')

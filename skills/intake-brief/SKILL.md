@@ -17,13 +17,15 @@ done, the brief gate judges it in a fresh context, and you save its verdict.
 - Input: `$ARGUMENTS` may be a slug, a path, or empty. The brief itself is pasted text, a file path, or a Google Doc.
   Read a file with Read; for a Google Doc, use a connected Drive read tool if one exists, otherwise ask the user to paste it.
 - Slug: lowercase kebab-case from the working title, unless the user gave one. Folder: `articles/<slug>/`.
-- Save the input unchanged as `articles/<slug>/brief.source.md`, unless that file already exists.
+- Save the input unchanged as `articles/<slug>/brief.source.md`. If that file exists and the new input differs, the human
+  has supplied a correction: copy the old file to `brief.source.prev.md` (replacing any earlier one) and save the new input
+  as `brief.source.md`. Then build `brief.md` from the new input.
 
 ## Step 2 — Stop if the human is already owed a decision (FLOW-3)
 
 Count the BLOCK verdict files for this artifact: `articles/<slug>/gates/G0-brief.r*.md` whose line 1 contains `BLOCK`.
 If there are two or more, stop. Name both files, say what they blocked on, and hand the article to the human. Do not
-try a third time; this holds across runs, not only within this one. A human resumes the article by moving those verdict files into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
+try a third time; this holds across runs, not only within this one. A human resumes the article by moving **every** `G0-brief.r*.md` file, PASS ones too, into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
 
 ## Step 3 — Fill the template
 
@@ -31,7 +33,8 @@ Read `${CLAUDE_PLUGIN_ROOT}/templates/brief.md` and fill every field from the in
 - Write only what the input supports. A gap that changes the article (reader, goal, keyword, length, CTA, research
   questions) is a question, not a guess.
 - Ask in at most **two batched rounds**, all open gaps in one AskUserQuestion call per round. After the second round
-  state your assumption for anything still open under "Assumptions made while normalising". Never invent a reader or a keyword.
+  state your assumption for anything still open under "Assumptions made while normalising". Record every answer the user
+  gave in a round there too, as `<field>: answered by the user, round <n>`: the gate cannot see the chat. Never invent a reader or a keyword.
 - Leave no `{{placeholder}}` in the file. "none" is a valid value for must include and must avoid.
 
 Write the result to `articles/<slug>/brief.md`.
@@ -42,8 +45,7 @@ Write the result to `articles/<slug>/brief.md`.
 2. Check that line 1 of the verdict matches
    `^## G0 brief gate: (PASS \(0 blocking|BLOCK \([1-9][0-9]* blocking), [0-9]+ advisory\)$`. If it does not, the
    verdict is malformed: treat it as **no PASS**, save nothing, tell the user what came back, and stop.
-3. Save the verdict text unchanged to `articles/<slug>/gates/G0-brief.r<k>.md`, where `k` is 1 plus the number of
-   `G0-brief.r*.md` files already there. Never edit a saved verdict.
+3. Save the verdict text unchanged to `articles/<slug>/gates/G0-brief.r<k>.md`, where `k` is 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict.
 
 ## Step 5 — On BLOCK
 

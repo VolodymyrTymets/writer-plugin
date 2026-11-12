@@ -21,7 +21,7 @@ line** (FLOW-2): approval is the human's, and it is the cheap moment to change d
   `^## G1 research gate: PASS \(0 blocking, [0-9]+ advisory\)$`. If no such file exists, or the latest one is a BLOCK,
   stop: name the file you needed and say the research stage has to run first.
 - **FLOW-3:** count `articles/<slug>/gates/G2-outline.r*.md` whose line 1 contains `BLOCK`. If there are
-  two or more, stop, name both files and hand the article to the human. This holds across runs. A human resumes the article by moving those verdict files into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
+  two or more, stop, name both files and hand the article to the human. This holds across runs. A human resumes the article by moving **every** `G2-outline.r*.md` file, PASS ones too, into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
 
 ## Step 3 — Write the outline
 
@@ -49,8 +49,7 @@ Write the result to `articles/<slug>/outline.md`.
 2. Check that line 1 matches
    `^## G2 outline gate: (PASS \(0 blocking|BLOCK \([1-9][0-9]* blocking), [0-9]+ advisory\)$`. If it does not, treat
    it as **no PASS**, save nothing, tell the user what came back, and stop.
-3. Save the verdict unchanged to `articles/<slug>/gates/G2-outline.r<k>.md`, `k` being 1 plus the number of
-   `G2-outline.r*.md` files already there. Never edit a saved verdict.
+3. Save the verdict unchanged to `articles/<slug>/gates/G2-outline.r<k>.md`, `k` being 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict.
 
 ## Step 5 — On BLOCK
 

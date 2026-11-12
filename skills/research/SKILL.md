@@ -21,7 +21,7 @@ context and opens every source you cite.
   `^## G0 brief gate: PASS \(0 blocking, [0-9]+ advisory\)$`. If no such file exists, or the latest one is a BLOCK,
   stop: name the file you needed and say the brief stage has to run first. Do not research from a brief that has not passed.
 - **FLOW-3:** count `articles/<slug>/gates/G1-research.r*.md` whose line 1 contains `BLOCK`. If there are
-  two or more, stop, name both files and hand the article to the human. This holds across runs. A human resumes the article by moving those verdict files into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
+  two or more, stop, name both files and hand the article to the human. This holds across runs. A human resumes the article by moving **every** `G1-research.r*.md` file, PASS ones too, into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
 
 ## Step 3 — Research
 
@@ -33,7 +33,8 @@ read it for the age limit on statistics and any source preferences; if not, say 
    read the page and copied the quote from it. Never write a quote from memory or from a search snippet.
 3. Fact bank: one row per usable fact, `F1`, `F2`, ... with all seven columns. The quote is the page's exact words.
    Published date comes from the page; if the page shows none, it is not a fact, so do not use it. Accessed is today.
-   Prefer primary and authoritative sources. Do not state a claim stronger than the quote (FACT-5).
+   Keep the bank to about 25 rows or fewer: the gate opens every source within a limited number of turns, and a fact it
+   cannot reach blocks the run. Prefer primary and authoritative sources. Do not state a claim stronger than the quote (FACT-5).
 4. Sources table: one row per publisher page you used and why it is authoritative.
 5. Competitor coverage: search the primary keyword, open the top results, record angle, what each covers and what it
    misses. Then write the gap this article fills in one or two sentences. A statistic or named claim in this prose
@@ -50,8 +51,7 @@ Write the result to `articles/<slug>/research.md`.
 2. Check that line 1 matches
    `^## G1 research gate: (PASS \(0 blocking|BLOCK \([1-9][0-9]* blocking), [0-9]+ advisory\)$`. If it does not, treat
    it as **no PASS**, save nothing, tell the user what came back, and stop.
-3. Save the verdict unchanged to `articles/<slug>/gates/G1-research.r<k>.md`, `k` being 1 plus the number of
-   `G1-research.r*.md` files already there. Never edit a saved verdict.
+3. Save the verdict unchanged to `articles/<slug>/gates/G1-research.r<k>.md`, `k` being 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict.
 
 ## Step 5 — On BLOCK
 
