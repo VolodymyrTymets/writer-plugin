@@ -134,3 +134,13 @@ def test_gate_resolves_its_input_from_disk_and_names_the_artifact(d):
 
 def test_research_gate_reads_the_style_guide_at_the_path_design_uses():
     assert '.claude/rules/style.md' in skill_text('check-research')
+
+
+def checklist_text(d: str) -> str:
+    return ' '.join((ROOT / 'skills' / d / 'references' / 'checklist.md').read_text(encoding='utf-8').split())
+
+
+def test_g1_checklist_blocks_ids_that_do_not_support_their_question():
+    text = checklist_text('check-research')
+    assert re.search(r'FACT-6.*blocking, and so is a listed ID that exists but does not support its question', text), 'a listed ID that does not support its question must be blocking'
+    assert 'answers at least part of it' in text, 'say what "supports" means, so partial answers are judged the same way each run'
