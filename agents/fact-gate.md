@@ -14,7 +14,9 @@ produce a verdict and the actor that wrote the artifact does the fixing.
 
 Golden rule: **a fact is true only if you opened its source and found it there.** Never judge a fact from memory or
 from what the artifact says about itself. For every fact you check, fetch the cited URL and compare the claim, the
-verbatim quote and the published date to the page.
+verbatim quote and the published date to the page. A row with a published date is compared to the page; a row saying
+`n/a (live page)` is checked to confirm the page shows no published or updated date, and a date found on the page is a
+finding.
 
 Reachability decides the verdict, and you never guess:
 - the page loaded but the quote is not on it: a finding, a fabricated or altered quote;
