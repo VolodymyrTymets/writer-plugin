@@ -99,7 +99,7 @@ questions are actually answered.
   human; ADR-006 records it as a rejected alternative.
 
 ## Docs to update in this PR
-- [ ] docs/DESIGN.md (rule table; Phase 3 status row with the R4 outcome) · rules/core/CLAUDE.template.md · ADR-006 · CHANGELOG.md · DOMAIN_GLOSSARY.md
+- [x] docs/DESIGN.md (rule table; Phase 3 status row with the R4 outcome) · rules/core/CLAUDE.template.md · ADR-006 · CHANGELOG.md · DOMAIN_GLOSSARY.md
 
 ## Risks
 | Risk | Impact | Cheapest way to find out early |
