@@ -32,7 +32,10 @@ read it for the age limit on statistics and any source preferences; if not, say 
 2. Search the web for each question. **Fetch every page you cite with WebFetch yourself.** A fact is a row only if you
    read the page and copied the quote from it. Never write a quote from memory or from a search snippet.
 3. Fact bank: one row per usable fact, `F1`, `F2`, ... with all seven columns. The quote is the page's exact words.
-   Published date comes from the page; if the page shows none, it is not a fact, so do not use it. Accessed is today.
+   Published date comes from the page; use the date the page shows, including an "updated" date. Only a **first-party
+   vendor page** (the vendor's own pricing, feature, help or docs page, on the vendor's own domain, used for a claim
+   about that same vendor) that shows no date at all may say `n/a (live page)`; its claim then says "as listed on the
+   page". Anything else with no date is not a fact, so do not use it. Accessed is today.
    Keep the bank to about 25 rows or fewer: the gate opens every source within a limited number of turns, and a fact it
    cannot reach blocks the run. Prefer primary and authoritative sources. Do not state a claim stronger than the quote (FACT-5).
 4. Sources table: one row per publisher page you used and why it is authoritative.
@@ -61,7 +64,8 @@ BLOCK on disk, stop as in Step 2.
 
 ## Step 6 — On PASS
 
-Report in a few lines: the research path, the verdict path, how many facts and sources, the open gaps, and that the
+Report in a few lines: the research path, the verdict path, the gate's `Coverage:` line as it printed it (a PASS does
+not mean the brief is answered), how many facts and sources, the open gaps, and that the
 next stage is the outline stage. Say once: "Doc copy: not yet available". Do not start the outline yourself.
 
 ## Definition of done

@@ -89,7 +89,7 @@ reading level) lives in the workspace's `.claude/rules/style.md`, written by `/s
 | Prefix | Area | Examples |
 |--------|------|----------|
 | BRF | Brief | BRF-1 a specific reader is named · BRF-2 one goal and one CTA · BRF-3 primary keyword and search intent · BRF-4 target length and format · BRF-5 must-include / must-avoid stated · BRF-6 the questions the research must answer are listed |
-| FACT | Facts | FACT-1 every statistic, date, named claim and quote cites a fact ID · FACT-2 every fact has a URL that resolves, publisher, published and accessed dates · FACT-3 quotes verbatim and attributed · FACT-4 statistics older than the style guide's limit are flagged · FACT-5 no claim stronger than its source · FACT-6 every brief question is answered by a fact or listed under Open gaps |
+| FACT | Facts | FACT-1 every statistic, date, named claim and quote cites a fact ID · FACT-2 every fact has a URL that resolves, publisher, published and accessed dates (a first-party vendor page with no date may say `n/a (live page)`) · FACT-3 quotes verbatim and attributed · FACT-4 statistics older than the style guide's limit are flagged; a live-page fact is aged by its accessed date and later stated as "checked <month year>" · FACT-5 no claim stronger than its source · FACT-6 every brief question is answered by a fact or listed under Open gaps |
 | STR | Structure | STR-1 the promise is stated in the first 100 words · STR-2 every section traces to the brief's goal · STR-3 section budgets sum to the target ±10% · STR-4 one H1, no skipped heading levels · STR-5 the close delivers the CTA |
 | VOI | Voice | VOI-1 voice per style guide · VOI-2 banned phrases · VOI-3 AI tells · VOI-4 reading-level target · VOI-5 no filler or stacked hedges |
 | SEO | Search | SEO-1 keyword in title, first 100 words and at least one H2 · SEO-2 title ≤ 60 chars · SEO-3 meta description 120–155 chars · SEO-4 matches the search intent in the brief · SEO-5 internal links from the style guide, external links to sources |
@@ -146,7 +146,7 @@ says so once and the workflow continues — the local files are canonical (D1). 
 | 0 | Decisions D1–D4; 2–3 real briefs to test with | decisions done · **briefs needed** |
 | 1 | Repo skeleton: manifest, marketplace, `CLAUDE.md`, README, CONTRIBUTING, this design, structure test | done |
 | 2 | `rules/core/CLAUDE.template.md` (rule IDs above), `templates/`: brief, research dossier, outline, style guide | done |
-| 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | built · **real-brief run pending** |
+| 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | built · brief and research stages run on one real brief (see PR); outline stage not yet run on it |
 | 4 | `guard-stage-order`, `prose-lint.py`, `verify-final`, `session-context` + hook tests | |
 | 5 | `/draft`, `/edit`, `/check-draft`, `/check-final` (resolve open question 3) | |
 | 6 | `/article` orchestrator with the two human checkpoints | |

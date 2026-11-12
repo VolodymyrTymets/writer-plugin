@@ -134,3 +134,52 @@ def test_gate_resolves_its_input_from_disk_and_names_the_artifact(d):
 
 def test_research_gate_reads_the_style_guide_at_the_path_design_uses():
     assert '.claude/rules/style.md' in skill_text('check-research')
+
+
+def checklist_text(d: str) -> str:
+    return ' '.join((ROOT / 'skills' / d / 'references' / 'checklist.md').read_text(encoding='utf-8').split())
+
+
+def test_g1_checklist_blocks_ids_that_do_not_support_their_question():
+    text = checklist_text('check-research')
+    assert re.search(r'FACT-6.*blocking, and so is a listed ID that exists but does not support its question', text), 'a listed ID that does not support its question must be blocking'
+    assert 'answers at least part of it' in text, 'say what "supports" means, so partial answers are judged the same way each run'
+
+
+LIVE_PAGE = 'n/a (live page)'
+
+
+def test_n_a_published_is_limited_to_first_party_vendor_pages():
+    constitution = (ROOT / 'rules' / 'core' / 'CLAUDE.template.md').read_text(encoding='utf-8')
+    # A rule is a bullet that may wrap over several lines, so read up to the next bullet or heading.
+    def bullet(rule: str) -> str:
+        return ' '.join(re.search(rf'- \*\*{rule}\*\*(.*?)(?=\n- \*\*|\n#|\Z)', constitution, re.S).group(1).split())
+    fact_2, fact_4 = bullet('FACT-2'), bullet('FACT-4')
+    assert 'live page' in fact_2, 'constitution FACT-2 must allow a live first-party page'
+    assert 'checked' in fact_4, 'constitution FACT-4 must carry the "checked <month year>" duty'
+    for path in (ROOT / 'skills' / 'research' / 'SKILL.md', ROOT / 'agents' / 'fact-gate.md'):
+        assert LIVE_PAGE in path.read_text(encoding='utf-8'), f'{path.name} must carry {LIVE_PAGE}'
+    text = checklist_text('check-research')
+    assert LIVE_PAGE in text
+    for needle in ('names the vendor', 'registrable domain', 'shows no published or updated date',
+                   'third-party domain', 'another vendor', 'accessed date', 'as of'):
+        assert needle in text, f'G1 checklist lost: {needle}'
+    assert 'is blocking' in text.split(LIVE_PAGE, 1)[1], 'the checklist must say n/a is blocking outside the exception'
+
+
+def test_research_template_notes_the_live_page_option_on_both_published_columns():
+    text = (ROOT / 'templates' / 'research.md').read_text(encoding='utf-8')
+    assert text.count(LIVE_PAGE) >= 2, 'both the Sources and the Fact bank tables must mention it'
+
+
+def test_g1_prints_and_the_research_stage_reports_coverage():
+    gate = skill_text('check-research')
+    lines = gate.split('\n')
+    heads = [i for i, l in enumerate(lines) if l.startswith('## G1 research gate')]
+    assert heads, 'no G1 example found'
+    for i in heads:
+        assert lines[i + 1].startswith('Artifact:'), 'line 2 of an example must be Artifact:'
+        assert re.fullmatch(r'Coverage: \d+ answered, \d+ open \(of \d+\)', lines[i + 2]), f'line 3 of an example must be Coverage: {lines[i + 2]!r}'
+    assert 'Coverage: n/a' in gate, 'a missing artifact has no table to count'
+    assert 'There is no "partial"' in checklist_text('check-research')
+    assert 'Coverage' in skill_text('research'), 'the research stage must report coverage'

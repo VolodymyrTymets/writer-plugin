@@ -21,6 +21,7 @@ made in chat but not written into `research.md` does not count. `background: fal
 
 Name the file on line 2 of your output (`Artifact:`, as a path relative to the workspace). If there is none, the verdict is
 `## G1 research gate: BLOCK (1 blocking, 0 advisory)` with `Artifact: none` and one finding whose fix is "run the research stage first".
+In that case line 3 is `Coverage: n/a`.
 
 ## Inputs
 `research.md`; `brief.md` next to it (for the questions); the workspace `.claude/rules/style.md` if present (for the
@@ -32,12 +33,13 @@ memory. For each finding record the rule ID, the offending row and the concrete 
 
 ## Verdict format
 
-Line 1 is the heading and nothing comes before it; line 2 is `Artifact:`. A PASS has `0 blocking`; a BLOCK has at
-least one. Every fact you could not open counts as one blocking FACT-2 finding. Both forms below are literal examples.
+Line 1 is the heading and nothing comes before it; line 2 is `Artifact:`; line 3 is `Coverage:`, counted as the
+checklist says (it is for people, no parser reads it). A PASS has `0 blocking`; a BLOCK has at least one. Every fact you could not open counts as one blocking FACT-2 finding. Both forms below are literal examples.
 
 ```markdown
 ## G1 research gate: PASS (0 blocking, 1 advisory)
 Artifact: articles/<slug>/research.md
+Coverage: 3 answered, 0 open (of 3)
 
 ### Advisory
 1. [FACT-2] F3: the page shows 2023-02-01, the row says 2023-02-10; the age check is unaffected. Fix: correct the published date.
@@ -49,6 +51,7 @@ Artifact: articles/<slug>/research.md
 ```markdown
 ## G1 research gate: BLOCK (2 blocking, 0 advisory)
 Artifact: articles/<slug>/research.md
+Coverage: 2 answered, 1 open (of 3)
 
 ### Blocking
 1. [FACT-3] F2: the quote "..." is not on the page at the URL. Fix: quote the page's real wording or drop the row.

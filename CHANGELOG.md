@@ -7,7 +7,14 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 ### Deleted
 - Nothing yet.
 
+### Changed
+- FACT-2: a first-party vendor page that shows no published or updated date may say `n/a (live page)` instead of a
+  date (ADR-006); FACT-4 ages such a fact by its accessed date.
+- G1 blocks a Questions-table fact ID that exists but does not support its question (FACT-6).
+- G1 prints `Coverage: <a> answered, <o> open (of <m>)` on line 3 of its verdict.
+
 ### Added
+- ADR-006 (live vendor pages in the fact bank).
 - Phase 3 vertical slice: the brief, research and outline stages, gates G0 to G2 (`/check-brief`, `/check-research`,
   `/check-outline`), and the `gate` and `fact-gate` agents. Verdict files have a fixed first line (ADR-004); the stage
   skills read `templates/` at run time through `${CLAUDE_PLUGIN_ROOT}` (ADR-005).
