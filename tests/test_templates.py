@@ -71,7 +71,7 @@ def test_every_template_exists_and_has_a_title(name):
     assert read(path).startswith('# '), f'templates/{name}.md must start with an H1'
 
 
-@pytest.mark.parametrize('n', range(1, 6), ids=lambda n: f'BRF-{n}')
+@pytest.mark.parametrize('n', range(1, 7), ids=lambda n: f'BRF-{n}')
 def test_brief_has_a_section_per_brf_rule(n):
     assert any(f'(BRF-{n})' in h for h in headings(read(TEMPLATES / 'brief.md')))
 
