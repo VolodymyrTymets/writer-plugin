@@ -17,16 +17,16 @@ run on a brief, before the draft and edit stages are built on top.
   `verify-final`, `session-context` (Phase 4); Google Doc copies, the sync skill, setup (Phase 7); any client-specific content (PLG-1).
 
 ## Acceptance criteria
-- [ ] AC1 Given the plugin, when `claude plugin validate ./` and the full pytest run, then both pass.
-- [ ] AC2 Given a brief with no named reader, when the brief gate runs, then it returns BLOCK citing BRF-1 and a fix.
-- [ ] AC3 Given a complete brief, when the brief stage runs, then `brief.md` matches the template headings and G0 returns PASS.
-- [ ] AC4 Given a fact bank with a fabricated quote or a dead URL, when the research gate runs, then it opens the source and returns BLOCK citing FACT-3 or FACT-2.
-- [ ] AC5 Given an outline with a section that has no fact ID for a statistic, when the outline gate runs, then BLOCK citing FACT-1.
-- [ ] AC6 Given a PASS on the outline, when the outline stage ends, then `Approved-by:` is still empty and the stage tells the human to fill it.
-- [ ] AC7 Given a second BLOCK on the same artifact, when an actor reaches it, then it stops and hands over (FLOW-3).
-- [ ] AC9 Given a brief with no research questions, when the brief gate runs, then BLOCK citing BRF-6.
-- [ ] AC10 Given a brief question that research neither answers nor lists under Open gaps, when the research gate runs, then BLOCK citing FACT-6.
-- [ ] AC8 Every verdict is saved by the actor to `gates/G<n>-<stage>.r<k>.md`; no gate wrote a file.
+- [x] AC1 Given the plugin, when `claude plugin validate ./` and the full pytest run, then both pass.
+- [x] AC2 Given a brief with no named reader, when the brief gate runs, then it returns BLOCK citing BRF-1 and a fix.
+- [x] AC3 Given a complete brief, when the brief stage runs, then `brief.md` matches the template headings and G0 returns PASS.
+- [x] AC4 Given a fact bank with a fabricated quote or a dead URL, when the research gate runs, then it opens the source and returns BLOCK citing FACT-3 or FACT-2.
+- [x] AC5 Given an outline with a section that has no fact ID for a statistic, when the outline gate runs, then BLOCK citing FACT-1.
+- [x] AC6 Given a PASS on the outline, when the outline stage ends, then `Approved-by:` is still empty and the stage tells the human to fill it.
+- [x] AC7 Given a second BLOCK on the same artifact, when an actor reaches it, then it stops and hands over (FLOW-3).
+- [x] AC9 Given a brief with no research questions, when the brief gate runs, then BLOCK citing BRF-6.
+- [x] AC10 Given a brief question that research neither answers nor lists under Open gaps, when the research gate runs, then BLOCK citing FACT-6.
+- [x] AC8 Every verdict is saved by the actor to `gates/G<n>-<stage>.r<k>.md`; no gate wrote a file.
 
 ## Edge cases
 | Case | Expected behaviour | Decided by |
