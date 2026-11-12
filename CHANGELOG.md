@@ -2,6 +2,16 @@
 
 Format: **Deleted** first — a smaller plugin each release is the goal.
 
+## Unreleased
+
+### Deleted
+- Nothing yet.
+
+### Added
+- Phase 2 library: editorial constitution template (`rules/core/CLAUDE.template.md`, all rule IDs) and the brief,
+  research, outline and style templates under `templates/`. `tests/test_templates.py` pins their shape.
+- FLOW-2 now says an outline is approved only when `Approved-by:` has a non-empty value.
+
 ## 0.0.1 — 2026-11-12 · skeleton
 
 ### Deleted

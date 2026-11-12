@@ -10,8 +10,8 @@
 | `skills/` | flat: `skills/<dir>/SKILL.md` plus `references/`. None yet (Phase 3 onward) | yes |
 | `agents/` | write-free gate agents `gate` and `fact-gate`. None yet | yes |
 | `hooks/hooks.json`, `bin/` | hooks and prose-lint, stdlib-only Python 3.9+. `hooks.json` is empty today | yes |
-| `rules/core/`, `templates/` | inert library the setup skill copies into a content workspace. Not built yet (Phase 2) | no |
-| `tests/` | pytest structure guard (`test_structure.py`, `conftest.py`) | no |
+| `rules/core/`, `templates/` | inert library the setup skill copies into a content workspace. `rules/core/CLAUDE.template.md` (editorial constitution) and `templates/` (brief, research, outline, style) | no |
+| `tests/` | pytest structure guard (`test_structure.py`), shape guard for the library (`test_templates.py`), `conftest.py` | no |
 | `docs/` | `DESIGN.md`, this file, glossary, business model, `decisions/` | no |
 | `.claude/` | this repo's own agent config (settings, rules). Not part of the plugin | no |
 
