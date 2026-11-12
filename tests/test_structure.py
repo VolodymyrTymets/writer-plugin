@@ -19,15 +19,15 @@ COMMANDS = {
     'check-brief': 'check-brief',
     'research': 'research',
     'check-research': 'check-research',
+    'outline': 'outline',
+    'check-outline': 'check-outline',
 }
 # Built next, in the order of docs/DESIGN.md. Move an entry from PLANNED to COMMANDS in the commit that adds the skill.
 PLANNED = {
     'setup-workspace': 'setup',
     'article': 'article',
-    'outline': 'outline',
     'draft': 'draft',
     'edit-final': 'edit',
-    'check-outline': 'check-outline',
     'check-draft': 'check-draft',
     'check-final': 'check-final',
     'publish': 'publish',

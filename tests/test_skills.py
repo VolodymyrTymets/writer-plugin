@@ -35,11 +35,13 @@ VERDICT_LINE = re.compile(
 GATES = {
     'check-brief': ('G0 brief', 'gate', {f'BRF-{n}' for n in range(1, 7)}),
     'check-research': ('G1 research', 'fact-gate', {f'FACT-{n}' for n in range(1, 7)}),
+    'check-outline': ('G2 outline', 'gate', {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'}),
 }
 # actor skill dir -> (stage, gate it invokes)
 ACTORS = {
     'intake-brief': ('G0-brief', 'check-brief'),
     'research': ('G1-research', 'check-research'),
+    'outline': ('G2-outline', 'check-outline'),
 }
 RULE_ID = re.compile(r'\b(?:BRF|FACT|STR|VOI|SEO|FLOW|PLG)-\d+\b')
 
@@ -91,10 +93,21 @@ def test_actor_saves_verdicts_counts_blocks_on_disk_and_stops_after_two(d):
 def test_actor_after_the_brief_refuses_without_the_previous_pass(d):
     text = skill_text(d)
     assert 'FLOW-1' in text and 'PASS' in text, f'{d} must refuse to start without the previous gate PASS on disk'
-    previous = {'research': 'G0-brief'}[d]
+    previous = {'research': 'G0-brief', 'outline': 'G1-research'}[d]
     assert f'gates/{previous}.r' in text, f'{d} must name the verdict file it needs ({previous})'
 
 
 def test_research_actor_fetches_every_source_itself_and_gate_opens_them():
     assert 'WebFetch' in skill_text('research').split('---', 2)[1]
     assert '**Open every source URL' in (ROOT / 'skills' / 'check-research' / 'SKILL.md').read_text(encoding='utf-8')
+
+
+def test_outline_actor_never_writes_the_approval():
+    text = skill_text('outline')
+    assert 'FLOW-2' in text and 'never fill the `Approved-by:`' in text.replace('\n', ' ').replace('**', ''), \
+        'the outline stage must say it never fills Approved-by (FLOW-2)'
+    assert 'the outline is not approved' in text.lower()
+
+
+def test_outline_gate_does_not_judge_the_approval_line():
+    assert 'Approved-by' in skill_text('check-outline') and 'no rule here covers it' in skill_text('check-outline')
