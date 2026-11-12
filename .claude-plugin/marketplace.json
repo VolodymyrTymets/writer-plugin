@@ -1,0 +1,14 @@
+{
+  "name": "writer",
+  "description": "Claude Code plugin marketplace for writer-plugin, a blog-post writing workflow with actors and gates.",
+  "owner": {
+    "name": "Volodymyr Tymets"
+  },
+  "plugins": [
+    {
+      "name": "writer-plugin",
+      "source": "./",
+      "description": "Brief to publish-ready blog post: research with a fact bank, outline, human approval, draft, edit, a read-only gate after every stage, Google Doc copies for review."
+    }
+  ]
+}

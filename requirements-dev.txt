@@ -1,0 +1,2 @@
+# Maintainer tools for this repo's own tests. Hooks and scripts use only the standard library.
+pytest==8.4.2

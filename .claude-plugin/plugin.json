@@ -1,0 +1,11 @@
+{
+  "name": "writer-plugin",
+  "version": "0.0.1",
+  "description": "Claude Code config for writing English blog posts from an article brief. Actor and gate workflow: brief, research with a fact bank, outline, human approval, draft, edit, each stage judged by a read-only gate in a fresh context, with Google Doc copies for review and mechanical hooks for stage order and prose lint.",
+  "author": {
+    "name": "Volodymyr Tymets"
+  },
+  "homepage": "https://github.com/VolodymyrTymets/writer-plugin",
+  "repository": "https://github.com/VolodymyrTymets/writer-plugin",
+  "license": "UNLICENSED"
+}

@@ -1,0 +1,9 @@
+writer-plugin — Claude Code plugin for writing blog posts from an article brief
+
+Copyright (c) 2026 Volodymyr Tymets. All rights reserved.
+
+Its structure follows rln-agent (same author), itself derived from apiko-agent 0.7.0 (Apiko Software OÜ). No code
+is shared yet; if hooks or tests are copied from rln-agent later, confirm the same terms apply before the repository
+is made public or shared.
+
+This repository is not licensed for public or third-party use.
