@@ -10,7 +10,8 @@ permissions:
 jobs:
   tests:
     name: pytest
-    runs-on: ubuntu-latest
+    # Pinned: ubuntu-latest is 26.04, which has no Python 3.9 build for setup-python. 3.9 is the plugin's floor.
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
