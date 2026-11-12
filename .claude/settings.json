@@ -1,0 +1,52 @@
+{
+  "enabledPlugins": { "rln-agent@rln": true },
+  "extraKnownMarketplaces": {
+    "rln": { "source": { "source": "github", "repo": "VolodymyrTymets/rln-agent" } }
+  },
+  "permissions": {
+    "defaultMode": "default",
+    "deny": [
+      "Read(./.env)",
+      "Read(./**/.env)",
+      "Read(./**/.env.*)",
+      "Read(!.env.example)",
+      "Read(!.env.sample)",
+      "Read(!.env.template)",
+      "Read(./**/*.pem)",
+      "Read(./**/*.key)",
+      "Read(./**/*.p8)",
+      "Read(./**/*.p12)",
+      "Read(./**/id_rsa*)",
+      "Read(./**/.pypirc)",
+      "Read(./**/.netrc)",
+      "Read(./**/.npmrc)",
+      "Read(./**/*service-account*.json)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh pr review:*)",
+      "Bash(gh pr ready:*)",
+      "Bash(gh release create:*)",
+      "Bash(git push --force:*)",
+      "Bash(twine upload:*)",
+      "Bash(uv publish:*)",
+      "Bash(poetry publish:*)",
+      "Bash(claude plugin publish:*)",
+      "mcp__github__merge*"
+    ],
+    "allow": [
+      "Read(./**)", "Grep", "Glob",
+      "Bash(git status:*)", "Bash(git diff:*)", "Bash(git log:*)", "Bash(git add:*)",
+      "Bash(git switch:*)", "Bash(git commit:*)", "Bash(git fetch:*)", "Bash(git stash:*)",
+      "Bash(.venv/bin/pip install -r requirements-dev.txt:*)",
+      "Bash(.venv/bin/python -m pytest:*)",
+      "Bash(claude plugin validate:*)",
+      "mcp__context7__*",
+      "mcp__serena__*"
+    ],
+    "ask": [
+      "Bash(git push:*)", "Bash(gh pr create:*)", "Bash(gh issue:*)",
+      "Bash(.venv/bin/pip install:*)",
+      "Edit(requirements-dev.txt)",
+      "Edit(.github/workflows/**)", "Edit(CLAUDE.md)", "Edit(.claude/**)", "Edit(.claude-plugin/**)"
+    ]
+  }
+}
