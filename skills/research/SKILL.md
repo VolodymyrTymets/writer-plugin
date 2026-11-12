@@ -64,7 +64,8 @@ BLOCK on disk, stop as in Step 2.
 
 ## Step 6 — On PASS
 
-Report in a few lines: the research path, the verdict path, how many facts and sources, the open gaps, and that the
+Report in a few lines: the research path, the verdict path, the gate's `Coverage:` line as it printed it (a PASS does
+not mean the brief is answered), how many facts and sources, the open gaps, and that the
 next stage is the outline stage. Say once: "Doc copy: not yet available". Do not start the outline yourself.
 
 ## Definition of done

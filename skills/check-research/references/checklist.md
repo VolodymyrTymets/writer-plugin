@@ -38,6 +38,12 @@ Articles, statistics from other publishers and regulator pages never qualify. Th
   not support its question. A fact supports a question if its claim answers at least part of it; read the bank row to
   decide. The unanswered part goes under Open gaps.
 
+## Coverage line
+Line 3 of your verdict is `Coverage: <a> answered, <o> open (of <m>)`, counted mechanically from `research.md`, with `m`
+the number of questions in `brief.md`. A question is **answered** when its Questions-table row lists at least one fact ID
+that supports it and no Open gaps entry names it; otherwise it is **open**. There is no "partial": a question with facts
+and an Open gaps entry counts as open. Count it the same way every run; do not use judgement beyond "supports".
+
 ## Do not
 - Judge style, structure or the quality of the gap statement; those are other gates' work.
 - Pass a row because the source "is surely right". If you did not open it, it is Not checked.

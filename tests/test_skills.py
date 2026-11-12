@@ -170,3 +170,16 @@ def test_n_a_published_is_limited_to_first_party_vendor_pages():
 def test_research_template_notes_the_live_page_option_on_both_published_columns():
     text = (ROOT / 'templates' / 'research.md').read_text(encoding='utf-8')
     assert text.count(LIVE_PAGE) >= 2, 'both the Sources and the Fact bank tables must mention it'
+
+
+def test_g1_prints_and_the_research_stage_reports_coverage():
+    gate = skill_text('check-research')
+    lines = gate.split('\n')
+    heads = [i for i, l in enumerate(lines) if l.startswith('## G1 research gate')]
+    assert heads, 'no G1 example found'
+    for i in heads:
+        assert lines[i + 1].startswith('Artifact:'), 'line 2 of an example must be Artifact:'
+        assert re.fullmatch(r'Coverage: \d+ answered, \d+ open \(of \d+\)', lines[i + 2]), f'line 3 of an example must be Coverage: {lines[i + 2]!r}'
+    assert 'Coverage: n/a' in gate, 'a missing artifact has no table to count'
+    assert 'There is no "partial"' in checklist_text('check-research')
+    assert 'Coverage' in skill_text('research'), 'the research stage must report coverage'
