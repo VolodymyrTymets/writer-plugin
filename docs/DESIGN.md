@@ -93,7 +93,7 @@ reading level) lives in the workspace's `.claude/rules/style.md`, written by `/s
 | STR | Structure | STR-1 the promise is stated in the first 100 words · STR-2 every section traces to the brief's goal · STR-3 section budgets sum to the target ±10% · STR-4 one H1, no skipped heading levels · STR-5 the close delivers the CTA |
 | VOI | Voice | VOI-1 voice per style guide · VOI-2 banned phrases · VOI-3 AI tells · VOI-4 reading-level target · VOI-5 no filler or stacked hedges |
 | SEO | Search | SEO-1 keyword in title, first 100 words and at least one H2 · SEO-2 title ≤ 60 chars · SEO-3 meta description 120–155 chars · SEO-4 matches the search intent in the brief · SEO-5 internal links from the style guide, external links to sources |
-| FLOW | Workflow | FLOW-1 a stage starts only after the previous gate's PASS is on disk · FLOW-2 no draft without `Approved-by:` on the outline · FLOW-3 two BLOCKs → human · FLOW-4 gates never edit · FLOW-5 fix the artifact, never the style guide · FLOW-6 no `final` Doc is labelled publish-ready without `Signed-off-by:` |
+| FLOW | Workflow | FLOW-1 a stage starts only after the previous gate's PASS is on disk · FLOW-2 no draft unless `Approved-by:` in the outline has a non-empty value · FLOW-3 two BLOCKs → human · FLOW-4 gates never edit · FLOW-5 fix the artifact, never the style guide · FLOW-6 no `final` Doc is labelled publish-ready without `Signed-off-by:` |
 | PLG | This plugin | PLG-1 no client-specific knowledge enters the plugin repo |
 
 ## Mechanical enforcement (hooks)
@@ -102,7 +102,7 @@ Prefer a script or a hook over a prompt rule.
 
 | Hook / script | When | Enforces |
 |---------------|------|----------|
-| `guard-stage-order` | PreToolUse on `Edit|Write|MultiEdit|Bash|mcp__.*` | Writing `articles/<slug>/<stage>.md` needs the previous gate's latest verdict to be PASS (FLOW-1); `draft.md` also needs `Approved-by:` in `outline.md` (FLOW-2). Path-based, so it needs no branch or ticket |
+| `guard-stage-order` | PreToolUse on `Edit|Write|MultiEdit|Bash|mcp__.*` | Writing `articles/<slug>/<stage>.md` needs the previous gate's latest verdict to be PASS (FLOW-1); `draft.md` also needs a non-empty `Approved-by:` value in `outline.md` (FLOW-2). Path-based, so it needs no branch or ticket |
 | `prose-lint.py` | Called by `/edit` and the G4 gate; also usable alone | Word count vs brief, banned phrases and AI tells from `style.md`, numbers with no `[F#]`, heading levels, title and meta lengths, keyword placement. Stdlib only |
 | `verify-final` | Stop | `final.md` changed but no prose-lint run recorded → block once, quoting the command |
 | `session-context` | SessionStart | Lists articles in flight and the stage each is at |
@@ -145,7 +145,7 @@ says so once and the workflow continues — the local files are canonical (D1). 
 |-------|-------|--------|
 | 0 | Decisions D1–D4; 2–3 real briefs to test with | decisions done · **briefs needed** |
 | 1 | Repo skeleton: manifest, marketplace, `CLAUDE.md`, README, CONTRIBUTING, this design, structure test | done |
-| 2 | `rules/core/CLAUDE.template.md` (rule IDs above), `templates/`: brief, research dossier, outline, style guide | next |
+| 2 | `rules/core/CLAUDE.template.md` (rule IDs above), `templates/`: brief, research dossier, outline, style guide | done |
 | 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | |
 | 4 | `guard-stage-order`, `prose-lint.py`, `verify-final`, `session-context` + hook tests | |
 | 5 | `/draft`, `/edit`, `/check-draft`, `/check-final` (resolve open question 3) | |
