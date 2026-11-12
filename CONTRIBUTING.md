@@ -12,8 +12,8 @@ approach and the build plan — is in [docs/DESIGN.md](docs/DESIGN.md).
 | `agents/` | write-free gate agents (`gate`, `fact-gate`) | yes |
 | `hooks/hooks.json` + `bin/` | hooks and the prose-lint script, stdlib-only Python 3.9+ | yes |
 | `rules/core/` | the editorial constitution template with rule IDs | no — copied into a workspace by the setup skill |
-| `templates/` | brief, research dossier, outline, style guide templates | no — copied or read by skills |
-| `tests/` | pytest: structure guard now, hook behaviour later | no |
+| `templates/` | brief, research dossier, outline, style guide templates | no — read at run time by the stage skills (ADR-005) |
+| `tests/` | pytest: structure guard, library shape, skill and verdict contracts; hook behaviour later | no |
 | `docs/` | design | no |
 
 ### Command names

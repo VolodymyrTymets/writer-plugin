@@ -25,7 +25,7 @@ Source: `brief.source.md` (the brief as it was supplied, kept unchanged)
 - **Must include:** {{points, examples, products, links; or "none"}}
 - **Must avoid:** {{topics, claims, competitors, phrasings; or "none"}}
 
-## Questions the research must answer
+## Questions the research must answer (BRF-6)
 1. {{question}}
 2. {{question}}
 

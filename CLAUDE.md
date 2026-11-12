@@ -31,8 +31,8 @@ Dependency manager: **pip** into `.venv`. Runtime: Python **3.9+** (no version p
 Actors write one artifact each; gates judge one artifact each, **read-only, forked**, and return PASS or BLOCK with
 rule IDs. Local Markdown in the content workspace is the source of truth; Google Docs are review copies. A human
 approves the outline (`Approved-by:`) and signs off the final (`Signed-off-by:`). Claude Code loads only `skills/`,
-`agents/`, `hooks/hooks.json` and `.claude-plugin/`; `rules/` and `templates/` are an inert library that the setup
-skill copies into a workspace.
+`agents/`, `hooks/hooks.json` and `.claude-plugin/`. `rules/` is an inert library that the setup skill copies into a
+workspace; `templates/` is read at run time by the stage skills (ADR-005), so a template edit changes their behaviour.
 
 ## Conventions
 

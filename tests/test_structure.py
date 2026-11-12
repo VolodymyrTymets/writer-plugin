@@ -14,19 +14,20 @@ from conftest import PLUGIN as ROOT
 
 # A plugin skill takes its command from frontmatter `name:` (unlike a project skill, where the directory name wins).
 # COMMANDS is the single source of truth for what exists: directory -> command.
-COMMANDS = {}
+COMMANDS = {
+    'intake-brief': 'brief',
+    'check-brief': 'check-brief',
+    'research': 'research',
+    'check-research': 'check-research',
+    'outline': 'outline',
+    'check-outline': 'check-outline',
+}
 # Built next, in the order of docs/DESIGN.md. Move an entry from PLANNED to COMMANDS in the commit that adds the skill.
 PLANNED = {
     'setup-workspace': 'setup',
     'article': 'article',
-    'intake-brief': 'brief',
-    'research': 'research',
-    'outline': 'outline',
     'draft': 'draft',
     'edit-final': 'edit',
-    'check-brief': 'check-brief',
-    'check-research': 'check-research',
-    'check-outline': 'check-outline',
     'check-draft': 'check-draft',
     'check-final': 'check-final',
     'publish': 'publish',

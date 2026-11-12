@@ -7,11 +7,11 @@
 | Path | What lives here | Loaded by Claude Code? |
 |------|-----------------|------------------------|
 | `.claude-plugin/` | `plugin.json` (name, version), `marketplace.json` (marketplace `writer`, `source: "./"`) | yes |
-| `skills/` | flat: `skills/<dir>/SKILL.md` plus `references/`. None yet (Phase 3 onward) | yes |
-| `agents/` | write-free gate agents `gate` and `fact-gate`. None yet | yes |
+| `skills/` | flat: `skills/<dir>/SKILL.md` plus `references/`. Built: the brief, research and outline stages and gates G0 to G2 | yes |
+| `agents/` | write-free gate agents `gate` and `fact-gate` | yes |
 | `hooks/hooks.json`, `bin/` | hooks and prose-lint, stdlib-only Python 3.9+. `hooks.json` is empty today | yes |
-| `rules/core/`, `templates/` | inert library the setup skill copies into a content workspace. `rules/core/CLAUDE.template.md` (editorial constitution) and `templates/` (brief, research, outline, style) | no |
-| `tests/` | pytest structure guard (`test_structure.py`), shape guard for the library (`test_templates.py`), `conftest.py` | no |
+| `rules/core/`, `templates/` | `rules/core/CLAUDE.template.md` (editorial constitution) is an inert library the setup skill will copy into a content workspace. `templates/` (brief, research, outline, style) is read at run time by the stage skills via `${CLAUDE_PLUGIN_ROOT}` (ADR-005) | no (not auto-loaded); read by skills |
+| `tests/` | pytest structure guard (`test_structure.py`), shape guard for the library (`test_templates.py`), skill and verdict contracts (`test_skills.py`), `conftest.py` | no |
 | `docs/` | `DESIGN.md`, this file, glossary, business model, `decisions/` | no |
 | `.claude/` | this repo's own agent config (settings, rules). Not part of the plugin | no |
 
@@ -25,7 +25,7 @@
 |----------|--------|-----------------|------------------|
 | Plugin manifest | JSON | `.claude-plugin/plugin.json` | none |
 | Skill command name | frontmatter `name:` | `COMMANDS` in `tests/test_structure.py` | none |
-| Gate verdict | `PASS` or `BLOCK` with rule IDs | gate skill checklists | saved by the caller in the workspace `gates/` |
+| Gate verdict | `PASS` or `BLOCK` with rule IDs; line 1 is a fixed pattern (ADR-004) | gate skill checklists | saved by the actor in the workspace `gates/G<n>-<stage>.r<k>.md` |
 
 Nothing in this repo is generated.
 
@@ -48,3 +48,5 @@ There is no deployment. The plugin is installed from the `writer` marketplace by
 - Gate skills must carry `context: fork`, `background: false` and a write-free agent; the structure test enforces it.
 - Planned commands may be named only in `README.md`, `CHANGELOG.md` and `docs/DESIGN.md`, or the structure test fails.
 - `claude plugin validate ./ --strict` fails on one expected warning, so CI and the command map use the non-strict form.
+- A skill reads a plugin file with `${CLAUDE_PLUGIN_ROOT}/...`; relative links work only inside the skill's own folder (ADR-005).
+- A forked gate cannot tell who called it, so only an actor-saved verdict counts for FLOW-1 (ADR-004).

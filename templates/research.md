@@ -9,12 +9,15 @@ Brief: `brief.md`
 | Q1 | {{question}} | {{fact IDs, for example F1, F3}} |
 
 ## Sources
+A first-party vendor page that shows no published or updated date may say `n/a (live page)` in the Published column.
 | # | Publisher | URL | Why it is authoritative | Published |
 |---|-----------|-----|-------------------------|-----------|
 | S1 | {{publisher}} | {{url}} | {{reason}} | {{YYYY-MM-DD}} |
 
 ## Fact bank
 One row per usable fact. The outline and the draft cite the ID in square brackets.
+A first-party vendor page with no published or updated date may say `n/a (live page)` in the published column; the claim
+then says "as listed on the page" and the accessed date does the work.
 
 | F# | claim | source URL | publisher | published | accessed | verbatim quote |
 |----|-------|------------|-----------|-----------|----------|----------------|

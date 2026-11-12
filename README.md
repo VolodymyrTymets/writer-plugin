@@ -5,8 +5,9 @@ actors and gates. Each actor writes one artifact (brief, research with a fact ba
 judges one artifact in a fresh, read-only context and returns PASS or BLOCK with rule IDs. You approve the outline
 before any drafting starts and sign off the final. Every artifact also gets a Google Doc copy for review and comments.
 
-> **Status: Phase 1 of 7 — skeleton only.** No command below exists yet. The design and build plan are in
-> [docs/DESIGN.md](docs/DESIGN.md).
+> **Status: Phase 3 of 7 — the first three stages and their gates are built** (brief, research, outline). Draft, edit,
+> the last two gates, the orchestrator, publishing and setup are planned. Not yet run on a real client brief. Design and
+> build plan: [docs/DESIGN.md](docs/DESIGN.md).
 
 ## The flow
 
@@ -14,10 +15,12 @@ before any drafting starts and sign off the final. Every artifact also gets a Go
 brief ──G0──▶ research ──G1──▶ outline ──G2──▶ you approve ──▶ draft ──G3──▶ final ──G4──▶ you sign off
 ```
 
-## Commands (planned)
+## Commands
 
-| Command | What it will do |
-|---------|-----------------|
+Built: `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`. The rest are planned.
+
+| Command | What it does or will do |
+|---------|-------------------------|
 | `/article <slug>` | The whole chain, stopping for your outline approval and final sign-off |
 | `/setup` | Once per content workspace: style guide, voice, audience, banned phrases, link lists, Google Drive folder |
 | `/brief` | Normalise the brief into `brief.md`, asking only the gaps that change the article |
