@@ -8,8 +8,13 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Added
+- Phase 3 vertical slice: the brief, research and outline stages, gates G0 to G2 (`/check-brief`, `/check-research`,
+  `/check-outline`), and the `gate` and `fact-gate` agents. Verdict files have a fixed first line (ADR-004); the stage
+  skills read `templates/` at run time through `${CLAUDE_PLUGIN_ROOT}` (ADR-005).
+- Rules BRF-6 (research questions are listed) and FACT-6 (every brief question is answered or listed under Open gaps).
 - Phase 2 library: editorial constitution template (`rules/core/CLAUDE.template.md`, all rule IDs) and the brief,
   research, outline and style templates under `templates/`. `tests/test_templates.py` pins their shape.
+- FACT-2 now requires the source URL to resolve.
 - FLOW-2 now says an outline is approved only when `Approved-by:` has a non-empty value.
 
 ## 0.0.1 — 2026-11-12 · skeleton

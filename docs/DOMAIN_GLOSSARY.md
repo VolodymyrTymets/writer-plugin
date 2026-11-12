@@ -10,6 +10,7 @@
 | Fact bank | Rows `F# \| claim \| source URL \| publisher \| published \| accessed \| verbatim quote` in `research.md` | A source list: each row is one usable fact |
 | Fact ID | `[F7]`, the inline tag in `draft.md` linking a claim to its fact-bank row | A footnote number |
 | Content workspace | The user's repo where articles live and where the setup skill writes `CLAUDE.md` and `style.md` | This repo, which is plugin source |
+| Verdict file | `gates/G<n>-<stage>.r<k>.md`, saved by the actor, line 1 fixed by ADR-004 | The gate's chat output: only the saved file counts for FLOW-1 |
 | Style guide (`style.md`) | A client's voice, banned phrases, link lists and SEO targets, in the workspace | Plugin rules, which are generic |
 | Approved-by / Signed-off-by | The human lines in `outline.md` / `final.md` that unlock the next stage | Gate PASS verdicts |
 | Rule ID | `BRF`, `FACT`, `STR`, `VOI`, `SEO`, `FLOW`, `PLG` prefix plus number, cited by every finding | This repo's agent-config rules (A–G in `CLAUDE.md`) |

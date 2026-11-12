@@ -7,6 +7,8 @@ allowed-tools: Read, Write, Glob, Grep, Skill, AskUserQuestion
 
 # Brief stage
 
+This stage's command is `writer-plugin:brief`; when you tell the user how to rerun it, use that name.
+
 You write exactly one artifact: `articles/<slug>/brief.md`. You never edit a later stage's artifact. When you are
 done, the brief gate judges it in a fresh context, and you save its verdict.
 
@@ -21,7 +23,7 @@ done, the brief gate judges it in a fresh context, and you save its verdict.
 
 Count the BLOCK verdict files for this artifact: `articles/<slug>/gates/G0-brief.r*.md` whose line 1 contains `BLOCK`.
 If there are two or more, stop. Name both files, say what they blocked on, and hand the article to the human. Do not
-try a third time; this holds across runs, not only within this one.
+try a third time; this holds across runs, not only within this one. A human resumes the article by moving those verdict files into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
 
 ## Step 3 — Fill the template
 

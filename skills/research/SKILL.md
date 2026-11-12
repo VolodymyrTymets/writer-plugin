@@ -21,7 +21,7 @@ context and opens every source you cite.
   `^## G0 brief gate: PASS \(0 blocking, [0-9]+ advisory\)$`. If no such file exists, or the latest one is a BLOCK,
   stop: name the file you needed and say the brief stage has to run first. Do not research from a brief that has not passed.
 - **FLOW-3:** count `articles/<slug>/gates/G1-research.r*.md` whose line 1 contains `BLOCK`. If there are
-  two or more, stop, name both files and hand the article to the human. This holds across runs.
+  two or more, stop, name both files and hand the article to the human. This holds across runs. A human resumes the article by moving those verdict files into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
 
 ## Step 3 — Research
 

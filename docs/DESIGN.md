@@ -146,7 +146,7 @@ says so once and the workflow continues — the local files are canonical (D1). 
 | 0 | Decisions D1–D4; 2–3 real briefs to test with | decisions done · **briefs needed** |
 | 1 | Repo skeleton: manifest, marketplace, `CLAUDE.md`, README, CONTRIBUTING, this design, structure test | done |
 | 2 | `rules/core/CLAUDE.template.md` (rule IDs above), `templates/`: brief, research dossier, outline, style guide | done |
-| 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | |
+| 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | built · **real-brief run pending** |
 | 4 | `guard-stage-order`, `prose-lint.py`, `verify-final`, `session-context` + hook tests | |
 | 5 | `/draft`, `/edit`, `/check-draft`, `/check-final` (resolve open question 3) | |
 | 6 | `/article` orchestrator with the two human checkpoints | |
