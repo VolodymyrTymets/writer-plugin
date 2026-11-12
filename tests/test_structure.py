@@ -17,16 +17,16 @@ from conftest import PLUGIN as ROOT
 COMMANDS = {
     'intake-brief': 'brief',
     'check-brief': 'check-brief',
+    'research': 'research',
+    'check-research': 'check-research',
 }
 # Built next, in the order of docs/DESIGN.md. Move an entry from PLANNED to COMMANDS in the commit that adds the skill.
 PLANNED = {
     'setup-workspace': 'setup',
     'article': 'article',
-    'research': 'research',
     'outline': 'outline',
     'draft': 'draft',
     'edit-final': 'edit',
-    'check-research': 'check-research',
     'check-outline': 'check-outline',
     'check-draft': 'check-draft',
     'check-final': 'check-final',

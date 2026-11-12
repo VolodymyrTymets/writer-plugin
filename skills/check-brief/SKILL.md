@@ -20,7 +20,7 @@ made in chat but not written into `brief.md` does not count. `background: false`
 1. If `$ARGUMENTS` names a slug: `articles/<slug>/brief.md`.
 2. Otherwise the most recently modified `articles/*/brief.md` (Glob).
 
-Name the file you settled on on line 2 of your output (`Artifact:`). If there is none, the verdict is
+Name the file you settled on on line 2 of your output (`Artifact:`, as a path relative to the workspace). If there is none, the verdict is
 `BLOCK: no brief found`, with the fix "run the brief stage first". Do not judge a chat summary instead.
 
 ## Inputs

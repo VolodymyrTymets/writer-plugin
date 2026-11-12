@@ -34,10 +34,12 @@ VERDICT_LINE = re.compile(
 # gate skill dir -> its own gate/stage pair, the agent it forks into, and the rule IDs its checklist may cite
 GATES = {
     'check-brief': ('G0 brief', 'gate', {f'BRF-{n}' for n in range(1, 7)}),
+    'check-research': ('G1 research', 'fact-gate', {f'FACT-{n}' for n in range(1, 7)}),
 }
 # actor skill dir -> (stage, gate it invokes)
 ACTORS = {
     'intake-brief': ('G0-brief', 'check-brief'),
+    'research': ('G1-research', 'check-research'),
 }
 RULE_ID = re.compile(r'\b(?:BRF|FACT|STR|VOI|SEO|FLOW|PLG)-\d+\b')
 
@@ -83,3 +85,16 @@ def test_actor_saves_verdicts_counts_blocks_on_disk_and_stops_after_two(d):
     assert 'FLOW-3' in text and 'two or more' in text, f'{d} must stop after two BLOCKs across runs'
     assert f'writer-plugin:{gate}' in text, f'{d} must invoke {gate} through the Skill tool'
     assert '^## G' in text, f'{d} must check line 1 of the verdict before saving'
+
+
+@pytest.mark.parametrize('d', [a for a in ACTORS if a != 'intake-brief'])
+def test_actor_after_the_brief_refuses_without_the_previous_pass(d):
+    text = skill_text(d)
+    assert 'FLOW-1' in text and 'PASS' in text, f'{d} must refuse to start without the previous gate PASS on disk'
+    previous = {'research': 'G0-brief'}[d]
+    assert f'gates/{previous}.r' in text, f'{d} must name the verdict file it needs ({previous})'
+
+
+def test_research_actor_fetches_every_source_itself_and_gate_opens_them():
+    assert 'WebFetch' in skill_text('research').split('---', 2)[1]
+    assert '**Open every source URL' in (ROOT / 'skills' / 'check-research' / 'SKILL.md').read_text(encoding='utf-8')
