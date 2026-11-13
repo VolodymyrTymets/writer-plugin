@@ -41,6 +41,12 @@ Read `brief.md`, `research.md` and the template `${CLAUDE_PLUGIN_ROOT}/templates
 - Nothing in the brief's "must avoid" appears. Every "must include" does. Leave no `{{placeholder}}`.
 - Leave `Approved-by:` exactly as the template ships it: empty.
 
+Before you write, if `outline.md` already exists, read it and its `Approved-by:` value, and copy it to
+`articles/<slug>/outline.prev.<n>.md`, where `n` is 1 plus the highest `n` among existing `outline.prev.*.md` files (1 if
+there are none). Do this whatever its `Approved-by:` value, and never replace an earlier backup: a human's approved or
+hand-edited outline must not be lost. If the value was non-empty, say in your report that the approval was cleared, so the
+replaced outline needs a new approval.
+
 Write the result to `articles/<slug>/outline.md`.
 
 ## Step 4 — Run the gate and save the verdict
@@ -61,6 +67,15 @@ Report in a few lines: the outline path, the verdict path, the STR-3 arithmetic,
 questions for the human. Then say plainly: **the outline is not approved.** The human reads it, changes direction if
 needed, and writes a name after `Approved-by:` in `outline.md`; until that value is non-empty, the draft stage must not
 start. Say once: "Doc copy: not yet available". Do not write the approval yourself.
+
+## After the gate
+
+The verdict covers the artifact as it was when the gate ran. After a PASS you never edit the artifact: report the gate's
+advisory findings to the user and stop. If the artifact has to change, change the stage's written input and run the stage
+again (this stage has no input of its own: change the brief or the research by rerunning that stage, then rerun this one); the rebuilt artifact is gated again and its verdict is saved as the next `r<k>`. A BLOCK from a rerun
+counts toward FLOW-3 like any other BLOCK. When you replace an artifact and a later stage's artifact already exists
+(`draft.md`), say in your report that it was built on the replaced version and must be rerun. The human approval line is the
+one thing a human writes after a PASS; it does not change what the verdict covers.
 
 ## Definition of done
 - [ ] `outline.md` exists, no `{{` left, and `Approved-by:` is still empty

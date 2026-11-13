@@ -183,3 +183,47 @@ def test_g1_prints_and_the_research_stage_reports_coverage():
     assert 'Coverage: n/a' in gate, 'a missing artifact has no table to count'
     assert 'There is no "partial"' in checklist_text('check-research')
     assert 'Coverage' in skill_text('research'), 'the research stage must report coverage'
+
+
+# ---------------- a verdict covers the artifact it judged (ADR-007) ----------------
+def flat(d: str) -> str:
+    return ' '.join(skill_text(d).split())
+
+
+@pytest.mark.parametrize('d', ACTORS)
+def test_actor_does_not_edit_after_a_pass(d):
+    text = flat(d)
+    assert 'covers the artifact as it was when the gate ran' in text
+    assert 'After a PASS you never edit the artifact' in text
+
+
+@pytest.mark.parametrize('d', ACTORS)
+def test_actor_reports_advisories_and_stops(d):
+    assert "report the gate's advisory findings" in flat(d)
+
+
+@pytest.mark.parametrize('d', ACTORS)
+def test_actor_reruns_with_the_next_verdict_after_a_change(d):
+    text = flat(d)
+    assert "change the stage's written input and run the stage again" in text
+    assert 'saved as the next `r<k>`' in text
+    assert 'A BLOCK from a rerun counts toward FLOW-3' in text
+
+
+@pytest.mark.parametrize('d', ACTORS)
+def test_actor_names_later_artifacts_as_stale_after_a_rebuild(d):
+    assert 'built on the replaced version' in flat(d)
+
+
+def test_brief_stage_carries_earlier_answers_forward_verbatim():
+    text = flat('intake-brief')
+    assert 'answered by the user, round <n>' in text
+    assert 'verbatim' in text and 'unless the corrected input overrides' in text
+
+
+def test_outline_stage_backs_up_the_outline_it_replaces_and_clears_the_approval():
+    text = flat('outline')
+    assert 'outline.prev.<n>.md' in text and 'never replace an earlier backup' in text
+    assert 'whatever its `Approved-by:` value' in text
+    assert 'needs a new approval' in text
+    assert 'changes direction if needed' in text, 'Step 6 must still let the human change direction before approving'

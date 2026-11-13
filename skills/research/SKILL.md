@@ -68,6 +68,15 @@ Report in a few lines: the research path, the verdict path, the gate's `Coverage
 not mean the brief is answered), how many facts and sources, the open gaps, and that the
 next stage is the outline stage. Say once: "Doc copy: not yet available". Do not start the outline yourself.
 
+## After the gate
+
+The verdict covers the artifact as it was when the gate ran. After a PASS you never edit the artifact: report the gate's
+advisory findings to the user and stop. If the artifact has to change, change the stage's written input and run the stage
+again (this stage has no input of its own: change the brief by rerunning the brief stage, then rerun this one); the rebuilt artifact is gated again and its verdict is saved as the next `r<k>`. A BLOCK from a rerun
+counts toward FLOW-3 like any other BLOCK. When you replace an artifact and a later stage's artifact already exists
+(`outline.md`), say in your report that it was built on the replaced version and must be rerun. The human approval line is the
+one thing a human writes after a PASS; it does not change what the verdict covers.
+
 ## Definition of done
 - [ ] Every fact-bank row was fetched by you and its quote copied from the page
 - [ ] Every brief question is answered or listed under Open gaps; no `{{` is left
