@@ -154,7 +154,7 @@ says so once and the workflow continues — the local files are canonical (D1). 
 | 0 | Decisions D1–D4; 2–3 real briefs to test with | decisions done · **briefs needed** |
 | 1 | Repo skeleton: manifest, marketplace, `CLAUDE.md`, README, CONTRIBUTING, this design, structure test | done |
 | 2 | `rules/core/CLAUDE.template.md` (rule IDs above), `templates/`: brief, research dossier, outline, style guide | done |
-| 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | built · brief and research stages run on one real brief (see PR); outline stage not yet run on it |
+| 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | built · all three stages run end to end on one real brief: outline gate PASS with markers for what research could not support (ADR-008), awaiting a human's `Approved-by:` |
 | 4 | `guard-stage-order`, `prose-lint.py`, `verify-final`, `session-context` + hook tests. `prose-lint` flags any marker left in `final.md`, with the loose pattern `<Can.t be verified` (ADR-008) | |
 | 5 | `/draft`, `/edit`, `/check-draft`, `/check-final` (resolve open question 3). They carry markers through and refuse sign-off while one remains (FLOW-6, ADR-008) | |
 | 6 | `/article` orchestrator with the two human checkpoints | |
