@@ -51,9 +51,10 @@ report that the sign-off was cleared, so the replaced final needs a new sign-off
 
 ## Step 4 — Lint, record, run the gate and save the verdict
 
-1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py articles/<slug>/final.md` **without** `--record`. Fix what it reports in
-   `final.md` (a FACT-1 hit may be a false positive; then leave it and say so; a FLOW-6 hit is a marker, which stays). Repeat until
-   only what you can justify remains.
+1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py articles/<slug>/final.md` **without** `--record`. Fix every line it reports in
+   `final.md`: the final gate blocks on each one except a FACT-1 hit that is a false positive (a number that is not a claim; leave it and
+   say so) and a FLOW-6 hit (a marker, which stays). Repeat until only those remain. If a line cannot be fixed by line editing, for
+   example an STR-6 length miss that needs new content, stop and send the article back to the draft stage: do not run the gate.
 2. Then run it **with** `--record` as the **last action on `final.md`**: `python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py --record articles/<slug>/final.md`.
    Write nothing to `final.md` between this run and the gate: the guard refuses to save a G4 verdict unless the record matches
    the file, and the gate reads the findings from that record. Never write `.prose-lint.json` yourself; only the script does.

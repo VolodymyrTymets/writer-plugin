@@ -33,6 +33,8 @@ APPROVAL_LINE = re.compile(r'^[ \t]*(?:Approved-by|Signed-off-by):.*(?:\n|$)', r
 # `[^\S\n]*` on purpose: `\s*` would swallow the newline and read the next line as the signature
 APPROVED = re.compile(r'^[^\S\n]*Approved-by:[^\S\n]*\S+', re.M)
 SIGNED = re.compile(r'^[^\S\n]*Signed-off-by:[^\S\n]*\S+', re.M)
+_SIGN_LINE = re.compile(r'^[^\S\n]*Signed-off-by:(.*)$')
+_FENCE = re.compile(r'^\s*(```|~~~)')
 
 
 # ---------------- payload and blocking ----------------
@@ -215,6 +217,20 @@ def check_gate(root: str, slug: str, stage: str, text: Optional[str] = None) -> 
             return (f'{name} is stale: it relied on {sc.get("upstream")} but the latest {gate_name(up)} verdict is '
                     f'{latest(root, slug, up)}')
     return check_gate(root, slug, up) if up else None
+
+
+def is_signed(text: str) -> bool:
+    """True when the sign-off line, the last `Signed-off-by:` outside a code fence, has a value. A body line that quotes a
+    commit trailer inside a fence (an article about git) is not the sign-off."""
+    fenced, last = False, None
+    for line in text.replace('\r\n', '\n').split('\n'):
+        if _FENCE.match(line):
+            fenced = not fenced
+        elif not fenced:
+            m = _SIGN_LINE.match(line)
+            if m:
+                last = m.group(1).strip()
+    return bool(last)
 
 
 def lint_record(root: str, slug: str) -> Optional[Dict[str, object]]:

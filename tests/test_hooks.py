@@ -605,7 +605,7 @@ def test_a_sign_off_is_allowed_against_a_current_g4_pass_and_no_marker(ws):
 
 
 @pytest.mark.parametrize('setup,expect', [
-    ('none', 'no recorded G4 verdict'),
+    ('none', 'no G4 verdict'),
     ('block', 'not a valid PASS'),
 ], ids=['no-g4', 'g4-block'])
 def test_a_sign_off_is_blocked_without_a_g4_pass(ws, setup, expect):
@@ -656,10 +656,34 @@ def test_an_edit_that_changes_the_body_of_a_signed_final_is_blocked(ws):
 
 
 def test_replace_all_is_resolved_like_the_edit_tool(ws):
+    # G4 judged the text with BOTH occurrences replaced and the sign-off already in it
     final_ready(ws, text='# T\n\nfoo and foo.\n\nSigned-off-by: Test Human\n')
     ws.verdict('final', 1, PASS['final'], sidecar=True)
-    assert edit_final(ws, 'foo', 'bar', replace_all=False).code == 2
-    assert edit_final(ws, 'foo', 'foo', replace_all=True).code == 0
+    judged = '# T\n\nbar and bar.\n\nSigned-off-by: Test Human\n'
+    (ws.art / 'gates' / 'G4-final.r1.json').write_text(json.dumps({'artifact_sha256': writer.text_hash(judged), 'upstream': 'G3-draft.r1.md'}))
+    edit = {'file_path': ws.rel('final.md'), 'old_string': 'foo', 'new_string': 'bar'}
+    assert guard(ws.root, {'tool_name': 'Edit', 'tool_input': dict(edit, replace_all=True)}).code == 0
+    r = guard(ws.root, {'tool_name': 'Edit', 'tool_input': dict(edit, replace_all=False)})
+    assert r.code == 2 and 'FLOW-6' in r.err
+
+
+def test_a_commit_trailer_quoted_in_a_code_fence_is_not_the_sign_off(ws):
+    ws.approve()
+    ws.chain('final')
+    body = '# T\n\n```\nSigned-off-by: Jane Dev <j@example.com>\n```\n\nSigned-off-by:\n'
+    assert guard(ws.root, write_payload(ws.rel('final.md'), body)).code == 0
+
+
+@pytest.mark.parametrize('rel', ['articles/demo/.Prose-Lint.json', 'articles/demo/Gates/archive/x.md'])
+def test_the_new_rules_are_not_bypassed_by_letter_case(ws, rel):
+    assert guard(ws.root, write_payload(rel, '{}')).code == 2
+
+
+def test_a_sign_off_written_to_a_differently_cased_final_is_still_checked(ws):
+    final_ready(ws, text=f'# T\n\nBody {MARKER}\n\nSigned-off-by:\n')
+    ws.verdict('final', 1, PASS['final'], sidecar=True)
+    r = guard(ws.root, write_payload(ws.rel('Final.md'), f'# T\n\nBody {MARKER}\n\nSigned-off-by: Test Human\n'))
+    assert r.code == 2 and 'marker' in r.err
 
 
 def test_an_edit_that_cannot_be_resolved_is_allowed_and_says_so(ws):

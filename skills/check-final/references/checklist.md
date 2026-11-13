@@ -15,9 +15,6 @@ Read `articles/<slug>/.prose-lint.json`. Its `lines` are the findings `prose-lin
 | A FACT-1 line | read the sentence in `final.md`. A number that is a claim with no `[F#]` is blocking; a number that is not a claim (a step number, "two things") is not a finding, and you say you discarded it |
 | A FLOW-6 line | never a finding: count it for line 3 and list it under "Sign-off holds" |
 
-If the record's lines name text that is not in `final.md` (check one with Grep), the record is stale: one blocking finding,
-rule STR-6, fix "rerun `prose-lint.py --record`".
-
 ## B. Facts: open the sources
 Collect every `[F#]` in `final.md`. For each distinct ID find its row in `research.md`, then fetch the row's URL and decide in
 this order:
@@ -41,8 +38,9 @@ checked and each is one blocking FACT-2 finding; you never pass a row you did no
 age: say so under Not checked, and do not invent a limit.
 
 ## C. Voice and links
-Read `.claude/rules/style.md`. If it is absent or still `{{placeholder}}`, list VOI-1, VOI-4 and SEO-5 under Not checked as
-**non-blocking**: a missing style guide must not stop every workspace without one.
+Read `.claude/rules/style.md`. If it is absent or still `{{placeholder}}`, list VOI-1, VOI-4 and the internal-link half of SEO-5 under
+Not checked as **non-blocking**: a missing style guide must not stop every workspace without one. The external-link half of SEO-5 needs
+no style guide and stays active.
 - **VOI-1** The voice (tone, person, do and do not) differs from the style guide in a way a reader would notice: blocking when
   it is pervasive, advisory when it is one paragraph.
 - **VOI-4** The reading level is plainly above the guide's target (long sentences, stacked clauses, unexplained jargon):

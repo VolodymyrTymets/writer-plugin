@@ -31,11 +31,11 @@ shell and cannot compute a hash.
    `findings` and `at`. G4 reads them; no gate runs the script. **This replaces ADR-009 decision 5's mention that the G4 gate calls
    prose-lint.** The alternative, a scoped Bash tool on `fact-gate`, was rejected: it puts a shell in a gate (FLOW-4).
 4. **Four guard rules (`guard-stage-order`)**, one set for the tests and this record:
-   (1) a G4 verdict is saved only against a `.prose-lint.json` whose hash equals `final.md` (approval lines ignored), so the lint the
+   (1) a G4 verdict, PASS or BLOCK, is saved only against a `.prose-lint.json` whose hash equals `final.md` (approval lines ignored), so the lint the
    gate read is current by construction; (2) no tool writes `.prose-lint.json`, only the script does (a hook sees tool calls, not the
-   script's own write); (3) a Write or Edit giving `final.md` a non-empty `Signed-off-by:` needs G4's latest verdict to be a PASS
+   script's own write); (3) a Write or Edit giving `final.md` a non-empty `Signed-off-by:` (the last such line outside a code fence) needs G4's latest verdict to be a PASS
    whose recorded hash equals the hash of the **resulting** content (for Edit: the file with `old_string` replaced, every occurrence
-   with `replace_all`) and its upstream chain current; (4) no unverified-claim marker (loose pattern) may remain beside a non-empty
+   with `replace_all`) and its upstream chain current; paths are compared in lower case (case-insensitive filesystems); (4) no unverified-claim marker (loose pattern) may remain beside a non-empty
    `Signed-off-by:`. An unresolvable Edit is allowed and says so on stderr (fail open).
 5. **The actors.** `draft` writes from the approved outline, tags facts, copies outline markers unchanged, lints without `--record`
    and fixes before the gate. `edit` (folder `edit-final`) line-edits into `final.md` with front matter, freezes fact IDs and markers,

@@ -385,7 +385,6 @@ def test_g4_opens_sources_with_the_fact_agent_and_reads_the_recorded_lint():
     assert '.prose-lint.json' in text and 'You cannot run the lint script' in text
     check = checklist_text('check-final')
     assert '`lines` key is missing' in check and 'one blocking finding' in check
-    assert 'stale' in check
 
 
 def test_g4_prints_a_markers_line_and_never_blocks_on_one():
