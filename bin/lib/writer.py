@@ -32,6 +32,7 @@ VERDICT_NAME = re.compile(r'^(G[0-4])-(brief|research|outline|draft|final)\.r(\d
 APPROVAL_LINE = re.compile(r'^[ \t]*(?:Approved-by|Signed-off-by):.*(?:\n|$)', re.M)
 # `[^\S\n]*` on purpose: `\s*` would swallow the newline and read the next line as the signature
 APPROVED = re.compile(r'^[^\S\n]*Approved-by:[^\S\n]*\S+', re.M)
+SIGNED = re.compile(r'^[^\S\n]*Signed-off-by:[^\S\n]*\S+', re.M)
 
 
 # ---------------- payload and blocking ----------------
@@ -186,8 +187,10 @@ def write_sidecar(root: str, slug: str, verdict_name: str) -> None:
         json.dump(data, fh)
 
 
-def check_gate(root: str, slug: str, stage: str) -> Optional[str]:
-    """None when the gate of `stage` stands (its latest verdict is a PASS on what is on disk, all the way up), else why not."""
+def check_gate(root: str, slug: str, stage: str, text: Optional[str] = None) -> Optional[str]:
+    """None when the gate of `stage` stands (its latest verdict is a PASS on what is on disk, all the way up), else why not.
+
+    `text` replaces the on-disk artifact for this stage only: the sign-off guard asks about the file a write is about to produce."""
     gate = gate_name(stage)
     name = latest(root, slug, stage)
     if not name:
@@ -203,7 +206,7 @@ def check_gate(root: str, slug: str, stage: str) -> Optional[str]:
         if sc is None:
             return (f'{name} has no sidecar although an earlier {gate} verdict does, so what it judged is unknown: '
                     f're-gate the {stage} and save the verdict again')
-        now = artifact_hash(root, slug, stage)
+        now = text_hash(text) if text is not None else artifact_hash(root, slug, stage)
         if now is None:
             return f'{stage}.md is missing'
         if sc.get('artifact_sha256') != now:
@@ -212,6 +215,35 @@ def check_gate(root: str, slug: str, stage: str) -> Optional[str]:
             return (f'{name} is stale: it relied on {sc.get("upstream")} but the latest {gate_name(up)} verdict is '
                     f'{latest(root, slug, up)}')
     return check_gate(root, slug, up) if up else None
+
+
+def lint_record(root: str, slug: str) -> Optional[Dict[str, object]]:
+    """The run recorded by `prose-lint.py --record` beside the final, or None when absent or unreadable."""
+    try:
+        with open(os.path.join(article_dir(root, slug), '.prose-lint.json'), encoding='utf-8') as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def resulting_text(root: str, rel: str, tool: str, tool_input: dict) -> Optional[str]:
+    """The content `rel` will have after a Write or Edit, or None when it cannot be worked out (a Bash write, a missing file,
+    an old_string that is not there). The caller then allows the action: a false block costs a writer's turn."""
+    if tool == 'Write':
+        content = tool_input.get('content')
+        return content if isinstance(content, str) else None
+    if tool != 'Edit':
+        return None
+    old, new = tool_input.get('old_string'), tool_input.get('new_string')
+    try:
+        with open(os.path.join(root, rel), encoding='utf-8') as fh:
+            current = fh.read()
+    except OSError:
+        return None
+    if not isinstance(old, str) or not isinstance(new, str) or not old or old not in current:
+        return None
+    return current.replace(old, new) if tool_input.get('replace_all') else current.replace(old, new, 1)
 
 
 # ---------------- which paths the guard cares about ----------------

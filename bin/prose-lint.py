@@ -5,7 +5,8 @@
 
 Prints one finding per line, `RULE path:line message`, and `NOTE ...` for a check it skipped because an input is missing.
 Exits 0 with no findings and 1 with any. Without `--record` it writes nothing, so a gate that calls it stays write-free (FLOW-4);
-with `--record` (the edit stage) it writes `.prose-lint.json` beside the file, which the Stop check `verify-final` looks for.
+with `--record` (the edit stage) it writes `.prose-lint.json` beside the file (the printed findings too, so a write-free gate can read them): `verify-final` and the
+guard look at it. Only this script writes that file (ADR-010).
 
 Checks (rule IDs are the constitution's): STR-4 headings (any file); STR-6 length against the brief's target (draft, final);
 FACT-1 a number with no [F#] in its sentence (draft, final; a heuristic); and for a final only: SEO-1/2/3 from the front matter
@@ -207,9 +208,9 @@ def lint(path: str, brief_path: Optional[str], style_path: Optional[str]) -> Tup
     return found, notes
 
 
-def record(path: str, n_findings: int) -> None:
+def record(path: str, found: List[str]) -> None:
     text = read(path) or ''
-    rec = {'file': os.path.basename(path), 'sha256': w.text_hash(text), 'findings': n_findings,
+    rec = {'file': os.path.basename(path), 'sha256': w.text_hash(text), 'findings': len(found), 'lines': found,
            'at': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds')}
     import json
     with open(os.path.join(os.path.dirname(os.path.abspath(path)), '.prose-lint.json'), 'w', encoding='utf-8') as fh:
@@ -237,7 +238,7 @@ def main(argv: List[str]) -> int:
     for f in found:
         print(f)
     if do_record:
-        record(files[0], len(found))
+        record(files[0], found)
     return 1 if found else 0
 
 

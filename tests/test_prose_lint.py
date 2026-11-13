@@ -192,3 +192,9 @@ def test_a_sign_off_line_does_not_change_the_recorded_hash(ws):
     before = json.loads((ws / '.prose-lint.json').read_text())['sha256']
     (ws / 'final.md').write_text(text.replace('slug: pick-a-standing-desk', 'slug: pick-a-standing-desk\nSigned-off-by: Test Human'))
     assert writer.text_hash((ws / 'final.md').read_text()) == before
+
+
+def test_record_keeps_the_printed_finding_lines_for_a_gate_that_cannot_run_the_script(ws):
+    r = lint(ws / 'final.md', '--record')
+    rec = json.loads((ws / '.prose-lint.json').read_text())
+    assert rec['lines'] == findings(r) and rec['findings'] == len(rec['lines'])

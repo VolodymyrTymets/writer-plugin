@@ -24,11 +24,13 @@ PASS = {
     'research': '## G1 research gate: PASS (0 blocking, 0 advisory)',
     'outline': '## G2 outline gate: PASS (0 blocking, 1 advisory)',
     'draft': '## G3 draft gate: PASS (0 blocking, 0 advisory)',
+    'final': '## G4 final gate: PASS (0 blocking, 0 advisory)',
 }
 BLOCK = {
     'brief': '## G0 brief gate: BLOCK (1 blocking, 0 advisory)',
     'research': '## G1 research gate: BLOCK (1 blocking, 0 advisory)',
     'outline': '## G2 outline gate: BLOCK (2 blocking, 0 advisory)',
+    'final': '## G4 final gate: BLOCK (1 blocking, 0 advisory)',
 }
 GATE = {'brief': 'G0', 'research': 'G1', 'outline': 'G2', 'draft': 'G3', 'final': 'G4'}
 STAGES = ['brief', 'research', 'outline', 'draft', 'final']
@@ -299,7 +301,7 @@ def test_a_block_message_for_moving_a_verdict_says_to_archive_by_hand(ws):
 
 
 # ---------------- scope and failure ----------------
-@pytest.mark.parametrize('rel', ['notes.md', 'articles/demo/outline.prev.1.md', 'articles/demo/.prose-lint.json', 'docs/x.md'])
+@pytest.mark.parametrize('rel', ['notes.md', 'articles/demo/outline.prev.1.md', 'articles/demo/draft.prev.1.md', 'articles/demo/final.prev.2.md', 'docs/x.md'])
 def test_paths_that_are_not_guarded_are_allowed(ws, rel):
     assert guard(ws.root, write_payload(rel)).code == 0
 
@@ -521,3 +523,151 @@ def test_hooks_json_registers_the_session_and_stop_hooks():
 def test_a_redirect_sign_inside_quotes_is_text_not_a_write(ws, command):
     ws.verdict('brief', 1, PASS['brief'])
     assert guard(ws.root, bash_payload(command)).code == 0
+
+
+# ---------------- Phase 5 (ADR-010): the G4 save, the lint record and the sign-off ----------------
+MARKER = "<Can't be verified. Reason: no source covers it.>"
+FINAL = '# T\n\nBody text.\n\nSigned-off-by:{who}\n'
+
+
+def final_ready(ws, text=None, record=True):
+    """A workspace whose G0..G3 stand, a final.md, and (by default) a lint record that matches it."""
+    ws.approve()
+    ws.chain('final')
+    body = text if text is not None else FINAL.format(who='')
+    (ws.art / 'final.md').write_text(body)
+    if record:
+        (ws.art / '.prose-lint.json').write_text(json.dumps({'sha256': writer.text_hash(body), 'findings': 0, 'lines': []}))
+    return body
+
+
+def g4_save(ws, line=None, k=1):
+    return guard(ws.root, write_payload(ws.rel(f'gates/G4-final.r{k}.md'), (line or PASS['final']) + '\nArtifact: x\n'))
+
+
+def edit_final(ws, old, new, replace_all=False):
+    return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': 'Edit', 'tool_input': {
+        'file_path': ws.rel('final.md'), 'old_string': old, 'new_string': new, 'replace_all': replace_all}})
+
+
+def test_a_g4_verdict_is_saved_against_a_matching_lint_record(ws):
+    final_ready(ws)
+    assert g4_save(ws).code == 0
+
+
+def test_a_g4_verdict_is_blocked_with_no_lint_record_and_the_message_names_the_command(ws):
+    final_ready(ws, record=False)
+    r = g4_save(ws)
+    assert r.code == 2 and 'prose-lint' in r.err and '--record' in r.err
+
+
+def test_a_g4_verdict_is_blocked_when_final_changed_after_the_lint(ws):
+    final_ready(ws)
+    (ws.art / 'final.md').write_text('# T\n\nA different body.\n')
+    assert g4_save(ws).code == 2
+
+
+def test_a_sign_off_only_change_after_the_lint_still_matches_the_record(ws):
+    final_ready(ws)
+    (ws.art / 'final.md').write_text(FINAL.format(who=' Test Human'))
+    assert g4_save(ws).code == 0
+
+
+def test_a_g3_verdict_save_needs_no_lint_record(ws):
+    ws.approve()
+    ws.chain('draft')
+    r = guard(ws.root, write_payload(ws.rel('gates/G3-draft.r1.md'), PASS['draft'] + '\nArtifact: x\n'))
+    assert r.code == 0
+
+
+@pytest.mark.parametrize('payload', [
+    write_payload('articles/demo/.prose-lint.json', '{}'),
+    edit_payload('articles/demo/.prose-lint.json'),
+    bash_payload('echo {} > articles/demo/.prose-lint.json'),
+    bash_payload('cp /tmp/x articles/demo/.prose-lint.json'),
+], ids=['write', 'edit', 'redirect', 'cp'])
+def test_the_lint_record_is_written_only_by_the_script(ws, payload):
+    r = guard(ws.root, payload)
+    assert r.code == 2 and '--record' in r.err and 'FLOW-4' in r.err
+
+
+def test_running_the_lint_script_with_record_is_not_blocked(ws):
+    final_ready(ws)
+    script = BIN / 'prose-lint.py'
+    assert guard(ws.root, bash_payload(f'python3 {script} --record articles/demo/final.md')).code == 0
+
+
+def test_a_sign_off_is_allowed_against_a_current_g4_pass_and_no_marker(ws):
+    final_ready(ws)
+    ws.verdict('final', 1, PASS['final'], sidecar=True)
+    r = guard(ws.root, write_payload(ws.rel('final.md'), FINAL.format(who=' Test Human')))
+    assert r.code == 0, r.err
+
+
+@pytest.mark.parametrize('setup,expect', [
+    ('none', 'no recorded G4 verdict'),
+    ('block', 'not a valid PASS'),
+], ids=['no-g4', 'g4-block'])
+def test_a_sign_off_is_blocked_without_a_g4_pass(ws, setup, expect):
+    final_ready(ws)
+    if setup == 'block':
+        ws.verdict('final', 1, BLOCK['final'], sidecar=True)
+    r = guard(ws.root, write_payload(ws.rel('final.md'), FINAL.format(who=' Test Human')))
+    assert r.code == 2 and 'FLOW-6' in r.err and expect in r.err
+
+
+def test_a_sign_off_is_blocked_when_g4_judged_another_text(ws):
+    final_ready(ws)
+    ws.verdict('final', 1, PASS['final'], sidecar=True)
+    r = guard(ws.root, write_payload(ws.rel('final.md'), '# T\n\nA body G4 never saw.\n\nSigned-off-by: Test Human\n'))
+    assert r.code == 2 and 'FLOW-6' in r.err
+
+
+def test_a_sign_off_is_blocked_while_a_marker_remains_even_with_a_g4_pass(ws):
+    body = final_ready(ws, text=f'# T\n\nBody {MARKER}\n\nSigned-off-by:\n')
+    ws.verdict('final', 1, PASS['final'], sidecar=True)
+    r = guard(ws.root, write_payload(ws.rel('final.md'), body.replace('Signed-off-by:', 'Signed-off-by: Test Human')))
+    assert r.code == 2 and 'marker' in r.err
+
+
+def test_a_mangled_marker_still_blocks_the_sign_off(ws):
+    body = final_ready(ws, text='# T\n\nBody <Can\u2019t be verified. Reason: x>\n\nSigned-off-by:\n')
+    ws.verdict('final', 1, PASS['final'], sidecar=True)
+    assert guard(ws.root, write_payload(ws.rel('final.md'), body.replace('Signed-off-by:', 'Signed-off-by: Test Human'))).code == 2
+
+
+def test_an_empty_sign_off_is_always_allowed_even_with_a_marker(ws):
+    ws.approve()
+    ws.chain('final')
+    assert guard(ws.root, write_payload(ws.rel('final.md'), f'# T\n\nBody {MARKER}\n\nSigned-off-by:\n')).code == 0
+
+
+def test_an_edit_that_only_adds_the_sign_off_is_allowed_with_a_current_g4_pass(ws):
+    final_ready(ws)
+    ws.verdict('final', 1, PASS['final'], sidecar=True)
+    assert edit_final(ws, 'Signed-off-by:', 'Signed-off-by: Test Human').code == 0
+
+
+def test_an_edit_that_changes_the_body_of_a_signed_final_is_blocked(ws):
+    body = final_ready(ws, text='# T\n\nBody text.\n\nSigned-off-by: Test Human\n')
+    ws.verdict('final', 1, PASS['final'], sidecar=True)
+    r = edit_final(ws, 'Body text.', 'Body text, changed.')
+    assert r.code == 2 and 'FLOW-6' in r.err
+
+
+def test_replace_all_is_resolved_like_the_edit_tool(ws):
+    final_ready(ws, text='# T\n\nfoo and foo.\n\nSigned-off-by: Test Human\n')
+    ws.verdict('final', 1, PASS['final'], sidecar=True)
+    assert edit_final(ws, 'foo', 'bar', replace_all=False).code == 2
+    assert edit_final(ws, 'foo', 'foo', replace_all=True).code == 0
+
+
+def test_an_edit_that_cannot_be_resolved_is_allowed_and_says_so(ws):
+    final_ready(ws)
+    r = edit_final(ws, 'text that is not in the file', 'x')
+    assert r.code == 0 and 'sign-off check was skipped' in r.err
+
+
+def test_a_shell_write_to_final_is_allowed_by_the_sign_off_rule_a_stated_gap(ws):
+    final_ready(ws)
+    assert guard(ws.root, bash_payload("sed -i '' 's/Signed-off-by:/Signed-off-by: X/' articles/demo/final.md")).code == 0
