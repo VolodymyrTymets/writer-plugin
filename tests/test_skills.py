@@ -300,3 +300,34 @@ def test_g2_prints_a_markers_line():
         assert re.fullmatch(r'Markers: \d+', lines[i + 2]), f'line 3 of an example must be Markers: {lines[i + 2]!r}'
     assert 'Markers: n/a' in gate
     assert 'outside the "Open questions for the human" section' in checklist_text('check-outline')
+
+
+# ---------------- research claims match their quotes; the research gate reports everything at once ----------------
+def agent_text(name: str) -> str:
+    return ' '.join((ROOT / 'agents' / f'{name}.md').read_text(encoding='utf-8').split())
+
+
+def test_research_stage_checks_every_claim_against_its_quote():
+    text = flat('research')
+    assert 'every part of the claim is in the quote' in text
+    assert 'keep modal verbs' in text
+    assert 'a claim with two parts becomes two rows' in text
+    assert 'as listed on the page' in text
+    assert 'as of <year>' in text, 'the FACT-4 date a claim needs must stay allowed'
+    assert 'we" or "our' in text, "a quote's we/our may be resolved to the publisher the claim names"
+
+
+def test_g1_checks_every_row_and_reports_every_finding():
+    text = checklist_text('check-research')
+    assert 'Check every row' in text
+    assert 'report every finding, of every rule, in the one verdict' in text
+    assert 'do not stop at the first' in text
+    assert 'rows you did not reach go under Not checked' in text
+    assert 'does not say more than its quote' in text, 'FACT-5 must say what a claim may add to its quote'
+
+
+def test_fact_gate_agent_does_not_stop_at_the_first_finding():
+    text = agent_text('fact-gate')
+    assert 'report every finding, of every rule, in the one verdict' in text
+    assert 'Report every real finding; never pad with stylistic ones' in text
+    assert 'Three real findings beat twelve' not in text, 'that wording can be read as a cap on findings'

@@ -77,8 +77,8 @@ gate. An actor never edits an earlier stage's artifact; if it finds a problem up
 - Two agents serve all five gates; the checklist lives in each gate skill:
   `gate` (Read, Grep, Glob, the prose-lint script) and `fact-gate` (the same plus WebFetch / WebSearch, for G1 and the
   fact part of G4, which must open the sources).
-- Verdict: `PASS | BLOCK`, every finding with a rule ID, the offending line and a concrete fix. Three real findings beat
-  twelve stylistic ones. The caller saves the verdict to `gates/`.
+- Verdict: `PASS | BLOCK`, every finding with a rule ID, the offending line and a concrete fix. The fact-gate reports every real
+  finding in one verdict; no gate pads with stylistic ones. The caller saves the verdict to `gates/`.
 - A BLOCK sends the work back to the same actor. **Two BLOCKs on the same artifact stop the run** (counted from the verdict files on disk, so a rerun cannot skip it; a human resumes by archiving that gate's verdicts; ADR-004) and hand it to the
   human (FLOW-3).
 - Where research cannot find or prove something, a marker `<Can't be verified. Reason: …>` stands in for the claim and the flow goes on; a marker is not a BLOCK (ADR-008).

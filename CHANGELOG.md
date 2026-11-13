@@ -8,6 +8,10 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- The research stage checks every claim against its quote before the gate runs (modal verbs, scope, two-part claims split into two
+  rows). The research gate checks every row and reports every finding in one verdict, and the fact-gate's "three real
+  findings" wording, which could read as a cap, is replaced.
+
 - Where research cannot find or prove something, the stages leave a marker `<Can't be verified. Reason: reason sentence here>`
   instead of stopping the flow (ADR-008). The outline gate treats a marker as not a claim, blocks an inexact one or a
   claim beside it, and prints `Markers: <n>` on line 3. FLOW-6: no final is publish-ready while a marker remains.

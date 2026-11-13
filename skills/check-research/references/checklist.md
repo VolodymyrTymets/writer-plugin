@@ -15,6 +15,14 @@ For each row of the fact bank, fetch the source URL, then decide in this order:
 | The page's published date differs from the row's published column | blocking when it changes the age check, otherwise advisory | FACT-2 |
 | Publisher, published date or accessed date is empty or still a `{{placeholder}}` (a published date of `n/a (live page)` is judged by the section below) | blocking | FACT-2 |
 
+A claim that only names the publisher behind the quote's "we" or "our", adds the FACT-4 "as of <year>", or says "as listed on
+the page" does not say more than its quote.
+
+## A complete pass
+Check every row, in order, and report every finding, of every rule, in the one verdict; do not stop at the first. The actor
+fixes what you report and reruns, and two BLOCKs stop the run, so a finding left for a later round costs a round. If you run
+out of turns, rows you did not reach go under Not checked.
+
 ## `n/a (live page)` in the published column
 Allowed only when **all** of these hold; if any fails, the `n/a` is blocking (FACT-2):
 1. The publisher column names the vendor, and the claim's subject is that vendor (not another vendor).
