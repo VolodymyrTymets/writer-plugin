@@ -1,0 +1,271 @@
+"""Shared helpers for the writer-plugin hooks. Python 3.9, standard library only (rule C2).
+
+The contracts here are written down in docs/decisions/ADR-004 (verdict file), ADR-007 (a verdict covers its artifact) and
+ADR-009 (the sidecar and the guard rules). A hook never raises into the session: an unexpected error allows the action and
+says so on stderr, because a false block costs a writer's turn (see `fail_open`).
+"""
+from __future__ import annotations
+
+import hashlib
+import json
+import os
+import re
+import shlex
+import sys
+from typing import Callable, Dict, List, Optional, Tuple
+
+for _stream in (sys.stdin, sys.stdout, sys.stderr):
+    try:
+        _stream.reconfigure(encoding='utf-8')
+    except (AttributeError, ValueError):
+        pass
+
+# ADR-004: line 1 of a verdict. A PASS carries no blockers and a BLOCK at least one, so a contradictory count can never read as a PASS.
+VERDICT_LINE = re.compile(
+    r'^## (G0 brief|G1 research|G2 outline|G3 draft|G4 final) gate: '
+    r'(PASS \(0 blocking|BLOCK \([1-9]\d* blocking), \d+ advisory\)$')
+STAGES = ['brief', 'research', 'outline', 'draft', 'final']
+GATE_ID = {'brief': 'G0', 'research': 'G1', 'outline': 'G2', 'draft': 'G3', 'final': 'G4'}
+VERDICT_NAME = re.compile(r'^(G[0-4])-(brief|research|outline|draft|final)\.r(\d+)\.md$')
+# the human writes these after a PASS by design (ADR-007), so they are not part of what a verdict covers
+APPROVAL_LINE = re.compile(r'^[ \t]*(?:Approved-by|Signed-off-by):.*$', re.M)
+# `[^\S\n]*` on purpose: `\s*` would swallow the newline and read the next line as the signature
+APPROVED = re.compile(r'^[^\S\n]*Approved-by:[^\S\n]*\S+', re.M)
+
+
+# ---------------- payload and blocking ----------------
+def read_payload() -> dict:
+    try:
+        raw = sys.stdin.read().strip()
+        data = json.loads(raw) if raw else {}
+        return data if isinstance(data, dict) else {}
+    except (ValueError, OSError):
+        return {}
+
+
+def project_dir(payload: Optional[dict] = None) -> str:
+    return os.environ.get('CLAUDE_PROJECT_DIR') or (payload or {}).get('cwd') or os.getcwd()
+
+
+def block(rule: str, message: str, alternative: Optional[str] = None) -> None:
+    """Block the action: exit 2 and the stderr text is what the agent sees (verified with a probe, ADR-009)."""
+    lines = [f'[writer-plugin] BLOCKED by rule {rule}: {message}']
+    if alternative:
+        lines.append(f'Do this instead: {alternative}')
+    sys.stderr.write('\n'.join(lines) + '\n')
+    sys.stderr.flush()
+    sys.exit(2)
+
+
+def fail_open(main: Callable[[], None], name: str) -> None:
+    """Run a hook body; an unexpected error allows the action instead of blocking a writer for a bug of ours."""
+    try:
+        main()
+    except SystemExit:
+        raise
+    except Exception as exc:   # deliberate (see the docstring): the error is reported on stderr, not swallowed
+        sys.stderr.write(f'[writer-plugin] {name} hit an unexpected error and allowed the action: {type(exc).__name__}: {exc}\n')
+        sys.exit(0)
+
+
+def rel_path(root: str, path: str, cwd: Optional[str] = None) -> Optional[str]:
+    """`path` relative to the workspace root, with forward slashes, or None when it lies outside it."""
+    if not path:
+        return None
+    full = path if os.path.isabs(path) else os.path.join(cwd or root, path)
+    full = os.path.normpath(full)
+    base = os.path.normpath(root)
+    if full != base and not full.startswith(base + os.sep):
+        return None
+    return os.path.relpath(full, base).replace(os.sep, '/')
+
+
+# ---------------- articles, gates, verdicts ----------------
+def gate_name(stage: str) -> str:
+    return f'{GATE_ID[stage]}-{stage}'
+
+
+def previous_stage(stage: str) -> Optional[str]:
+    i = STAGES.index(stage)
+    return STAGES[i - 1] if i else None
+
+
+def article_dir(root: str, slug: str) -> str:
+    return os.path.join(root, 'articles', slug)
+
+
+def first_line(path: str) -> str:
+    try:
+        with open(path, encoding='utf-8') as fh:
+            return fh.readline().rstrip('\n').rstrip('\r')
+    except OSError:
+        return ''
+
+
+def is_pass(path: str) -> bool:
+    m = VERDICT_LINE.match(first_line(path))
+    return bool(m) and m.group(2).startswith('PASS')
+
+
+def is_block(path: str) -> bool:
+    m = VERDICT_LINE.match(first_line(path))
+    return bool(m) and m.group(2).startswith('BLOCK')
+
+
+def verdicts(root: str, slug: str, stage: str, archived: bool = False) -> List[Tuple[int, str]]:
+    """(k, file name) of the verdicts of one gate, ordered by k. Archived ones live in gates/archive/."""
+    d = os.path.join(article_dir(root, slug), 'gates', 'archive' if archived else '')
+    out = []
+    try:
+        names = os.listdir(d)
+    except OSError:
+        return out
+    for n in names:
+        m = VERDICT_NAME.match(n)
+        if m and m.group(2) == stage and m.group(1) == GATE_ID[stage]:
+            out.append((int(m.group(3)), n))
+    return sorted(out)
+
+
+def latest(root: str, slug: str, stage: str) -> Optional[str]:
+    v = verdicts(root, slug, stage)
+    return v[-1][1] if v else None
+
+
+def next_k(root: str, slug: str, stage: str) -> int:
+    ks = [k for k, _ in verdicts(root, slug, stage)] + [k for k, _ in verdicts(root, slug, stage, archived=True)]
+    return max(ks) + 1 if ks else 1
+
+
+def block_count(root: str, slug: str, stage: str) -> int:
+    d = os.path.join(article_dir(root, slug), 'gates')
+    return sum(1 for _, n in verdicts(root, slug, stage) if is_block(os.path.join(d, n)))
+
+
+# ---------------- what a verdict covers (ADR-007, ADR-009) ----------------
+def strip_approval(text: str) -> str:
+    text = APPROVAL_LINE.sub('', text.replace('\r\n', '\n'))
+    return '\n'.join(line.rstrip() for line in text.split('\n')).strip()
+
+
+def artifact_hash(root: str, slug: str, stage: str) -> Optional[str]:
+    try:
+        with open(os.path.join(article_dir(root, slug), f'{stage}.md'), encoding='utf-8') as fh:
+            text = fh.read()
+    except OSError:
+        return None
+    return hashlib.sha256(strip_approval(text).encode('utf-8')).hexdigest()
+
+
+def sidecar_path(root: str, slug: str, verdict_name: str) -> str:
+    return os.path.join(article_dir(root, slug), 'gates', verdict_name[:-3] + '.json')
+
+
+def read_sidecar(root: str, slug: str, verdict_name: str) -> Optional[Dict[str, object]]:
+    try:
+        with open(sidecar_path(root, slug, verdict_name), encoding='utf-8') as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def write_sidecar(root: str, slug: str, verdict_name: str) -> None:
+    """Record what the verdict judged: the artifact's hash now, and the latest verdict of the gate before it."""
+    m = VERDICT_NAME.match(verdict_name)
+    if not m:
+        return
+    stage = m.group(2)
+    up = previous_stage(stage)
+    data = {'artifact_sha256': artifact_hash(root, slug, stage), 'upstream': latest(root, slug, up) if up else None}
+    with open(sidecar_path(root, slug, verdict_name), 'w', encoding='utf-8') as fh:
+        json.dump(data, fh)
+
+
+def check_gate(root: str, slug: str, stage: str) -> Optional[str]:
+    """None when the gate of `stage` stands (its latest verdict is a PASS on what is on disk, all the way up), else why not."""
+    gate = gate_name(stage)
+    name = latest(root, slug, stage)
+    if not name:
+        return f'there is no {gate} verdict in articles/{slug}/gates/'
+    path = os.path.join(article_dir(root, slug), 'gates', name)
+    if not is_pass(path):
+        return f'the latest {gate} verdict, {name}, is not a valid PASS (line 1: "{first_line(path)[:80]}")'
+    up = previous_stage(stage)
+    recorded = [read_sidecar(root, slug, n) for _, n in verdicts(root, slug, stage)]
+    legacy = not any(recorded)           # a gate none of whose verdicts has a sidecar predates the hooks: its links are skipped
+    if not legacy:
+        sc = read_sidecar(root, slug, name)
+        if sc is None:
+            return (f'{name} has no sidecar although an earlier {gate} verdict does, so what it judged is unknown: '
+                    f're-gate the {stage} and save the verdict again')
+        now = artifact_hash(root, slug, stage)
+        if now is None:
+            return f'{stage}.md is missing'
+        if sc.get('artifact_sha256') != now:
+            return f'{stage}.md changed since {name} judged it (the approval line does not count)'
+        if up and sc.get('upstream') != latest(root, slug, up):
+            return (f'{name} is stale: it relied on {sc.get("upstream")} but the latest {gate_name(up)} verdict is '
+                    f'{latest(root, slug, up)}')
+    return check_gate(root, slug, up) if up else None
+
+
+# ---------------- which paths the guard cares about ----------------
+ARTICLE_PATH = re.compile(r'^articles/([^/]+)/(.+)$')
+
+
+def split_article(rel: str) -> Optional[Tuple[str, str]]:
+    m = ARTICLE_PATH.match(rel or '')
+    return (m.group(1), m.group(2)) if m else None
+
+
+_HEREDOC = re.compile(r'<<-?\s*[\'"]?([A-Za-z_]\w*)[\'"]?')
+_SEPARATORS = re.compile(r'&&|\|\||;|(?<!\|)\|(?!\|)')
+_REDIRECT = re.compile(r'(?:^|[\s(])\d*>>?\s*([^\s<>&|;()]+)')
+_WRITERS = {'tee', 'cp', 'mv', 'rm', 'install', 'ln', 'touch', 'truncate'}
+
+
+def _without_heredoc_bodies(command: str) -> List[str]:
+    lines, out, end = command.split('\n'), [], None
+    for line in lines:
+        if end is not None:
+            if line.strip() == end:
+                end = None
+            continue
+        out.append(line)
+        m = _HEREDOC.search(line)
+        if m:
+            end = m.group(1)
+    return out
+
+
+def bash_targets(command: str) -> List[Tuple[str, str]]:
+    """Paths a shell command line writes, moves, copies or removes, as (kind, path); a best-effort parse (ADR-009).
+
+    Reads (`cat`, `ls`, `grep`, `git status`) produce nothing. A heredoc body is skipped so text with `>` in it is not read as
+    a redirect. What it cannot read (`python -c`, command substitution, variables) it does not report: that is a stated gap.
+    """
+    targets: List[Tuple[str, str]] = []
+    for line in _without_heredoc_bodies(command):
+        for seg in _SEPARATORS.split(line):
+            seg = seg.strip()
+            if not seg:
+                continue
+            for m in _REDIRECT.finditer(seg):
+                p = m.group(1)
+                if p not in ('/dev/null',) and not p.startswith('&'):
+                    targets.append(('write', p))
+            try:
+                tokens = shlex.split(seg)
+            except ValueError:
+                tokens = seg.split()
+            tokens = [t for t in tokens if not re.match(r'^\d*>>?', t)]
+            if not tokens:
+                continue
+            prog = os.path.basename(tokens[0])
+            args = [t for t in tokens[1:] if not t.startswith('-')]
+            if prog in _WRITERS:
+                targets.extend(('write', a) for a in args)
+            elif prog in ('sed', 'perl') and any(t.startswith('-i') for t in tokens[1:]):
+                targets.extend(('write', a) for a in args[1:])
+    return targets
