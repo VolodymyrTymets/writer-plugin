@@ -43,6 +43,7 @@ ACTORS = {
     'intake-brief': ('G0-brief', 'check-brief'),
     'research': ('G1-research', 'check-research'),
     'outline': ('G2-outline', 'check-outline'),
+    'draft': ('G3-draft', 'check-draft'),
 }
 # Rules a gate's checklist must still carry. Deleting one of these rows must turn a test red.
 MUST_CITE = {
@@ -101,7 +102,7 @@ def test_actor_saves_verdicts_counts_blocks_on_disk_and_stops_after_two(d):
 def test_actor_after_the_brief_refuses_without_the_previous_pass(d):
     text = skill_text(d)
     assert 'FLOW-1' in text and 'PASS' in text, f'{d} must refuse to start without the previous gate PASS on disk'
-    previous = {'research': 'G0-brief', 'outline': 'G1-research'}[d]
+    previous = {'research': 'G0-brief', 'outline': 'G1-research', 'draft': 'G2-outline'}[d]
     assert f'gates/{previous}.r' in text, f'{d} must name the verdict file it needs ({previous})'
 
 
@@ -343,3 +344,30 @@ def test_g3_treats_a_marker_as_not_a_claim():
     assert 'beside a marker or inside its reason' in text
     assert 'not in the exact form' in text
     assert 'a marker the outline does not contain' in text.lower()
+
+
+# ---------------- the draft stage (Phase 5) ----------------
+def test_draft_stage_needs_the_approval_and_never_writes_it():
+    text = flat('draft')
+    assert 'FLOW-2' in text and 'non-empty value after `Approved-by:`' in text
+    assert 'Never fill it yourself' in text
+
+
+def test_draft_stage_tags_facts_carries_markers_and_invents_nothing():
+    text = flat('draft')
+    assert 'ends with `[F#]`' in text and 'only IDs in the outline row' in text
+    assert 'No new facts' in text and 'Never invent' in text
+    assert "<Can't be verified. Reason:" in text and 'character for character' in text
+    assert 'Add none of your own' in text
+
+
+def test_draft_stage_backs_up_the_draft_it_replaces():
+    text = flat('draft')
+    assert 'draft.prev.<n>.md' in text and 'Never replace an earlier backup' in text
+
+
+def test_draft_stage_lints_without_recording_before_the_gate():
+    front = skill_text('draft').split('---', 2)[1]
+    assert 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py *)' in front, 'the exact rule form; a leading wildcard is flagged by Claude Code'
+    text = flat('draft')
+    assert 'no `--record`' in text and 'This is before the gate' in text
