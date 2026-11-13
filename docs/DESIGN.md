@@ -47,8 +47,10 @@ articles/<slug>/
   outline.md                    # thesis, H2/H3 plan, per-section purpose + facts + word budget, keyword map, CTA
   outline.prev.<n>.md           # backup of an outline a rebuild replaced; never overwritten (ADR-007)
   draft.md
-  final.md                      # + title, meta description, slug
-  gates/G<n>-<stage>.r<k>.md    # every verdict, saved by the caller (gates cannot write)
+  final.md                      # starts with front matter: title, meta_description, slug (read by prose-lint)
+  .prose-lint.json              # the last recorded prose-lint run on final.md (hash, findings, time)
+  gates/G<n>-<stage>.r<k>.md    # every verdict, saved by the caller with the Write tool (gates cannot write)
+  gates/G<n>-<stage>.r<k>.json  # sidecar the record-verdict hook writes: what the verdict judged (ADR-009)
   docs.json                     # Google Doc id + URL per artifact revision
   comments/<stage>.r<k>.md      # comments pulled back from the Google Doc by /sync
 ```
@@ -106,10 +108,11 @@ Prefer a script or a hook over a prompt rule.
 
 | Hook / script | When | Enforces |
 |---------------|------|----------|
-| `guard-stage-order` | PreToolUse on `Edit|Write|MultiEdit|Bash|mcp__.*` | Writing `articles/<slug>/<stage>.md` needs the previous gate's latest verdict to be PASS (FLOW-1); `draft.md` also needs a non-empty `Approved-by:` value in `outline.md` (FLOW-2). Path-based, so it needs no branch or ticket. Open questions 5 and 6 add a staleness check |
-| `prose-lint.py` | Called by `/edit` and the G4 gate; also usable alone | Word count vs brief, banned phrases and AI tells from `style.md`, numbers with no `[F#]`, heading levels, title and meta lengths, keyword placement. Stdlib only |
-| `verify-final` | Stop | `final.md` changed but no prose-lint run recorded → block once, quoting the command |
-| `session-context` | SessionStart | Lists articles in flight and the stage each is at |
+| `guard-stage-order` | PreToolUse on `Edit|Write|Bash` | FLOW-1: writing `articles/<slug>/<stage>.md` needs the previous gate's latest verdict to be a PASS on what is on disk, walking up the chain (a rebuilt upstream or a hand edit makes a verdict stale, through the sidecar). FLOW-2: `draft.md` also needs a non-empty `Approved-by:`. FLOW-3: a stage whose gate has two BLOCK verdicts is stopped. FLOW-4: verdicts are immutable, created only by Write with a valid line 1 and the next number; Bash cannot touch `gates/`. Path-based; needs no branch or ticket (ADR-009) |
+| `record-verdict` | PostToolUse on `Write` | Writes the sidecar beside a saved verdict: the hash of the artifact it judged (approval lines ignored) and the upstream verdict it relied on |
+| `prose-lint.py` | A script, not a hook: called by `/edit` (with `--record`) and the G4 gate (without); also usable alone | STR-4 headings, STR-6 length vs the brief, FACT-1 numbers with no `[F#]` (heuristic), and for a final SEO-1/2/3, VOI-2/3 from `style.md`, and any marker left in the text (FLOW-6, loose pattern). `--record` writes `.prose-lint.json`. Stdlib only |
+| `verify-final` | Stop | `final.md` written this session but no matching prose-lint run recorded → block once per article, quoting the command with the script's absolute path |
+| `session-context` | SessionStart | At most 30 lines: where each article is and what it waits for; records the session start once. Silent outside a workspace |
 
 ## Google Docs copies
 
@@ -142,10 +145,8 @@ says so once and the workflow continues — the local files are canonical (D1). 
    have to be fanned out by `/article`, with G4 merging their verdicts. Decide in Phase 5.
 4. **Keyword data.** There is no SERP or volume tool; the brief supplies the keyword and `/research` reads the current
    top results via WebSearch.
-5. **A human's edit before approval.** The plugin cannot record a gate rerun for a hand edit. Phase 4 decides how it is
-   re-gated and recorded, and how the hook tells it from the approval edit (ADR-007).
-6. **Stale downstream verdicts.** Rebuilding an artifact leaves later verdicts covering the old input. Phase 4's hook
-   should require a downstream verdict to be newer than the upstream verdict it relied on (ADR-007).
+5. ~~A human's edit before approval.~~ Resolved in Phase 4 (ADR-009): the verdict's sidecar hash ignores the approval lines, so a hand edit makes it stale; a gate rerun saved with Write as the next verdict re-records it.
+6. ~~Stale downstream verdicts.~~ Resolved in Phase 4 (ADR-009): each sidecar records the upstream verdict it relied on, and the guard blocks when that is no longer the latest. No file times are used.
 
 ## Build plan
 
@@ -154,8 +155,8 @@ says so once and the workflow continues — the local files are canonical (D1). 
 | 0 | Decisions D1–D4; 2–3 real briefs to test with | decisions done · **briefs needed**                                                                                                                                                                |
 | 1 | Repo skeleton: manifest, marketplace, `CLAUDE.md`, README, CONTRIBUTING, this design, structure test | done                                                                                                                                                                                              |
 | 2 | `rules/core/CLAUDE.template.md` (rule IDs above), `templates/`: brief, research dossier, outline, style guide | done                                                                                                                                                                                              |
-| 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | built · all three stages run end to end on one real brief: outline gate PASS with markers for what research could not support (ADR-008), awaiting a human's `Approved-by: Volosymyr - 2026-11-13` |
-| 4 | `guard-stage-order`, `prose-lint.py`, `verify-final`, `session-context` + hook tests. `prose-lint` flags any marker left in `final.md`, with the loose pattern `<Can.t be verified` (ADR-008) |                                                                                                                                                                                                   |
+| 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | done · all three stages ran end to end on one real brief; the outline passed its gate with markers (ADR-008) and a human approved it |
+| 4 | `guard-stage-order`, `record-verdict`, `prose-lint.py`, `verify-final`, `session-context` + hook tests (ADR-009) | built · run in real sessions; draft, edit and final-gate stages are Phase 5 |
 | 5 | `/draft`, `/edit`, `/check-draft`, `/check-final` (resolve open question 3). They carry markers through and refuse sign-off while one remains (FLOW-6, ADR-008) |                                                                                                                                                                                                   |
 | 6 | `/article` orchestrator with the two human checkpoints |                                                                                                                                                                                                   |
 | 7 | `/publish`, `/sync` (resolve open questions 1–2), `/setup`, evals on the test briefs |                                                                                                                                                                                                   |

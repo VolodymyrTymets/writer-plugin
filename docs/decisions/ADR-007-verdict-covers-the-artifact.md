@@ -43,5 +43,7 @@ not rerun the gate. The saved verdict described an earlier version, and FLOW-1 t
   approval; require content other than the approval line to be unchanged since the latest verdict, and a downstream
   verdict to be newer than the upstream verdict it relied on. A bare modification-time check would trip on the approval edit.
 
+Refined by ADR-009: the Phase 4 hooks make the stale-verdict and hand-edit checks mechanical (open questions 5 and 6 are resolved there).
+
 ## Revisit when
 The Phase 4 hook exists, or a stage needs to take a free-text change.

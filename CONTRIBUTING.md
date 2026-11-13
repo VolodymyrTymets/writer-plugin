@@ -10,7 +10,7 @@ approach and the build plan — is in [docs/DESIGN.md](docs/DESIGN.md).
 | `.claude-plugin/` | `plugin.json` (name, version), `marketplace.json` | yes |
 | `skills/` | **flat**: one directory per skill, `SKILL.md` plus `references/` | yes |
 | `agents/` | write-free gate agents (`gate`, `fact-gate`) | yes |
-| `hooks/hooks.json` + `bin/` | hooks and the prose-lint script, stdlib-only Python 3.9+ | yes |
+| `hooks/hooks.json` + `bin/` | the hooks, `prose-lint.py` and the shared `bin/lib/writer.py`, stdlib-only Python 3.9+; every hook has a pytest case in `tests/test_hooks.py` | yes |
 | `rules/core/` | the editorial constitution template with rule IDs | no — copied into a workspace by the setup skill |
 | `templates/` | brief, research dossier, outline, style guide templates | no — read at run time by the stage skills (ADR-005) |
 | `tests/` | pytest: structure guard, library shape, skill and verdict contracts; hook behaviour later | no |

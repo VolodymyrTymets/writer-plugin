@@ -42,5 +42,6 @@ claude plugin install writer-plugin@writer
 ## Requirements
 
 - Claude Code 2.1.x
-- `python3` 3.9+ on `PATH` for the hooks (standard library only)
+- `python3` 3.9+ on `PATH` for the hooks (standard library only). The hooks block a stage that starts out of order, any edit of a
+  saved verdict, and a final that changed without a prose-lint run; see [docs/decisions/ADR-009](docs/decisions/ADR-009-mechanical-stage-order.md)
 - Optional: a Google Drive connection for the Doc copies. Without it the workflow still runs on the local files.
