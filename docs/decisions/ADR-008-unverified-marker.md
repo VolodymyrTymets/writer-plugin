@@ -50,3 +50,5 @@ rewritten, so the whole flow stopped on gaps only a human can close.
 
 ## Revisit when
 The draft and final stages exist and a marker is seen to reach a signed-off article, or the marker needs another form.
+
+Refined by ADR-010: the draft, edit and final-gate stages carry markers through; the guard refuses a `Signed-off-by:` while one remains.

@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """Stage order, mechanical (FLOW-1, FLOW-2, FLOW-3, FLOW-4). PreToolUse: Edit|Write|Bash.
 
+Phase 5 adds (ADR-010): a G4 verdict is saved only against a lint record that matches final.md; `.prose-lint.json` is written
+only by prose-lint.py; a non-empty `Signed-off-by:` is written only against a current G4 PASS on the content the write produces,
+and never beside an unverified-claim marker (FLOW-6).
+
 Path-based, so it needs no branch or ticket: it acts only on `articles/<slug>/...` inside the workspace.
 - Writing research.md, outline.md, draft.md or final.md needs the previous gate's latest verdict to be a PASS on what is on disk
   (FLOW-1, with stale verdicts caught through the sidecar, ADR-009); draft.md also needs a non-empty `Approved-by:` (FLOW-2).
@@ -10,6 +14,7 @@ Path-based, so it needs no branch or ticket: it acts only on `articles/<slug>/..
 An unexpected error allows the action (see lib/writer.fail_open).
 """
 import os
+import sys
 
 from lib import writer as w
 
@@ -23,10 +28,10 @@ def check_gates(root, slug, sub, tool, tool_input):
         w.block('FLOW-4', f'a shell command may not write, move, copy or delete anything in articles/{slug}/gates/.',
                 'Read verdicts with cat or grep. Save a new verdict with the Write tool. Archiving verdicts to resume a stopped '
                 'article is the human\'s step (ADR-004): do it by hand.')
-    if sub.startswith('archive/') or sub == 'archive':
+    if sub.lower().startswith('archive/') or sub.lower() == 'archive':
         w.block('FLOW-4', 'the archive is where a human moves verdicts to resume a stopped article; no tool writes there.',
                 'ask the human to archive by hand (ADR-004).')
-    if sub.endswith('.json'):
+    if sub.lower().endswith('.json'):
         w.block('FLOW-4', 'sidecars are written by the record-verdict hook only; a tool may not write one.',
                 'save the verdict with the Write tool and the hook records its sidecar.')
     m = w.VERDICT_NAME.match(sub)
@@ -48,6 +53,31 @@ def check_gates(root, slug, sub, tool, tool_input):
     if not lm or lm.group(1) != f'{w.GATE_ID[stage]} {stage}':
         w.block('FLOW-4', f'line 1 of a {w.gate_name(stage)} verdict must match the ADR-004 pattern for its own gate (got "{line[:80]}").',
                 'save the verdict exactly as the gate returned it, line 1 first.')
+    if stage == 'final':
+        record, now = w.lint_record(root, slug), w.artifact_hash(root, slug, 'final')
+        if record is None or now is None or record.get('sha256') != now:
+            script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prose-lint.py')
+            w.block('FLOW-4', f'a G4 verdict is saved only against a prose-lint run on the final as it is now, and articles/{slug}/.prose-lint.json '
+                    'is missing or was recorded for another version of final.md (the gate reads the findings from it).',
+                    f'run: python3 {script} --record articles/{slug}/final.md, change nothing in final.md afterwards, then rerun G4 and save its verdict.')
+
+
+def check_signoff(root, slug, text):
+    """FLOW-6: a sign-off needs a G4 PASS on exactly the content being written, and no marker left in it."""
+    if not w.is_signed(text):
+        return
+    if w.MARKER_LOOSE.search(text):
+        w.block('FLOW-6', f'articles/{slug}/final.md may not be signed off while an unverified-claim marker (<Can\'t be verified ...>) is in it.',
+                'resolve every marker in the text (a human supplies the fact or removes the claim), rerun the edit stage and its gate, then sign off.')
+    name = w.latest(root, slug, 'final')
+    why = None
+    if not name or w.read_sidecar(root, slug, name) is None:
+        why = (f'{name} has no sidecar, so what it judged is unknown' if name else 'there is no G4 verdict for the final')
+    else:
+        why = w.check_gate(root, slug, 'final', text)
+    if why:
+        w.block('FLOW-6', f'articles/{slug}/final.md may not be signed off: {why}.',
+                'sign off only a final whose latest G4 verdict is a PASS on exactly this text; after any change, rerun G4 and save the verdict with Write.')
 
 
 def check_stage(root, slug, stage):
@@ -79,10 +109,22 @@ def check_target(root, rel, tool, tool_input):
     if not parts:
         return
     slug, rest = parts
-    if rest.startswith('gates/') or rest == 'gates':
+    # compared in lower case: the default macOS filesystem is case-insensitive, so `Final.md` is final.md
+    low = rest.lower()
+    if low.startswith('gates/') or low == 'gates':
         check_gates(root, slug, rest[len('gates/'):], tool, tool_input)
-    elif rest in ('brief.md', 'research.md', 'outline.md', 'draft.md', 'final.md'):
-        check_stage(root, slug, rest[:-3])
+    elif low == '.prose-lint.json':
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prose-lint.py')
+        w.block('FLOW-4', f'articles/{slug}/.prose-lint.json is the record of a real prose-lint run; a tool may not write it (the G4 gate trusts it).',
+                f'run: python3 {script} --record articles/{slug}/final.md')
+    elif low in ('brief.md', 'research.md', 'outline.md', 'draft.md', 'final.md'):
+        check_stage(root, slug, low[:-3])
+        if low == 'final.md' and tool in ('Write', 'Edit'):
+            text = w.resulting_text(root, rel, tool, tool_input)
+            if text is None:
+                sys.stderr.write(f'[writer-plugin] guard-stage-order could not work out the content of {rel}, so the sign-off check was skipped.\n')
+            else:
+                check_signoff(root, slug, text)
 
 
 def main():

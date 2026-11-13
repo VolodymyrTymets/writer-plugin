@@ -70,3 +70,5 @@ A throwaway probe plugin logged real hook payloads in a headless session (`claud
 
 ## Revisit when
 A hook payload changes in a Claude Code release, or a sidecar is seen to be wrong or missing for a verdict saved by Write.
+
+Refined by ADR-010: no gate runs `prose-lint` (decision 5); the recorded run also keeps the finding lines, and the guard gains four rules for the G4 save, the record and the sign-off.

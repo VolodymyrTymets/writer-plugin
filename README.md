@@ -5,8 +5,9 @@ actors and gates. Each actor writes one artifact (brief, research with a fact ba
 judges one artifact in a fresh, read-only context and returns PASS or BLOCK with rule IDs. You approve the outline
 before any drafting starts and sign off the final. Every artifact also gets a Google Doc copy for review and comments.
 
-> **Status: Phase 3 of 7 — the first three stages and their gates are built** (brief, research, outline). Draft, edit,
-> the last two gates, the orchestrator, publishing and setup are planned. Not yet run on a real client brief. Design and
+> **Status: Phase 5 of 7 — all five stages and their gates are built** (brief, research, outline, draft, edit). The
+> orchestrator, publishing, comment sync and setup are planned. The first three stages ran on a real brief; draft and edit have
+> run only on scratch articles. Design and
 > build plan: [docs/DESIGN.md](docs/DESIGN.md).
 
 ## The flow
@@ -17,7 +18,7 @@ brief ──G0──▶ research ──G1──▶ outline ──G2──▶ you
 
 ## Commands
 
-Built: `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`. The rest are planned.
+Built: `/brief`, `/research`, `/outline`, `/draft`, `/edit`, and the gates `/check-brief`, `/check-research`, `/check-outline`, `/check-draft`, `/check-final`. The rest are planned.
 
 | Command | What it does or will do |
 |---------|-------------------------|
@@ -43,5 +44,5 @@ claude plugin install writer-plugin@writer
 
 - Claude Code 2.1.x
 - `python3` 3.9+ on `PATH` for the hooks (standard library only). The hooks block a stage that starts out of order, any edit of a
-  saved verdict, and a final that changed without a prose-lint run; see [docs/decisions/ADR-009](docs/decisions/ADR-009-mechanical-stage-order.md)
+  saved verdict, a final that changed without a prose-lint run, and a sign-off while a marker remains or the final gate has not passed on the exact text; see [docs/decisions/ADR-009](docs/decisions/ADR-009-mechanical-stage-order.md)
 - Optional: a Google Drive connection for the Doc copies. Without it the workflow still runs on the local files.
