@@ -345,6 +345,8 @@ def test_the_artifact_hash_ignores_the_approval_lines():
     b = writer.strip_approval('# T\n\nApproved-by: Someone 2026-11-13\n\nbody\n')
     c = writer.strip_approval('# T\n\nSigned-off-by: Someone\n\nbody\n')
     assert a == b and 'Signed-off-by' not in c
+    # adding an approval line where there was none must not change what a verdict covers either
+    assert writer.strip_approval('# T\n\nbody\n') == writer.strip_approval('# T\n\nbody\n\nSigned-off-by: Someone\n')
     assert writer.strip_approval('# T\n\nbody changed\n') != a
 
 

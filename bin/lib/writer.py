@@ -28,7 +28,7 @@ STAGES = ['brief', 'research', 'outline', 'draft', 'final']
 GATE_ID = {'brief': 'G0', 'research': 'G1', 'outline': 'G2', 'draft': 'G3', 'final': 'G4'}
 VERDICT_NAME = re.compile(r'^(G[0-4])-(brief|research|outline|draft|final)\.r(\d+)\.md$')
 # the human writes these after a PASS by design (ADR-007), so they are not part of what a verdict covers
-APPROVAL_LINE = re.compile(r'^[ \t]*(?:Approved-by|Signed-off-by):.*$', re.M)
+APPROVAL_LINE = re.compile(r'^[ \t]*(?:Approved-by|Signed-off-by):.*(?:\n|$)', re.M)
 # `[^\S\n]*` on purpose: `\s*` would swallow the newline and read the next line as the signature
 APPROVED = re.compile(r'^[^\S\n]*Approved-by:[^\S\n]*\S+', re.M)
 
@@ -148,13 +148,16 @@ def strip_approval(text: str) -> str:
     return '\n'.join(line.rstrip() for line in text.split('\n')).strip()
 
 
+def text_hash(text: str) -> str:
+    return hashlib.sha256(strip_approval(text).encode('utf-8')).hexdigest()
+
+
 def artifact_hash(root: str, slug: str, stage: str) -> Optional[str]:
     try:
         with open(os.path.join(article_dir(root, slug), f'{stage}.md'), encoding='utf-8') as fh:
-            text = fh.read()
+            return text_hash(fh.read())
     except OSError:
         return None
-    return hashlib.sha256(strip_approval(text).encode('utf-8')).hexdigest()
 
 
 def sidecar_path(root: str, slug: str, verdict_name: str) -> str:
