@@ -38,6 +38,12 @@ read it for the age limit on statistics and any source preferences; if not, say 
    page". Anything else with no date is not a fact, so do not use it. Accessed is today.
    Keep the bank to about 25 rows or fewer: the gate opens every source within a limited number of turns, and a fact it
    cannot reach blocks the run. Prefer primary and authoritative sources. Do not state a claim stronger than the quote (FACT-5).
+   **Check every row before you run the gate:** every part of the claim is in the quote. Keep the numbers and scope, and keep
+   modal verbs ("can", "may"): "can create" is not "creates". Add no qualifier that strengthens, widens or narrows what the quote
+   says. Two additions are required, not forbidden: the date a claim needs for FACT-4 ("as of <year>") and, on a live-page row,
+   "as listed on the page". A quote's "we" or "our" may be resolved to the publisher the claim names, and nothing else may be
+   added. If the claim has more than one part, split it: a claim with two parts becomes two rows, each with its own quote. A row
+   that fails this check is rewritten to what its quote says or split, never left for the gate.
 4. Sources table: one row per publisher page you used and why it is authoritative.
 5. Competitor coverage: search the primary keyword, open the top results, record angle, what each covers and what it
    misses. Then write the gap this article fills in one or two sentences. A statistic or named claim in this prose
