@@ -21,6 +21,11 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - G1 prints `Coverage: <a> answered, <o> open (of <m>)` on line 3 of its verdict.
 
 ### Added
+- Phase 5 (ADR-010): the draft stage (`/draft`), the edit stage (`/edit`), gate G3 (`/check-draft`, developmental) and gate G4
+  (`/check-final`, one forked gate that opens the sources and reads the recorded lint). `prose-lint.py --record` keeps the finding
+  lines. The guard gains four rules: a G4 verdict needs a matching lint record, only the script writes `.prose-lint.json`, and a
+  `Signed-off-by:` needs a current G4 PASS on the resulting text and no marker (FLOW-6). Rebuilds keep `draft.prev.<n>.md` and
+  `final.prev.<n>.md`.
 - Phase 4 hooks (ADR-009): `guard-stage-order` (FLOW-1 to FLOW-4, stale and hand-edited verdicts), `record-verdict` (the sidecar),
   `verify-final` and `session-context`; the `prose-lint.py` script; rule STR-6 (article length within the brief's target); the
   `final.md` front matter. A verdict is now saved with the Write tool.

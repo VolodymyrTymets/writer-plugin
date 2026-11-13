@@ -47,8 +47,10 @@ articles/<slug>/
   outline.md                    # thesis, H2/H3 plan, per-section purpose + facts + word budget, keyword map, CTA
   outline.prev.<n>.md           # backup of an outline a rebuild replaced; never overwritten (ADR-007)
   draft.md
+  draft.prev.<n>.md             # backup of a draft a rebuild replaced; never overwritten
   final.md                      # starts with front matter: title, meta_description, slug (read by prose-lint)
-  .prose-lint.json              # the last recorded prose-lint run on final.md (hash, findings, time)
+  final.prev.<n>.md             # backup of a final a rebuild replaced (its sign-off is cleared); never overwritten
+  .prose-lint.json              # the last recorded prose-lint run on final.md (hash, findings, finding lines, time); only the script writes it (ADR-010)
   gates/G<n>-<stage>.r<k>.md    # every verdict, saved by the caller with the Write tool (gates cannot write)
   gates/G<n>-<stage>.r<k>.json  # sidecar the record-verdict hook writes: what the verdict judged (ADR-009)
   docs.json                     # Google Doc id + URL per artifact revision
@@ -77,8 +79,9 @@ gate. An actor never edits an earlier stage's artifact; if it finds a problem up
 - Every gate is a skill with `context: fork`, `background: false` and a write-free agent, exactly like `rln-agent`'s
   analyze gate. It sees only what is on disk — a decision made in chat but not written down does not count.
 - Two agents serve all five gates; the checklist lives in each gate skill:
-  `gate` (Read, Grep, Glob, the prose-lint script) and `fact-gate` (the same plus WebFetch / WebSearch, for G1 and the
-  fact part of G4, which must open the sources).
+  `gate` (Read, Grep, Glob; G0, G2, G3) and `fact-gate` (the same plus WebFetch / WebSearch; G1 and G4, which must open the
+  sources). No gate runs a script: G4 reads the finding lines the edit stage recorded in `.prose-lint.json` (ADR-010).
+- G4 is one forked gate working sequentially (facts against sources, the recorded lint, voice, SEO); it is not fanned out.
 - Verdict: `PASS | BLOCK`, every finding with a rule ID, the offending line and a concrete fix. Three real findings beat
   twelve stylistic ones. The caller saves the verdict to `gates/`.
 - A BLOCK sends the work back to the same actor. **Two BLOCKs on the same artifact stop the run** (counted from the verdict files on disk, so a rerun cannot skip it; a human resumes by archiving that gate's verdicts; ADR-004) and hand it to the
@@ -108,9 +111,9 @@ Prefer a script or a hook over a prompt rule.
 
 | Hook / script | When | Enforces |
 |---------------|------|----------|
-| `guard-stage-order` | PreToolUse on `Edit|Write|Bash` | FLOW-1: writing `articles/<slug>/<stage>.md` needs the previous gate's latest verdict to be a PASS on what is on disk, walking up the chain (a rebuilt upstream or a hand edit makes a verdict stale, through the sidecar). FLOW-2: `draft.md` also needs a non-empty `Approved-by:`. FLOW-3: a stage whose gate has two BLOCK verdicts is stopped. FLOW-4: verdicts are immutable, created only by Write with a valid line 1 and the next number; Bash cannot touch `gates/`. Path-based; needs no branch or ticket (ADR-009) |
+| `guard-stage-order` | PreToolUse on `Edit|Write|Bash` | FLOW-1: writing `articles/<slug>/<stage>.md` needs the previous gate's latest verdict to be a PASS on what is on disk, walking up the chain (a rebuilt upstream or a hand edit makes a verdict stale, through the sidecar). FLOW-2: `draft.md` also needs a non-empty `Approved-by:`. FLOW-3: a stage whose gate has two BLOCK verdicts is stopped. FLOW-4: verdicts are immutable, created only by Write with a valid line 1 and the next number; Bash cannot touch `gates/`; a G4 verdict is saved only against a lint record that matches `final.md`; only `prose-lint.py` writes `.prose-lint.json`. FLOW-6: a non-empty `Signed-off-by:` is written only against a current G4 PASS on the resulting content and never beside a marker (tool writes only). Path-based; needs no branch or ticket (ADR-009, ADR-010) |
 | `record-verdict` | PostToolUse on `Write` | Writes the sidecar beside a saved verdict: the hash of the artifact it judged (approval lines ignored) and the upstream verdict it relied on |
-| `prose-lint.py` | A script, not a hook: called by `/edit` (with `--record`) and the G4 gate (without); also usable alone | STR-4 headings, STR-6 length vs the brief, FACT-1 numbers with no `[F#]` (heuristic), and for a final SEO-1/2/3, VOI-2/3 from `style.md`, and any marker left in the text (FLOW-6, loose pattern). `--record` writes `.prose-lint.json`. Stdlib only |
+| `prose-lint.py` | A script, not a hook: called by `/draft` (without `--record`) and `/edit` (without, then with `--record` last); a gate never runs it; also usable alone | STR-4 headings, STR-6 length vs the brief, FACT-1 numbers with no `[F#]` (heuristic), and for a final SEO-1/2/3, VOI-2/3 from `style.md`, and any marker left in the text (FLOW-6, loose pattern). `--record` writes `.prose-lint.json` with the finding lines. Stdlib only |
 | `verify-final` | Stop | `final.md` written this session but no matching prose-lint run recorded → block once per article, quoting the command with the script's absolute path |
 | `session-context` | SessionStart | At most 30 lines: where each article is and what it waits for; records the session start once. Silent outside a workspace |
 
@@ -132,8 +135,8 @@ says so once and the workflow continues — the local files are canonical (D1). 
 
 | Agent | Tools | Used by |
 |-------|-------|---------|
-| `gate` | Read, Grep, Glob, prose-lint | G0, G2, G3, G4 (non-fact part) |
-| `fact-gate` | Read, Grep, Glob, WebFetch, WebSearch | G1, G4 fact check |
+| `gate` | Read, Grep, Glob | G0, G2, G3 |
+| `fact-gate` | Read, Grep, Glob, WebFetch, WebSearch | G1, G4 |
 
 ## Open questions
 
@@ -141,8 +144,7 @@ says so once and the workflow continues — the local files are canonical (D1). 
    If flat, convert locally to `.docx` and upload that with conversion. Spike in Phase 7.
 2. **Drive tools inside Claude Code.** The claude.ai connectors may not be present in every Claude Code session; the
    adapter design above tolerates that, but it decides whether `/publish` is useful out of the box.
-3. **G4 in parallel.** A forked gate probably cannot spawn subagents, so the parallel fact / voice / SEO checks may
-   have to be fanned out by `/article`, with G4 merging their verdicts. Decide in Phase 5.
+3. ~~G4 in parallel.~~ Resolved in Phase 5 (ADR-010): G4 is one forked gate on `fact-gate`, sequential; ten sources fit its turn budget.
 4. **Keyword data.** There is no SERP or volume tool; the brief supplies the keyword and `/research` reads the current
    top results via WebSearch.
 5. ~~A human's edit before approval.~~ Resolved in Phase 4 (ADR-009): the verdict's sidecar hash ignores the approval lines, so a hand edit makes it stale; a gate rerun saved with Write as the next verdict re-records it.
@@ -157,6 +159,6 @@ says so once and the workflow continues — the local files are canonical (D1). 
 | 2 | `rules/core/CLAUDE.template.md` (rule IDs above), `templates/`: brief, research dossier, outline, style guide | done                                                                                                                                                                                              |
 | 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | done · all three stages ran end to end on one real brief; the outline passed its gate with markers (ADR-008) and a human approved it |
 | 4 | `guard-stage-order`, `record-verdict`, `prose-lint.py`, `verify-final`, `session-context` + hook tests (ADR-009) | built · run in real sessions; draft, edit and final-gate stages are Phase 5 |
-| 5 | `/draft`, `/edit`, `/check-draft`, `/check-final` (resolve open question 3). They carry markers through and refuse sign-off while one remains (FLOW-6, ADR-008) |                                                                                                                                                                                                   |
+| 5 | `/draft`, `/edit`, `/check-draft`, `/check-final` (open question 3 resolved, ADR-010). They carry markers through and the guard refuses sign-off while one remains (FLOW-6, ADR-008) | built · each stage and gate run in a scratch workspace; a real brief not yet run through them |
 | 6 | `/article` orchestrator with the two human checkpoints |                                                                                                                                                                                                   |
 | 7 | `/publish`, `/sync` (resolve open questions 1–2), `/setup`, evals on the test briefs |                                                                                                                                                                                                   |
