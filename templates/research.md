@@ -35,3 +35,4 @@ What the top-ranking articles for the primary keyword already say.
 
 ## Open gaps
 - {{a question the research could not answer, and what that means for the outline; or "none"}}
+- <Can't be verified. Reason: reason sentence here> {{what is needed and where a human could get it}}

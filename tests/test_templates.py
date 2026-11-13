@@ -10,7 +10,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import PLUGIN as ROOT
+from conftest import PLUGIN as ROOT, UNVERIFIED_MARKER
 
 CONSTITUTION = ROOT / 'rules' / 'core' / 'CLAUDE.template.md'
 TEMPLATES = ROOT / 'templates'
@@ -111,3 +111,21 @@ def test_constitution_has_the_edit_after_pass_hygiene_line():
     text = ' '.join(read(CONSTITUTION).split())
     assert 'does not edit an artifact after its gate has passed' in text
     assert 'upstream ones included' in text, 'editing an upstream artifact stales the earlier gate that passed it'
+
+
+def test_outline_template_has_an_open_questions_section():
+    text = read(TEMPLATES / 'outline.md')
+    section = text[text.index('## Open questions for the human'):]
+    assert '{{' in section and 'or "none"' in section, 'the section must ship with a fill-in that allows "none"'
+
+
+def test_research_template_open_gaps_carries_the_marker():
+    text = read(TEMPLATES / 'research.md')
+    assert UNVERIFIED_MARKER.search(text[text.index('## Open gaps'):]), 'Open gaps must show the marker form'
+
+
+def test_constitution_flow_6_blocks_publication_while_a_marker_remains():
+    text = ' '.join(read(CONSTITUTION).split())
+    flow_6 = re.search(r'\*\*FLOW-6\*\*(.*?)(?= - \*\*|## )', text).group(1)
+    assert re.search(r"Can.t be verified", flow_6), 'FLOW-6 must name the marker, loosely (any apostrophe)'
+    assert 'publish-ready' in flow_6

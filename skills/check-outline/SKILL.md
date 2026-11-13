@@ -21,7 +21,7 @@ does not count. `background: false` makes the caller wait for the verdict.
 
 Name the file on line 2 of your output (`Artifact:`, as a path relative to the workspace). If there is none, the
 verdict is
-`## G2 outline gate: BLOCK (1 blocking, 0 advisory)` with `Artifact: none` and one finding whose fix is "run the outline stage first".
+`## G2 outline gate: BLOCK (1 blocking, 0 advisory)` with `Artifact: none` and one finding whose fix is "run the outline stage first". In that case line 3 is `Markers: n/a`.
 
 ## Inputs
 `outline.md`; `brief.md` (goal, CTA, keyword, target length, must avoid); `research.md` (the fact bank, for the IDs).
@@ -33,12 +33,14 @@ rule ID, the offending row and the concrete fix.
 
 ## Verdict format
 
-Line 1 is the heading and nothing comes before it; line 2 is `Artifact:`. A PASS has `0 blocking`; a BLOCK has at
+Line 1 is the heading and nothing comes before it; line 2 is `Artifact:`; line 3 is `Markers: <n>`, counted as the checklist says (people only, no parser reads it). A PASS has `0 blocking`; a BLOCK has at
 least one. Both forms below are literal examples.
 
 ```markdown
 ## G2 outline gate: PASS (0 blocking, 1 advisory)
 Artifact: articles/<slug>/outline.md
+Markers: 2
+
 
 ### Advisory
 1. [STR-2] The "Common mistakes" section has a weak purpose line. Fix: say which part of the goal it serves.
@@ -50,13 +52,15 @@ Artifact: articles/<slug>/outline.md
 ```markdown
 ## G2 outline gate: BLOCK (1 blocking, 0 advisory)
 Artifact: articles/<slug>/outline.md
+Markers: 0
+
 
 ### Blocking
 1. [FACT-1] The "Reading %DV" row says "most people exceed the limit" and its Fact IDs cell is empty. Fix: cite a fact ID from the bank, or remove the claim.
 ```
 
 A BLOCK is actionable: every item names the fix. Never pad with advisory findings. Do not write any file; the caller
-saves the verdict. You do not judge the `Approved-by:` line: it is a human's, and no rule here covers it.
+saves the verdict. You do not judge the `Approved-by:` line: it is a human's, and no rule here covers it. A marker is not a BLOCK, so it never counts toward the two-BLOCK stop (FLOW-3) and the flow goes on; the human may approve an outline that still has markers, and a final article is not signed off while one remains (FLOW-6).
 
 ## Definition of done
 - [ ] The outline resolved and named on the `Artifact:` line

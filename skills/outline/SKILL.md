@@ -38,6 +38,11 @@ Read `brief.md`, `research.md` and the template `${CLAUDE_PLUGIN_ROOT}/templates
 - **Keyword map:** the primary keyword in a title, in the first 100 words and in at least one H2; secondary keywords.
 - **Links:** internal links only from the style guide's list; external links only to sources in the fact bank.
 - **Call to action:** how the close delivers the brief's one CTA.
+- Where no fact in the bank supports a cell or a claim, the marker `<Can't be verified. Reason: reason sentence here>` replaces the claim and the
+  section stays. The reason says why it could not be verified and what a human would need, never the claim itself, and holds
+  no `<`, `>` or `|`. A claim written beside a marker or inside its reason is still a claim. Do not mark a point the bank
+  supports: cite the fact ID. Collect the markers in an "Open questions for the human" section: every marker in a cell appears
+  in that section and nothing else does. Your report lists every marker and the count.
 - Nothing in the brief's "must avoid" appears. Every "must include" does. Leave no `{{placeholder}}`.
 - Leave `Approved-by:` exactly as the template ships it: empty.
 
@@ -79,6 +84,7 @@ one thing a human writes after a PASS; it does not change what the verdict cover
 
 ## Definition of done
 - [ ] `outline.md` exists, no `{{` left, and `Approved-by:` is still empty
+- [ ] Every marker in a cell is in "Open questions for the human" and nothing else is; each is in the exact form
 - [ ] Every fact ID cited exists in the research bank; the word budgets sum within 10% of the target
 - [ ] The gate ran in a fork and its verdict is saved as `G2-outline.r<k>.md` with a valid first line
 - [ ] On a second BLOCK the run stopped and named the verdict files

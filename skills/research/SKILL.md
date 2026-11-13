@@ -43,7 +43,10 @@ read it for the age limit on statistics and any source preferences; if not, say 
    misses. Then write the gap this article fills in one or two sentences. A statistic or named claim in this prose
    cites a fact ID.
 6. Every question must be answered by listed fact IDs, or sit under Open gaps with what that means for the outline
-   (FACT-6). Never fill a gap with an unsourced claim.
+   (FACT-6). Whatever you cannot find or prove is not a fact row. Put it under Open gaps with the marker
+   `<Can't be verified. Reason: reason sentence here>`, what is needed and where a human could get it. The reason says why it could not be verified and
+   what a human would need, never the claim itself, and holds no `<`, `>` or `|`. You never invent a claim or soften one to
+   fit; a marker lets the flow go on without one.
 7. Leave no `{{placeholder}}`.
 
 Write the result to `articles/<slug>/research.md`.
@@ -59,7 +62,7 @@ Write the result to `articles/<slug>/research.md`.
 ## Step 5 — On BLOCK
 
 Fix only what the findings name, in `research.md`: re-fetch and correct the quote, replace a dead source, or drop the
-row. A row you cannot repair is removed, and its question moves to Open gaps. Then repeat Step 4. After the second
+row. A row you cannot repair is removed, and its question moves to Open gaps with the marker. Then repeat Step 4. After the second
 BLOCK on disk, stop as in Step 2.
 
 ## Step 6 — On PASS
