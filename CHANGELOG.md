@@ -8,6 +8,10 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- Where research cannot find or prove something, the stages leave a marker `<Can't be verified. Reason: reason sentence here>`
+  instead of stopping the flow (ADR-008). The outline gate treats a marker as not a claim, blocks an inexact one or a
+  claim beside it, and prints `Markers: <n>` on line 3. FLOW-6: no final is publish-ready while a marker remains.
+
 - After a PASS the stage never edits its artifact: a change means rerunning the stage, and the rebuild is gated again
   (ADR-007). The brief stage carries earlier answers forward; the outline stage keeps the outline it replaces as
   `outline.prev.<n>.md` and clears the approval. One hygiene line in the constitution template asks the same of any agent.

@@ -6,7 +6,7 @@ find or prove something, leave a marker for a human and keep going; do not stop 
 in for a ticket ID. Branch `fix/human-check-marker` off `main` (PR #5 merged).
 
 <!-- A human writes this line to approve. Until it is here, guard-plan-approval blocks writes to code. -->
-Approved-by:
+Approved-by: Volodymyr - 2026-11-13
 
 Pattern followed: the Open gaps convention in `skills/research/SKILL.md` and the `Not checked` convention in the gate
 skills; a new decision is recorded as ADR-008. It reopens no ADR: it applies FACT-1 at G2 to a marker and extends FLOW-6, and it relies on ADR-004's FLOW-3 count staying unchanged (a marker is not a BLOCK).
