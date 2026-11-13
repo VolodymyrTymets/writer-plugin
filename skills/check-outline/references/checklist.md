@@ -16,7 +16,19 @@ STR-5, SEO-1, FACT-1. Blocking means the draft would be built on it wrongly; wor
 - A fact ID that exists but does not support the key point it is attached to is a FACT-1 finding. Read the bank row.
 - A section with no facts is fine when its key points are structure or advice and carry no checkable claim.
 
+## The marker
+A marker is `<Can't be verified. Reason: reason sentence here>`. It stands in for a claim the research could not support.
+- FACT-1 does not apply to a marker: it replaces a claim, it is not one.
+- A claim written beside a marker or inside its reason still blocks (FACT-1): the reason says why it could not be verified,
+  never what the claim is.
+- A marker not in the exact form (ASCII apostrophe; a non-empty one-line reason with no `<`, `>` or `|`) is a blocking
+  FACT-1 finding with the fix "rewrite it in the exact form". It is not counted.
+- A marker on a point the bank supports is a FACT-1 finding; the fix is "cite the fact ID instead".
+- Line 3 of your verdict is `Markers: <n>`: the exact-form markers in `outline.md` outside the "Open questions for the human"
+  section (that section only collects them, so counting it would count each twice). Count it the same way every run.
+
 ## Do not
+
 - Judge the voice, the title's appeal or the draft prose; there is no draft yet.
 - Judge the `Approved-by:` line.
 

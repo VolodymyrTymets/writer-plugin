@@ -81,6 +81,7 @@ gate. An actor never edits an earlier stage's artifact; if it finds a problem up
   twelve stylistic ones. The caller saves the verdict to `gates/`.
 - A BLOCK sends the work back to the same actor. **Two BLOCKs on the same artifact stop the run** (counted from the verdict files on disk, so a rerun cannot skip it; a human resumes by archiving that gate's verdicts; ADR-004) and hand it to the
   human (FLOW-3).
+- Where research cannot find or prove something, a marker `<Can't be verified. Reason: …>` stands in for the claim and the flow goes on; a marker is not a BLOCK (ADR-008).
 - A verdict covers the artifact as the gate saw it. After a PASS the actor never edits it: a change means changing the stage's
   written input and rerunning, with a new verdict (ADR-007). The human approval line is the only post-PASS write.
 
@@ -96,7 +97,7 @@ reading level) lives in the workspace's `.claude/rules/style.md`, written by `/s
 | STR | Structure | STR-1 the promise is stated in the first 100 words · STR-2 every section traces to the brief's goal · STR-3 section budgets sum to the target ±10% · STR-4 one H1, no skipped heading levels · STR-5 the close delivers the CTA |
 | VOI | Voice | VOI-1 voice per style guide · VOI-2 banned phrases · VOI-3 AI tells · VOI-4 reading-level target · VOI-5 no filler or stacked hedges |
 | SEO | Search | SEO-1 keyword in title, first 100 words and at least one H2 · SEO-2 title ≤ 60 chars · SEO-3 meta description 120–155 chars · SEO-4 matches the search intent in the brief · SEO-5 internal links from the style guide, external links to sources |
-| FLOW | Workflow | FLOW-1 a stage starts only after the previous gate's PASS is on disk · FLOW-2 no draft unless `Approved-by:` in the outline has a non-empty value · FLOW-3 two BLOCKs → human · FLOW-4 gates never edit · FLOW-5 fix the artifact, never the style guide · FLOW-6 no `final` Doc is labelled publish-ready without `Signed-off-by:` |
+| FLOW | Workflow | FLOW-1 a stage starts only after the previous gate's PASS is on disk · FLOW-2 no draft unless `Approved-by:` in the outline has a non-empty value · FLOW-3 two BLOCKs → human · FLOW-4 gates never edit · FLOW-5 fix the artifact, never the style guide · FLOW-6 no `final` Doc is labelled publish-ready without `Signed-off-by:`, and none while a `<Can't be verified. Reason: …>` marker remains |
 | PLG | This plugin | PLG-1 no client-specific knowledge enters the plugin repo |
 
 ## Mechanical enforcement (hooks)
@@ -148,13 +149,13 @@ says so once and the workflow continues — the local files are canonical (D1). 
 
 ## Build plan
 
-| Phase | Scope | Status |
-|-------|-------|--------|
-| 0 | Decisions D1–D4; 2–3 real briefs to test with | decisions done · **briefs needed** |
-| 1 | Repo skeleton: manifest, marketplace, `CLAUDE.md`, README, CONTRIBUTING, this design, structure test | done |
-| 2 | `rules/core/CLAUDE.template.md` (rule IDs above), `templates/`: brief, research dossier, outline, style guide | done |
-| 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | built · brief and research stages run on one real brief (see PR); outline stage not yet run on it |
-| 4 | `guard-stage-order`, `prose-lint.py`, `verify-final`, `session-context` + hook tests | |
-| 5 | `/draft`, `/edit`, `/check-draft`, `/check-final` (resolve open question 3) | |
-| 6 | `/article` orchestrator with the two human checkpoints | |
-| 7 | `/publish`, `/sync` (resolve open questions 1–2), `/setup`, evals on the test briefs | |
+| Phase | Scope | Status                                                                                                                                                                                            |
+|-------|-------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| 0 | Decisions D1–D4; 2–3 real briefs to test with | decisions done · **briefs needed**                                                                                                                                                                |
+| 1 | Repo skeleton: manifest, marketplace, `CLAUDE.md`, README, CONTRIBUTING, this design, structure test | done                                                                                                                                                                                              |
+| 2 | `rules/core/CLAUDE.template.md` (rule IDs above), `templates/`: brief, research dossier, outline, style guide | done                                                                                                                                                                                              |
+| 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | built · all three stages run end to end on one real brief: outline gate PASS with markers for what research could not support (ADR-008), awaiting a human's `Approved-by: Volosymyr - 2026-11-13` |
+| 4 | `guard-stage-order`, `prose-lint.py`, `verify-final`, `session-context` + hook tests. `prose-lint` flags any marker left in `final.md`, with the loose pattern `<Can.t be verified` (ADR-008) |                                                                                                                                                                                                   |
+| 5 | `/draft`, `/edit`, `/check-draft`, `/check-final` (resolve open question 3). They carry markers through and refuse sign-off while one remains (FLOW-6, ADR-008) |                                                                                                                                                                                                   |
+| 6 | `/article` orchestrator with the two human checkpoints |                                                                                                                                                                                                   |
+| 7 | `/publish`, `/sync` (resolve open questions 1–2), `/setup`, evals on the test briefs |                                                                                                                                                                                                   |

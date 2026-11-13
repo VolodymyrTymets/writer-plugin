@@ -35,3 +35,6 @@ Word budgets sum to the brief's target length, plus or minus 10% (STR-3).
 
 ## Call to action
 {{how the close delivers the brief's CTA}}
+
+## Open questions for the human
+- {{each marker from the cells above, with what a human would need; or "none"}}

@@ -9,7 +9,7 @@ from pathlib import Path
 
 import pytest
 
-from conftest import PLUGIN as ROOT
+from conftest import PLUGIN as ROOT, UNVERIFIED_MARKER
 
 
 def tools_of(agent: str) -> set:
@@ -227,3 +227,76 @@ def test_outline_stage_backs_up_the_outline_it_replaces_and_clears_the_approval(
     assert 'whatever its `Approved-by:` value' in text
     assert 'needs a new approval' in text
     assert 'changes direction if needed' in text, 'Step 6 must still let the human change direction before approving'
+
+
+# ---------------- the "can't be verified" marker (ADR-008) ----------------
+MARKER_EXAMPLE = "<Can't be verified. Reason: the vendor's pricing page blocked the fetch.>"
+
+
+def test_unverified_marker_regex_accepts_the_template():
+    assert UNVERIFIED_MARKER.fullmatch(MARKER_EXAMPLE)
+
+
+@pytest.mark.parametrize('variant', [
+    "<Can\u2019t be verified. Reason: a curly apostrophe.>",
+    "<Can't be verified. Reason: >",
+    "<Can't be verified. Reason:    >",
+    "<Can't be verified. Reason: first line\nsecond line>",
+    "<Can't be verified. Reason: a <b> tag inside>",
+    "<Can't be verified. Reason: a pipe | inside>",
+    "<Cannot be verified. Reason: other wording.>",
+    "<Can't be verified: no reason label>",
+    "<Need human check/decision>",
+], ids=['curly-apostrophe', 'empty-reason', 'spaces-only', 'multi-line', 'angle-in-reason', 'pipe-in-reason',
+        'other-wording', 'no-reason-label', 'old-form'])
+def test_unverified_marker_regex_rejects_variants(variant):
+    assert not UNVERIFIED_MARKER.fullmatch(variant)
+
+
+@pytest.mark.parametrize('d', ['research', 'outline'])
+def test_stage_carries_the_exact_marker_form(d):
+    assert "<Can't be verified. Reason:" in skill_text(d)
+
+
+def test_research_stage_marks_what_it_cannot_prove_and_never_invents():
+    text = flat('research')
+    assert 'is not a fact row' in text and 'Open gaps' in text
+    assert 'never invent' in text.lower()
+
+
+def test_outline_stage_replaces_the_claim_with_the_marker_and_collects_them():
+    text = flat('outline')
+    assert 'replaces the claim' in text
+    assert 'Open questions for the human' in text
+    assert 'every marker in a cell appears in that section and nothing else does' in text
+
+
+def test_outline_stage_writes_only_the_marker_and_a_neutral_label_in_a_marked_cell():
+    text = flat('outline')
+    assert 'write only the marker and a neutral label' in text
+    assert 'do not list what the claim would have said' in text
+
+
+def test_outline_stage_does_not_treat_open_gaps_or_its_own_knowledge_as_a_source():
+    text = flat('outline')
+    assert 'Open gaps, the brief and your own knowledge are not sources' in text
+    assert 'a statement about a vendor, a price, a plan or a page that has no fact ID is a marker' in text
+
+
+def test_g2_treats_a_marker_as_not_a_claim():
+    text = checklist_text('check-outline')
+    assert 'FACT-1 does not apply to a marker' in text
+    assert 'beside a marker or inside its reason' in text
+    assert 'not in the exact form' in text and 'is not counted' in text
+    assert 'on a point the bank supports' in text and 'cite the fact ID instead' in text
+
+
+def test_g2_prints_a_markers_line():
+    gate = skill_text('check-outline')
+    lines = gate.split('\n')
+    heads = [i for i, l in enumerate(lines) if l.startswith('## G2 outline gate')]
+    assert heads
+    for i in heads:
+        assert re.fullmatch(r'Markers: \d+', lines[i + 2]), f'line 3 of an example must be Markers: {lines[i + 2]!r}'
+    assert 'Markers: n/a' in gate
+    assert 'outside the "Open questions for the human" section' in checklist_text('check-outline')

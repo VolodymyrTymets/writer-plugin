@@ -60,7 +60,8 @@ Style guide for this workspace: `{{STYLE_GUIDE_PATH}}`. Every gate cites a rule 
 - **FLOW-3** Two `BLOCK` verdicts on the same artifact stop the run and hand it to the human.
 - **FLOW-4** Gates never edit. The caller saves the verdict to `gates/`.
 - **FLOW-5** Fix the artifact, never the style guide, to make a gate pass.
-- **FLOW-6** No `final` Doc is labelled publish-ready without `Signed-off-by:` in `final.md`.
+- **FLOW-6** No `final` Doc is labelled publish-ready without `Signed-off-by:` in `final.md`, and none while a
+  `<Can't be verified. Reason: …>` marker remains in `final.md`.
 
 ## PLG — this plugin
 
