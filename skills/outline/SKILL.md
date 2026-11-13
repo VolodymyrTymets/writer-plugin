@@ -40,7 +40,10 @@ Read `brief.md`, `research.md` and the template `${CLAUDE_PLUGIN_ROOT}/templates
 - **Call to action:** how the close delivers the brief's one CTA.
 - Where no fact in the bank supports a cell or a claim, the marker `<Can't be verified. Reason: reason sentence here>` replaces the claim and the
   section stays. The reason says why it could not be verified and what a human would need, never the claim itself, and holds
-  no `<`, `>` or `|`. A claim written beside a marker or inside its reason is still a claim. Do not mark a point the bank
+  no `<`, `>` or `|`. In a cell with a marker, write only the marker and a neutral label (the topic's name) and do not list what the
+  claim would have said: anything beside the marker or inside its reason that states the claim is still a claim. Open
+  gaps, the brief and your own knowledge are not sources: a statement about a vendor, a price, a plan or a page that has
+  no fact ID is a marker, even if `research.md` mentions it in prose. Do not mark a point the bank
   supports: cite the fact ID. Collect the markers in an "Open questions for the human" section: every marker in a cell appears
   in that section and nothing else does. Your report lists every marker and the count.
 - Nothing in the brief's "must avoid" appears. Every "must include" does. Leave no `{{placeholder}}`.

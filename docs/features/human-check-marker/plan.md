@@ -73,7 +73,7 @@ the outline stage unwinnable: no fact existed to cite, so each rerun blocked on 
 - executed how: full pytest and `claude plugin validate ./`.
 
 ## Docs to update in this PR
-- [ ] ADR-008 · DESIGN.md (FLOW-6 cell, §Gates, Phase 4 and 5 rows) · constitution FLOW-6 · DOMAIN_GLOSSARY.md · CHANGELOG.md
+- [x] ADR-008 · DESIGN.md (FLOW-6 cell, §Gates, Phase 4 and 5 rows) · constitution FLOW-6 · DOMAIN_GLOSSARY.md · CHANGELOG.md
 
 ## Risks
 | Risk | Impact | Cheapest way to find out early |

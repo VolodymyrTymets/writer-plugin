@@ -271,6 +271,18 @@ def test_outline_stage_replaces_the_claim_with_the_marker_and_collects_them():
     assert 'every marker in a cell appears in that section and nothing else does' in text
 
 
+def test_outline_stage_writes_only_the_marker_and_a_neutral_label_in_a_marked_cell():
+    text = flat('outline')
+    assert 'write only the marker and a neutral label' in text
+    assert 'do not list what the claim would have said' in text
+
+
+def test_outline_stage_does_not_treat_open_gaps_or_its_own_knowledge_as_a_source():
+    text = flat('outline')
+    assert 'Open gaps, the brief and your own knowledge are not sources' in text
+    assert 'a statement about a vendor, a price, a plan or a page that has no fact ID is a marker' in text
+
+
 def test_g2_treats_a_marker_as_not_a_claim():
     text = checklist_text('check-outline')
     assert 'FACT-1 does not apply to a marker' in text
