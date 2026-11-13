@@ -363,3 +363,152 @@ def test_hooks_json_registers_the_guard_and_the_recorder_on_the_tools_that_exist
     assert pre and post_
     assert pre[0]['matcher'] == 'Edit|Write|Bash', 'MultiEdit does not exist in this build; mcp tools are not parsed (ADR-009)'
     assert post_[0]['matcher'] == 'Write'
+
+
+# ---------------- session-context (SessionStart) ----------------
+def session(root, state_dir, session_id='s1', source='startup'):
+    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(root), WRITER_PLUGIN_STATE_DIR=str(state_dir))
+    payload = json.dumps({'hook_event_name': 'SessionStart', 'session_id': session_id, 'source': source, 'cwd': str(root)})
+    r = subprocess.run([sys.executable, str(BIN / 'session-context.py')], input=payload, capture_output=True, text=True, env=env, cwd=str(root))
+    return Result(r.returncode, r.stdout, r.stderr)
+
+
+def state_file(state_dir, session_id='s1'):
+    return Path(state_dir) / f'{session_id}.json'
+
+
+def test_session_context_is_silent_outside_a_writer_workspace(tmp_path):
+    r = session(tmp_path, tmp_path / 'state')
+    assert r.code == 0 and r.out == ''
+
+
+def test_session_context_lists_each_article_with_its_stage_and_what_it_waits_for(ws, tmp_path):
+    ws.chain('outline')
+    ws.verdict('outline', 1, PASS['outline'], sidecar=True)
+    other = Workspace(ws.root, slug='second')
+    r = session(ws.root, tmp_path / 'state')
+    assert r.code == 0 and r.out.startswith('## Writer workspace')
+    assert 'demo' in r.out and 'second' in r.out and len(r.out.strip().split('\n')) <= 30
+
+
+@pytest.mark.parametrize('setup,expect', [
+    ('nothing', 'G0'),
+    ('outline-pass-unapproved', 'Approved-by'),
+    ('outline-pass-approved', 'G3-draft'),
+    ('approved-no-draft', 'draft stage'),
+    ('stopped', 'STOPPED'),
+    ('block', 'BLOCK'),
+    ('stale', 'stale'),
+    ('markers', '2 marker'),
+], ids=['no-verdict', 'waiting-for-approval', 'approved', 'approved-no-draft', 'stopped', 'block', 'stale', 'markers'])
+def test_session_context_says_what_each_article_is_waiting_for(ws, tmp_path, setup, expect):
+    if setup == 'nothing':
+        pass
+    elif setup in ('outline-pass-unapproved', 'outline-pass-approved', 'approved-no-draft', 'markers'):
+        ws.chain('outline')
+        ws.verdict('outline', 1, PASS['outline'], sidecar=True)
+        if setup in ('outline-pass-approved', 'approved-no-draft'):
+            ws.approve()
+        if setup == 'approved-no-draft':
+            (ws.art / 'draft.md').unlink()
+            (ws.art / 'final.md').unlink()
+        if setup == 'markers':
+            (ws.art / 'outline.md').write_text(OUTLINE.format(approval='') + "<Can't be verified. Reason: a.>\n<Can't be verified. Reason: b.>\n")
+            ws.verdict('outline', 2, PASS['outline'], sidecar=True)
+    elif setup == 'stopped':
+        ws.chain('outline')
+        ws.verdict('outline', 1, BLOCK['outline'])
+        ws.verdict('outline', 2, BLOCK['outline'])
+    elif setup == 'block':
+        ws.chain('outline')
+        ws.verdict('outline', 1, BLOCK['outline'])
+    elif setup == 'stale':
+        ws.chain('outline')
+        ws.verdict('brief', 2, PASS['brief'], sidecar=True)
+    assert expect in session(ws.root, tmp_path / 'state').out
+
+
+def test_session_context_caps_its_output_at_30_lines(tmp_path):
+    for i in range(40):
+        Workspace(tmp_path, slug=f'article-{i:02d}')
+    out = session(tmp_path, tmp_path / 'state').out.strip().split('\n')
+    assert len(out) <= 30 and 'more' in out[-1]
+
+
+def test_the_session_start_is_recorded_once_and_not_moved_by_a_resume(ws, tmp_path):
+    state = tmp_path / 'state'
+    session(ws.root, state)
+    first = json.loads(state_file(state).read_text())['started']
+    session(ws.root, state, source='resume')
+    assert json.loads(state_file(state).read_text())['started'] == first
+
+
+# ---------------- verify-final (Stop) ----------------
+def stop(root, state_dir, session_id='s1', active=False):
+    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(root), WRITER_PLUGIN_STATE_DIR=str(state_dir))
+    payload = json.dumps({'hook_event_name': 'Stop', 'session_id': session_id, 'stop_hook_active': active, 'cwd': str(root)})
+    r = subprocess.run([sys.executable, str(BIN / 'verify-final.py')], input=payload, capture_output=True, text=True, env=env, cwd=str(root))
+    return Result(r.returncode, r.stdout, r.stderr)
+
+
+def started(state_dir, when, session_id='s1'):
+    Path(state_dir).mkdir(parents=True, exist_ok=True)
+    state_file(state_dir, session_id).write_text(json.dumps({'started': when, 'blocked': []}))
+
+
+def test_a_final_written_this_session_without_a_lint_record_blocks_once_and_quotes_the_command(ws, tmp_path):
+    state = tmp_path / 'state'
+    started(state, 0)
+    (ws.art / 'final.md').write_text('# Final\n\nbody\n')
+    first = stop(ws.root, state)
+    assert first.code == 2 and 'prose-lint.py' in first.err and '--record' in first.err and 'articles/demo/final.md' in first.err
+    script = [t for t in first.err.replace('"', ' ').split() if t.endswith('prose-lint.py')][0]
+    assert os.path.exists(script), 'the quoted path must exist: bin/ is not in a workspace (ADR-005)'
+    assert stop(ws.root, state).code == 0, 'blocked once per article and session, not twice'
+
+
+def test_stop_hook_active_never_blocks(ws, tmp_path):
+    started(tmp_path / 'state', 0)
+    (ws.art / 'final.md').write_text('# Final\n')
+    assert stop(ws.root, tmp_path / 'state', active=True).code == 0
+
+
+def test_a_clean_lint_record_lets_the_session_stop(ws, tmp_path):
+    started(tmp_path / 'state', 0)
+    text = '# Final\n\nbody\n'
+    (ws.art / 'final.md').write_text(text)
+    (ws.art / '.prose-lint.json').write_text(json.dumps({'file': 'final.md', 'sha256': writer.text_hash(text), 'findings': 3, 'at': 'x'}))
+    assert stop(ws.root, tmp_path / 'state').code == 0     # a run is what is required, not zero findings
+
+
+def test_a_sign_off_only_change_does_not_ask_for_another_lint_run(ws, tmp_path):
+    started(tmp_path / 'state', 0)
+    text = '# Final\n\nbody\n'
+    (ws.art / '.prose-lint.json').write_text(json.dumps({'file': 'final.md', 'sha256': writer.text_hash(text), 'findings': 0, 'at': 'x'}))
+    (ws.art / 'final.md').write_text(text + '\nSigned-off-by: Test Human\n')
+    assert stop(ws.root, tmp_path / 'state').code == 0
+
+
+def test_an_edit_after_the_lint_run_asks_for_another(ws, tmp_path):
+    started(tmp_path / 'state', 0)
+    (ws.art / '.prose-lint.json').write_text(json.dumps({'file': 'final.md', 'sha256': writer.text_hash('# Final\n'), 'findings': 0, 'at': 'x'}))
+    (ws.art / 'final.md').write_text('# Final\n\nedited after the run\n')
+    assert stop(ws.root, tmp_path / 'state').code == 2
+
+
+def test_a_final_not_touched_this_session_is_ignored(ws, tmp_path):
+    (ws.art / 'final.md').write_text('# Final\n')
+    os.utime(ws.art / 'final.md', (1, 1))
+    started(tmp_path / 'state', 1000)
+    assert stop(ws.root, tmp_path / 'state').code == 0
+
+
+def test_verify_final_is_silent_outside_a_writer_workspace(tmp_path):
+    assert stop(tmp_path, tmp_path / 'state').code == 0
+
+
+def test_hooks_json_registers_the_session_and_stop_hooks():
+    hooks = json.loads((PLUGIN / 'hooks' / 'hooks.json').read_text())['hooks']
+    ss = [g for g in hooks['SessionStart'] if any('session-context' in h['command'] for h in g['hooks'])]
+    sp = [g for g in hooks['Stop'] if any('verify-final' in h['command'] for h in g['hooks'])]
+    assert ss and sp and ss[0]['matcher'] == 'startup|resume|clear|compact'

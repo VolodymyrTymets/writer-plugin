@@ -12,6 +12,7 @@ import os
 import re
 import shlex
 import sys
+import tempfile
 from typing import Callable, Dict, List, Optional, Tuple
 
 for _stream in (sys.stdin, sys.stdout, sys.stderr):
@@ -272,3 +273,79 @@ def bash_targets(command: str) -> List[Tuple[str, str]]:
             elif prog in ('sed', 'perl') and any(t.startswith('-i') for t in tokens[1:]):
                 targets.extend(('write', a) for a in args[1:])
     return targets
+
+
+# ---------------- session state (a temp file keyed by session id, never inside the workspace) ----------------
+MARKER_LOOSE = re.compile(r'<Can.t be verified')
+
+
+def state_path(session_id: str) -> str:
+    base = os.environ.get('WRITER_PLUGIN_STATE_DIR') or os.path.join(tempfile.gettempdir(), 'writer-plugin')
+    return os.path.join(base, re.sub(r'[^\w.-]', '_', str(session_id or 'unknown')) + '.json')
+
+
+def load_state(session_id: str) -> dict:
+    try:
+        with open(state_path(session_id), encoding='utf-8') as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else {}
+    except (OSError, ValueError):
+        return {}
+
+
+def save_state(session_id: str, data: dict) -> None:
+    path = state_path(session_id)
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8') as fh:
+        json.dump(data, fh)
+
+
+def article_slugs(root: str) -> List[str]:
+    d = os.path.join(root, 'articles')
+    try:
+        return sorted(n for n in os.listdir(d) if os.path.isdir(os.path.join(d, n)) and not n.startswith('.'))
+    except OSError:
+        return []
+
+
+def read_text(path: str) -> str:
+    try:
+        with open(path, encoding='utf-8') as fh:
+            return fh.read()
+    except OSError:
+        return ''
+
+
+def describe_article(root: str, slug: str) -> str:
+    """One line: where an article is and what it waits for. Read from the files and the verdicts, never from memory."""
+    art = article_dir(root, slug)
+    current, last_pass = None, None
+    for stage in STAGES:
+        gate = gate_name(stage)
+        if not os.path.exists(os.path.join(art, f'{stage}.md')):
+            current = 'no brief.md yet: start with the brief stage' if stage == 'brief' else f'{last_pass} passed; next: the {stage} stage'
+            break
+        name = latest(root, slug, stage)
+        if not name:
+            current = f'{stage}.md written, {gate} not run'
+            break
+        if not is_pass(os.path.join(art, 'gates', name)):
+            current = (f'{gate} STOPPED (FLOW-3): two BLOCK verdicts, a human archives them to resume' if block_count(root, slug, stage) >= 2
+                       else f'{gate} BLOCK ({name}): the {stage} stage fixes it and reruns')
+            break
+        last_pass = stage
+        if stage == 'outline' and not APPROVED.search(read_text(os.path.join(art, 'outline.md'))):
+            current = "outline passed G2, waiting for a human's Approved-by"
+            break
+        if stage == 'final':
+            signed = re.search(r'^[^\S\n]*Signed-off-by:[^\S\n]*\S+', read_text(os.path.join(art, 'final.md')), re.M)
+            current = 'final passed G4 and is signed off' if signed else "final passed G4, waiting for a human's Signed-off-by"
+    parts = [current or 'done']
+    if last_pass:
+        why = check_gate(root, slug, last_pass)
+        if why:
+            parts.append(f'STALE: {why}'[:130])
+    n = len(MARKER_LOOSE.findall(read_text(os.path.join(art, 'outline.md'))))
+    if n:
+        parts.append(f'{n} marker{"s" if n != 1 else ""} to resolve')
+    return ' · '.join(parts)
