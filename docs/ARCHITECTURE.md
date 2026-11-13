@@ -9,7 +9,7 @@
 | `.claude-plugin/` | `plugin.json` (name, version), `marketplace.json` (marketplace `writer`, `source: "./"`) | yes |
 | `skills/` | flat: `skills/<dir>/SKILL.md` plus `references/`. Built: the brief, research and outline stages and gates G0 to G2 | yes |
 | `agents/` | write-free gate agents `gate` and `fact-gate` | yes |
-| `hooks/hooks.json`, `bin/` | hooks and prose-lint, stdlib-only Python 3.9+. `hooks.json` is empty today | yes |
+| `hooks/hooks.json`, `bin/` | `guard-stage-order`, `record-verdict`, `verify-final`, `session-context` (hooks) and `prose-lint.py` (a script), with a shared `bin/lib/writer.py`; stdlib-only Python 3.9+ | yes |
 | `rules/core/`, `templates/` | `rules/core/CLAUDE.template.md` (editorial constitution) is an inert library the setup skill will copy into a content workspace. `templates/` (brief, research, outline, style) is read at run time by the stage skills via `${CLAUDE_PLUGIN_ROOT}` (ADR-005) | no (not auto-loaded); read by skills |
 | `tests/` | pytest structure guard (`test_structure.py`), shape guard for the library (`test_templates.py`), skill and verdict contracts (`test_skills.py`), `conftest.py` | no |
 | `docs/` | `DESIGN.md`, this file, glossary, business model, `decisions/` | no |
@@ -25,6 +25,7 @@
 |----------|--------|-----------------|------------------|
 | Plugin manifest | JSON | `.claude-plugin/plugin.json` | none |
 | Skill command name | frontmatter `name:` | `COMMANDS` in `tests/test_structure.py` | none |
+| Verdict sidecar | JSON `{artifact_sha256, upstream}` beside each verdict | written only by the `record-verdict` hook (ADR-009) | `gates/G<n>-<stage>.r<k>.json` |
 | Gate verdict | `PASS` or `BLOCK` with rule IDs; line 1 is a fixed pattern (ADR-004) | gate skill checklists | saved by the actor in the workspace `gates/G<n>-<stage>.r<k>.md` |
 
 Nothing in this repo is generated.

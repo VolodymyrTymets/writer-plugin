@@ -300,3 +300,16 @@ def test_g2_prints_a_markers_line():
         assert re.fullmatch(r'Markers: \d+', lines[i + 2]), f'line 3 of an example must be Markers: {lines[i + 2]!r}'
     assert 'Markers: n/a' in gate
     assert 'outside the "Open questions for the human" section' in checklist_text('check-outline')
+
+
+# ---------------- verdicts are saved with the Write tool; a hand edit is re-gated (ADR-009) ----------------
+@pytest.mark.parametrize('d', ACTORS)
+def test_stage_skills_save_the_verdict_with_the_write_tool(d):
+    assert 'with the Write tool' in flat(d), 'a Bash save of a verdict is blocked by the guard, so the skill must name the Write tool'
+
+
+def test_outline_step_6_says_how_to_re_gate_a_hand_edit():
+    text = flat('outline')
+    assert 'the verdict no longer covers it' in text
+    assert 'saved with the Write tool as the next verdict' in text
+    assert 'a BLOCK counts toward FLOW-3' in text

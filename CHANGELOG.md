@@ -21,6 +21,9 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - G1 prints `Coverage: <a> answered, <o> open (of <m>)` on line 3 of its verdict.
 
 ### Added
+- Phase 4 hooks (ADR-009): `guard-stage-order` (FLOW-1 to FLOW-4, stale and hand-edited verdicts), `record-verdict` (the sidecar),
+  `verify-final` and `session-context`; the `prose-lint.py` script; rule STR-6 (article length within the brief's target); the
+  `final.md` front matter. A verdict is now saved with the Write tool.
 - ADR-006 (live vendor pages in the fact bank).
 - Phase 3 vertical slice: the brief, research and outline stages, gates G0 to G2 (`/check-brief`, `/check-research`,
   `/check-outline`), and the `gate` and `fact-gate` agents. Verdict files have a fixed first line (ADR-004); the stage

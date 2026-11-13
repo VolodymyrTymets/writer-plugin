@@ -57,7 +57,7 @@ Write the result to `articles/<slug>/research.md`.
 2. Check that line 1 matches
    `^## G1 research gate: (PASS \(0 blocking|BLOCK \([1-9][0-9]* blocking), [0-9]+ advisory\)$`. If it does not, treat
    it as **no PASS**, save nothing, tell the user what came back, and stop.
-3. Save the verdict unchanged to `articles/<slug>/gates/G1-research.r<k>.md`, `k` being 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict.
+3. Save the verdict unchanged, with the Write tool, to `articles/<slug>/gates/G1-research.r<k>.md`, `k` being 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict.
 
 ## Step 5 — On BLOCK
 

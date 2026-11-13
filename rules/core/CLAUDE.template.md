@@ -36,6 +36,7 @@ Style guide for this workspace: `{{STYLE_GUIDE_PATH}}`. Every gate cites a rule 
 - **STR-3** Section word budgets sum to the brief's target length, plus or minus 10%.
 - **STR-4** One H1 and no skipped heading levels.
 - **STR-5** The close delivers the CTA.
+- **STR-6** The article's length is within the brief's target, plus or minus 10%.
 
 ## VOI — voice
 

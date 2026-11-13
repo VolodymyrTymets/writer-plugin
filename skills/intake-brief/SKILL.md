@@ -47,7 +47,7 @@ Write the result to `articles/<slug>/brief.md`.
 2. Check that line 1 of the verdict matches
    `^## G0 brief gate: (PASS \(0 blocking|BLOCK \([1-9][0-9]* blocking), [0-9]+ advisory\)$`. If it does not, the
    verdict is malformed: treat it as **no PASS**, save nothing, tell the user what came back, and stop.
-3. Save the verdict text unchanged to `articles/<slug>/gates/G0-brief.r<k>.md`, where `k` is 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict.
+3. Save the verdict text unchanged, with the Write tool, to `articles/<slug>/gates/G0-brief.r<k>.md`, where `k` is 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict.
 
 ## Step 5 — On BLOCK
 

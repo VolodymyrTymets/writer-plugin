@@ -39,6 +39,7 @@ enforce FLOW-1. A format that says one thing in the prose and another to a parse
 - Follow-ups: `guard-stage-order` (Phase 4); a skill-level way to archive after a stop, if moving files by hand proves clumsy.
 
 Refined by ADR-007: a verdict covers the artifact it judged; the actor never edits after a PASS.
+Refined by ADR-009: hooks enforce the format, the numbering and immutability; a verdict counts if it was saved by the Write tool and recorded by the hook (this replaces "only an actor-saved verdict counts").
 
 ## Revisit when
 A gate needs a third outcome (for example "PASS WITH CONDITIONS"), or verdicts move out of local files.
