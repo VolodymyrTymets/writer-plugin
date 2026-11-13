@@ -45,6 +45,7 @@ ACTORS = {
     'research': ('G1-research', 'check-research'),
     'outline': ('G2-outline', 'check-outline'),
     'draft': ('G3-draft', 'check-draft'),
+    'edit-final': ('G4-final', 'check-final'),
 }
 # Rules a gate's checklist must still carry. Deleting one of these rows must turn a test red.
 MUST_CITE = {
@@ -104,7 +105,7 @@ def test_actor_saves_verdicts_counts_blocks_on_disk_and_stops_after_two(d):
 def test_actor_after_the_brief_refuses_without_the_previous_pass(d):
     text = skill_text(d)
     assert 'FLOW-1' in text and 'PASS' in text, f'{d} must refuse to start without the previous gate PASS on disk'
-    previous = {'research': 'G0-brief', 'outline': 'G1-research', 'draft': 'G2-outline'}[d]
+    previous = {'research': 'G0-brief', 'outline': 'G1-research', 'draft': 'G2-outline', 'edit-final': 'G3-draft'}[d]
     assert f'gates/{previous}.r' in text, f'{d} must name the verdict file it needs ({previous})'
 
 
@@ -416,3 +417,49 @@ def test_g4_does_not_rejudge_the_bank_metadata_that_g1_passed():
     assert 'one finding for all such rows' in check
     assert 'was judged by G1 and is not re-judged here' in check
     assert 'never a blocking finding on its own' in check
+
+
+# ---------------- the edit stage (Phase 5) ----------------
+def test_edit_stage_never_signs_off_and_says_the_final_is_not_signed_off():
+    text = flat('edit-final')
+    assert 'You never fill the `Signed-off-by:` line' in text
+    assert 'the final is not signed off' in text and 'Do not write the sign-off yourself' in text
+    assert 'FLOW-6' in text and 'refused' in text
+
+
+def test_edit_stage_freezes_fact_ids_and_markers():
+    text = flat('edit-final')
+    assert 'Facts are frozen' in text and 'Keep every `[F#]`' in text and 'Add no claim' in text
+    assert 'Markers are frozen' in text and "<Can't be verified. Reason:" in text and 'character for character' in text
+
+
+def test_edit_stage_records_the_lint_last_and_never_writes_the_record():
+    text = flat('edit-final')
+    assert '**without** `--record`' in text and 'last action on `final.md`' in text
+    assert 'Write nothing to `final.md` between this run and the gate' in text
+    assert 'Never write `.prose-lint.json` yourself' in text
+    front = skill_text('edit-final').split('---', 2)[1]
+    assert 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py *)' in front
+
+
+def test_edit_stage_writes_the_front_matter_the_lint_reads():
+    text = flat('edit-final')
+    for needle in ('`title:`', '`meta_description:`', '`slug:`', '60 characters or fewer', '120 to 155'):
+        assert needle in text, f'edit stage lost: {needle}'
+
+
+def test_edit_stage_backs_up_the_final_and_reports_a_cleared_sign_off():
+    text = flat('edit-final')
+    assert 'final.prev.<n>.md' in text and 'never replace an earlier backup' in text.lower()
+    assert 'whatever its `Signed-off-by:` value' in text and 'the sign-off was cleared' in text
+
+
+def test_edit_stage_re_gates_a_hand_edit_after_recording_the_lint():
+    text = flat('edit-final')
+    assert 'the verdict no longer covers it' in text and 'prose-lint.py --record` on the edited file' in text
+    assert 'a BLOCK counts toward FLOW-3' in text
+
+
+def test_edit_stage_reads_synced_comments_only_if_present():
+    text = flat('edit-final')
+    assert 'comments/' in text and 'no synced comments' in text
