@@ -73,6 +73,9 @@ Style guide for this workspace: `{{STYLE_GUIDE_PATH}}`. Every gate cites a rule 
 - Never commit credentials, tokens or client data that is not meant for publication.
 - A decision made in chat but not written into an artifact does not exist for the gates.
 - If an upstream artifact is wrong, stop and say so. Never edit an earlier stage's artifact from a later stage.
+- An agent does not edit an artifact after its gate has passed, upstream ones included. The stage is rerun (the brief
+  stage from a corrected input file the human supplies), and a needed upstream change means rerunning that upstream stage
+  first. A human's edit is the human's call.
 - State uncertainty plainly. "I am not sure" beats a confident guess, above all for facts.
 
 ## Where things live

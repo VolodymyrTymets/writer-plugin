@@ -19,7 +19,9 @@ done, the brief gate judges it in a fresh context, and you save its verdict.
 - Slug: lowercase kebab-case from the working title, unless the user gave one. Folder: `articles/<slug>/`.
 - Save the input unchanged as `articles/<slug>/brief.source.md`. If that file exists and the new input differs, the human
   has supplied a correction: copy the old file to `brief.source.prev.md` (replacing any earlier one) and save the new input
-  as `brief.source.md`. Then build `brief.md` from the new input.
+  as `brief.source.md`. Then build `brief.md` from the new input. Before rebuilding, read the previous `brief.md` if
+  there is one and carry its `<field>: answered by the user, round <n>` lines forward verbatim, keeping their original
+  `round <n>`, unless the corrected input overrides the field: the gate cannot see the chat, so those lines are the record.
 
 ## Step 2 — Stop if the human is already owed a decision (FLOW-3)
 
@@ -57,6 +59,15 @@ question rounds). Then repeat Step 4. After the second BLOCK on disk, stop as in
 Report, in a few lines: the brief path, the verdict path, the assumptions you made, and that the next stage is the
 research stage. Say once: "Doc copy: not yet available" (the review copy comes with a later phase). Do not start
 research yourself.
+
+## After the gate
+
+The verdict covers the artifact as it was when the gate ran. After a PASS you never edit the artifact: report the gate's
+advisory findings to the user and stop. If the artifact has to change, change the stage's written input and run the stage
+again (a corrected input file, saved as `brief.source.md` in Step 1); the rebuilt artifact is gated again and its verdict is saved as the next `r<k>`. A BLOCK from a rerun
+counts toward FLOW-3 like any other BLOCK. When you replace an artifact and a later stage's artifact already exists
+(`research.md` or `outline.md`), say in your report that it was built on the replaced version and must be rerun. The human approval line is the
+one thing a human writes after a PASS; it does not change what the verdict covers.
 
 ## Definition of done
 - [ ] `brief.source.md` and `brief.md` exist; no `{{` is left

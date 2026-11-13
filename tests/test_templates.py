@@ -1,7 +1,8 @@
 """Shape guard for the inert library (rules/core and templates/).
 
 Later phases parse these files (gates, prose-lint, guard-stage-order), so these tests pin the shape, not the wording.
-The one deliberate wording check is FLOW-2 (`non-empty`), because a guard built on it must not accept an empty line.
+Two deliberate wording checks: FLOW-2 (`non-empty`), because a guard built on it must not accept an empty line, and the
+edit-after-PASS hygiene line (ADR-007), because it is the only mitigation until Phase 4's hook can enforce it.
 Run: python -m pytest tests/test_templates.py
 """
 import re
@@ -104,3 +105,9 @@ def test_style_template_has_no_filled_client_values():
     assert len(prose) <= 1, f'style template has stray prose: {prose}'
     # SEO-2/3 are fixed rules, so no field may configure a title or meta limit.
     assert not [l for l, _ in values if re.search(r'(?i)\*\*[^*]*(title|meta)', l)], 'title/meta limits are not configurable'
+
+
+def test_constitution_has_the_edit_after_pass_hygiene_line():
+    text = ' '.join(read(CONSTITUTION).split())
+    assert 'does not edit an artifact after its gate has passed' in text
+    assert 'upstream ones included' in text, 'editing an upstream artifact stales the earlier gate that passed it'
