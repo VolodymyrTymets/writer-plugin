@@ -36,6 +36,7 @@ GATES = {
     'check-brief': ('G0 brief', 'gate', {f'BRF-{n}' for n in range(1, 7)}),
     'check-research': ('G1 research', 'fact-gate', {f'FACT-{n}' for n in range(1, 7)}),
     'check-outline': ('G2 outline', 'gate', {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'}),
+    'check-draft': ('G3 draft', 'gate', {'STR-1', 'STR-2', 'STR-5', 'STR-6', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5'}),
 }
 # actor skill dir -> (stage, gate it invokes)
 ACTORS = {
@@ -48,6 +49,7 @@ MUST_CITE = {
     'check-brief': {f'BRF-{n}' for n in range(1, 7)},
     'check-research': {'FACT-2', 'FACT-3', 'FACT-5', 'FACT-6'},
     'check-outline': {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'},
+    'check-draft': {'STR-1', 'STR-2', 'STR-5', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5'},
 }
 RULE_ID = re.compile(r'\b(?:BRF|FACT|STR|VOI|SEO|FLOW|PLG)-\d+\b')
 
@@ -313,3 +315,31 @@ def test_outline_step_6_says_how_to_re_gate_a_hand_edit():
     assert 'the verdict no longer covers it' in text
     assert 'saved with the Write tool as the next verdict' in text
     assert 'a BLOCK counts toward FLOW-3' in text
+
+
+# ---------------- G3, the draft gate (Phase 5) ----------------
+def test_g3_reads_the_outline_brief_and_bank_and_cannot_open_sources():
+    text = flat('check-draft')
+    for needle in ('`outline.md`', '`brief.md`', '`research.md`', 'You cannot open web pages'):
+        assert needle in text, f'G3 lost: {needle}'
+    assert 'WebFetch' not in skill_text('check-draft').split('---', 2)[1]
+
+
+def test_g3_prints_an_outline_line_and_never_blocks_on_length():
+    gate = skill_text('check-draft')
+    lines = gate.split('\n')
+    heads = [i for i, l in enumerate(lines) if l.startswith('## G3 draft gate')]
+    assert heads
+    for i in heads:
+        assert re.fullmatch(r'Outline: \d+ of \d+ sections present', lines[i + 2]), f'line 3 must be Outline: {lines[i + 2]!r}'
+    assert 'Outline: n/a' in gate
+    text = checklist_text('check-draft')
+    assert 'never blocking at this gate' in text and 'G4 enforces the length' in text
+
+
+def test_g3_treats_a_marker_as_not_a_claim():
+    text = checklist_text('check-draft')
+    assert 'FACT-1 does not apply to a marker' in text
+    assert 'beside a marker or inside its reason' in text
+    assert 'not in the exact form' in text
+    assert 'a marker the outline does not contain' in text.lower()
