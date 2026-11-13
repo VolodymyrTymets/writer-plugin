@@ -512,3 +512,12 @@ def test_hooks_json_registers_the_session_and_stop_hooks():
     ss = [g for g in hooks['SessionStart'] if any('session-context' in h['command'] for h in g['hooks'])]
     sp = [g for g in hooks['Stop'] if any('verify-final' in h['command'] for h in g['hooks'])]
     assert ss and sp and ss[0]['matcher'] == 'startup|resume|clear|compact'
+
+
+@pytest.mark.parametrize('command', [
+    'echo "note: x > articles/demo/gates/G0-brief.r2.md"',
+    "grep -n 'a > articles/demo/draft.md' notes.txt",
+], ids=['double-quoted-arrow', 'single-quoted-arrow'])
+def test_a_redirect_sign_inside_quotes_is_text_not_a_write(ws, command):
+    ws.verdict('brief', 1, PASS['brief'])
+    assert guard(ws.root, bash_payload(command)).code == 0

@@ -255,7 +255,8 @@ def bash_targets(command: str) -> List[Tuple[str, str]]:
             seg = seg.strip()
             if not seg:
                 continue
-            for m in _REDIRECT.finditer(seg):
+            unquoted = re.sub(r'"[^"]*"|\'[^\']*\'', '""', seg)   # a `>` inside quotes is text, not a redirect
+            for m in _REDIRECT.finditer(unquoted):
                 p = m.group(1)
                 if p not in ('/dev/null',) and not p.startswith('&'):
                     targets.append(('write', p))
