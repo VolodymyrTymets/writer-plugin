@@ -63,7 +63,7 @@ Write the result to `articles/<slug>/outline.md`.
 2. Check that line 1 matches
    `^## G2 outline gate: (PASS \(0 blocking|BLOCK \([1-9][0-9]* blocking), [0-9]+ advisory\)$`. If it does not, treat
    it as **no PASS**, save nothing, tell the user what came back, and stop.
-3. Save the verdict unchanged to `articles/<slug>/gates/G2-outline.r<k>.md`, `k` being 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict.
+3. Save the verdict unchanged, with the Write tool, to `articles/<slug>/gates/G2-outline.r<k>.md`, `k` being 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict.
 
 ## Step 5 — On BLOCK
 
@@ -74,7 +74,7 @@ Fix only what the findings name, in `outline.md`. Then repeat Step 4. After the 
 Report in a few lines: the outline path, the verdict path, the STR-3 arithmetic, the title options, and any open
 questions for the human. Then say plainly: **the outline is not approved.** The human reads it, changes direction if
 needed, and writes a name after `Approved-by:` in `outline.md`; until that value is non-empty, the draft stage must not
-start. Say once: "Doc copy: not yet available". Do not write the approval yourself.
+start. Say once: "Doc copy: not yet available". Do not write the approval yourself. If the human changes the outline by hand, the verdict no longer covers it and the draft stage is blocked: ask for the outline gate to be rerun on the edited file and its verdict saved with the Write tool as the next verdict (a hook records what it judged). A re-gate saves its verdict whether PASS or BLOCK, and a BLOCK counts toward FLOW-3.
 
 ## After the gate
 
