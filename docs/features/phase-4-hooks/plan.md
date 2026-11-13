@@ -5,7 +5,7 @@ and the two Phase 4 open questions (5: a human's hand edit before approval; 6: s
 the slug stands in for a ticket ID. Branch `feat/phase-4-hooks` off `main`.
 
 <!-- A human writes this line to approve. Until it is here, guard-plan-approval blocks writes to code. -->
-Approved-by:
+Approved-by: Volodymyr Tymets, in session 2026-11-13 ("approved", to the plan as committed at 1e80f73)
 
 Pattern followed: `../rln-agent/bin/guard-plan-approval.py`, `session-context.py`, `verify-dod.py`, `bin/lib/util.py` and
 `tests/test_hooks.py` (stdin JSON payload, stderr plus exit 2 to block, a small shared `lib/`, fixture repos).
