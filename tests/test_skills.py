@@ -36,6 +36,7 @@ GATES = {
     'check-brief': ('G0 brief', 'gate', {f'BRF-{n}' for n in range(1, 7)}),
     'check-research': ('G1 research', 'fact-gate', {f'FACT-{n}' for n in range(1, 7)}),
     'check-outline': ('G2 outline', 'gate', {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'}),
+    'check-final': ('G4 final', 'fact-gate', {f'FACT-{n}' for n in range(1, 6)} | {'STR-4', 'STR-6', 'SEO-1', 'SEO-2', 'SEO-3', 'SEO-5', 'FLOW-6'} | {f'VOI-{n}' for n in range(1, 6)}),
     'check-draft': ('G3 draft', 'gate', {'STR-1', 'STR-2', 'STR-5', 'STR-6', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5'}),
 }
 # actor skill dir -> (stage, gate it invokes)
@@ -50,6 +51,7 @@ MUST_CITE = {
     'check-brief': {f'BRF-{n}' for n in range(1, 7)},
     'check-research': {'FACT-2', 'FACT-3', 'FACT-5', 'FACT-6'},
     'check-outline': {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'},
+    'check-final': {'FACT-1', 'FACT-2', 'FACT-3', 'FACT-4', 'FACT-5', 'STR-4', 'STR-6', 'VOI-1', 'VOI-5', 'SEO-1', 'SEO-3', 'SEO-5', 'FLOW-6'},
     'check-draft': {'STR-1', 'STR-2', 'STR-5', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5'},
 }
 RULE_ID = re.compile(r'\b(?:BRF|FACT|STR|VOI|SEO|FLOW|PLG)-\d+\b')
@@ -371,3 +373,46 @@ def test_draft_stage_lints_without_recording_before_the_gate():
     assert 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py *)' in front, 'the exact rule form; a leading wildcard is flagged by Claude Code'
     text = flat('draft')
     assert 'no `--record`' in text and 'This is before the gate' in text
+
+
+# ---------------- G4, the final gate (Phase 5) ----------------
+def test_g4_opens_sources_with_the_fact_agent_and_reads_the_recorded_lint():
+    assert '**Open every source URL' in skill_text('check-final')
+    front = skill_text('check-final').split('---', 2)[1]
+    assert 'WebFetch' in front and 'Write' not in front
+    text = flat('check-final')
+    assert '.prose-lint.json' in text and 'You cannot run the lint script' in text
+    check = checklist_text('check-final')
+    assert '`lines` key is missing' in check and 'one blocking finding' in check
+    assert 'stale' in check
+
+
+def test_g4_prints_a_markers_line_and_never_blocks_on_one():
+    gate = skill_text('check-final')
+    lines = gate.split('\n')
+    heads = [i for i, l in enumerate(lines) if l.startswith('## G4 final gate')]
+    assert heads
+    for i in heads:
+        assert re.fullmatch(r'Markers: \d+', lines[i + 2]), f'line 3 of an example must be Markers: {lines[i + 2]!r}'
+    assert 'Markers: n/a' in gate and 'Sign-off holds' in gate
+    check = checklist_text('check-final')
+    assert 'A FLOW-6 line | never a finding' in check
+    assert 'never makes the verdict a BLOCK' in check
+    assert 'FACT-1 does not apply to a marker' in check and 'not in the exact form' in check
+
+
+def test_g4_does_not_stop_every_workspace_that_has_no_style_guide():
+    check = checklist_text('check-final')
+    assert 'non-blocking' in check and 'must not stop every workspace without one' in check
+
+
+def test_g4_does_not_redo_g3_and_does_not_judge_the_sign_off():
+    assert 'G3 already judged structure and argument' in flat('check-final')
+    assert 'You do not judge the `Signed-off-by:` line' in flat('check-final')
+
+
+def test_g4_does_not_rejudge_the_bank_metadata_that_g1_passed():
+    check = checklist_text('check-final')
+    assert 'one finding for all such rows' in check
+    assert 'was judged by G1 and is not re-judged here' in check
+    assert 'never a blocking finding on its own' in check
