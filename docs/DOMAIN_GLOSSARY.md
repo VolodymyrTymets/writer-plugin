@@ -10,7 +10,8 @@
 | Fact bank | Rows `F# \| claim \| source URL \| publisher \| published \| accessed \| verbatim quote` in `research.md` | A source list: each row is one usable fact |
 | Fact ID | `[F7]`, the inline tag in `draft.md` linking a claim to its fact-bank row | A footnote number |
 | Content workspace | The user's repo where articles live and where the setup skill writes `CLAUDE.md` and `style.md` | This repo, which is plugin source |
-| Verdict file | `gates/G<n>-<stage>.r<k>.md`, saved by the actor, line 1 fixed by ADR-004 | The gate's chat output: only the saved file counts for FLOW-1 |
+| Verdict file | `gates/G<n>-<stage>.r<k>.md`, saved by the actor, line 1 fixed by ADR-004. It covers the artifact as gated, apart from the human approval line (ADR-007) | The gate's chat output: only the saved file counts for FLOW-1 |
+| Backup (`*.prev.*`) | `brief.source.prev.md`, `outline.prev.<n>.md`: a copy kept before a rebuild replaces a file. Not an artifact and not gated | Artifact: an actor still writes exactly one artifact |
 | Live page | A first-party vendor page that shows no published or updated date; its fact row says `n/a (live page)` and is aged by its accessed date (ADR-006) | Any undated page: only the vendor's own page about itself qualifies |
 | Archive (verdicts) | `gates/archive/`, where a human moves every verdict of a gate to resume a stopped article; numbering continues past it | Deleting a verdict, which is never done |
 | Style guide (`style.md`) | A client's voice, banned phrases, link lists and SEO targets, in the workspace | Plugin rules, which are generic |

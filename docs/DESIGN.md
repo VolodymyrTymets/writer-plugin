@@ -42,9 +42,10 @@ different editors: judging structure and commas in one pass buries the structura
 CLAUDE.md                       # editorial constitution: rule IDs, publish config, which style guide applies
 .claude/rules/style.md          # this client's voice, audience, banned phrases, link lists, SEO targets
 articles/<slug>/
-  brief.md                      # normalised brief (the input brief is kept as brief.source.md)
+  brief.md                      # normalised brief (the input brief is kept as brief.source.md; a replaced one as brief.source.prev.md)
   research.md                   # questions, sources, FACT BANK (F1…Fn), competitor coverage, gaps
   outline.md                    # thesis, H2/H3 plan, per-section purpose + facts + word budget, keyword map, CTA
+  outline.prev.<n>.md           # backup of an outline a rebuild replaced; never overwritten (ADR-007)
   draft.md
   final.md                      # + title, meta description, slug
   gates/G<n>-<stage>.r<k>.md    # every verdict, saved by the caller (gates cannot write)
@@ -80,6 +81,8 @@ gate. An actor never edits an earlier stage's artifact; if it finds a problem up
   twelve stylistic ones. The caller saves the verdict to `gates/`.
 - A BLOCK sends the work back to the same actor. **Two BLOCKs on the same artifact stop the run** (counted from the verdict files on disk, so a rerun cannot skip it; a human resumes by archiving that gate's verdicts; ADR-004) and hand it to the
   human (FLOW-3).
+- A verdict covers the artifact as the gate saw it. After a PASS the actor never edits it: a change means changing the stage's
+  written input and rerunning, with a new verdict (ADR-007). The human approval line is the only post-PASS write.
 
 ## Editorial constitution — rule IDs
 
@@ -102,7 +105,7 @@ Prefer a script or a hook over a prompt rule.
 
 | Hook / script | When | Enforces |
 |---------------|------|----------|
-| `guard-stage-order` | PreToolUse on `Edit|Write|MultiEdit|Bash|mcp__.*` | Writing `articles/<slug>/<stage>.md` needs the previous gate's latest verdict to be PASS (FLOW-1); `draft.md` also needs a non-empty `Approved-by:` value in `outline.md` (FLOW-2). Path-based, so it needs no branch or ticket |
+| `guard-stage-order` | PreToolUse on `Edit|Write|MultiEdit|Bash|mcp__.*` | Writing `articles/<slug>/<stage>.md` needs the previous gate's latest verdict to be PASS (FLOW-1); `draft.md` also needs a non-empty `Approved-by:` value in `outline.md` (FLOW-2). Path-based, so it needs no branch or ticket. Open questions 5 and 6 add a staleness check |
 | `prose-lint.py` | Called by `/edit` and the G4 gate; also usable alone | Word count vs brief, banned phrases and AI tells from `style.md`, numbers with no `[F#]`, heading levels, title and meta lengths, keyword placement. Stdlib only |
 | `verify-final` | Stop | `final.md` changed but no prose-lint run recorded → block once, quoting the command |
 | `session-context` | SessionStart | Lists articles in flight and the stage each is at |
@@ -138,6 +141,10 @@ says so once and the workflow continues — the local files are canonical (D1). 
    have to be fanned out by `/article`, with G4 merging their verdicts. Decide in Phase 5.
 4. **Keyword data.** There is no SERP or volume tool; the brief supplies the keyword and `/research` reads the current
    top results via WebSearch.
+5. **A human's edit before approval.** The plugin cannot record a gate rerun for a hand edit. Phase 4 decides how it is
+   re-gated and recorded, and how the hook tells it from the approval edit (ADR-007).
+6. **Stale downstream verdicts.** Rebuilding an artifact leaves later verdicts covering the old input. Phase 4's hook
+   should require a downstream verdict to be newer than the upstream verdict it relied on (ADR-007).
 
 ## Build plan
 

@@ -8,6 +8,9 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- After a PASS the stage never edits its artifact: a change means rerunning the stage, and the rebuild is gated again
+  (ADR-007). The brief stage carries earlier answers forward; the outline stage keeps the outline it replaces as
+  `outline.prev.<n>.md` and clears the approval. One hygiene line in the constitution template asks the same of any agent.
 - FACT-2: a first-party vendor page that shows no published or updated date may say `n/a (live page)` instead of a
   date (ADR-006); FACT-4 ages such a fact by its accessed date.
 - G1 blocks a Questions-table fact ID that exists but does not support its question (FACT-6).

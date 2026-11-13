@@ -5,7 +5,7 @@ PASS and did not rerun the gate, so the saved verdict described an earlier versi
 for a ticket ID. Branch `fix/verdict-covers-artifact` off `main`.
 
 <!-- A human writes this line to approve. Until it is here, guard-plan-approval blocks writes to code. -->
-Approved-by:
+Approved-by: Volodymyr - 2026-11-13
 
 Pattern followed: the three actor skills from PR #3 (`skills/intake-brief`, `skills/research`, `skills/outline`); all
 three share the step layout and the flaw. New decision records follow ADR-006's precedent: refine by a new ADR that
