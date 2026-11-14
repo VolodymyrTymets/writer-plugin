@@ -5,9 +5,9 @@ actors and gates. Each actor writes one artifact (brief, research with a fact ba
 judges one artifact in a fresh, read-only context and returns PASS or BLOCK with rule IDs. You approve the outline
 before any drafting starts and sign off the final. Every artifact also gets a Google Doc copy for review and comments.
 
-> **Status: Phase 5 of 7 — all five stages and their gates are built** (brief, research, outline, draft, edit). The
-> orchestrator, publishing, comment sync and setup are planned. The first three stages ran on a real brief; draft and edit have
-> run only on scratch articles. Design and
+> **Status: Phase 6 of 7 — all five stages, their gates and the orchestrator are built** (brief, research, outline, draft,
+> edit, `/article`). Publishing, comment sync and setup are planned. The first three stages ran on a real brief; draft, edit and the
+> orchestrator have run only on scratch articles. Design and
 > build plan: [docs/DESIGN.md](docs/DESIGN.md).
 
 ## The flow
@@ -18,7 +18,7 @@ brief ──G0──▶ research ──G1──▶ outline ──G2──▶ you
 
 ## Commands
 
-Built: `/brief`, `/research`, `/outline`, `/draft`, `/edit`, and the gates `/check-brief`, `/check-research`, `/check-outline`, `/check-draft`, `/check-final`. The rest are planned.
+Built: `/article`, `/brief`, `/research`, `/outline`, `/draft`, `/edit`, and the gates `/check-brief`, `/check-research`, `/check-outline`, `/check-draft`, `/check-final`. The rest are planned.
 
 | Command | What it does or will do |
 |---------|-------------------------|

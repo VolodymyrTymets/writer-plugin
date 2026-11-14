@@ -30,7 +30,9 @@ brief ──G0──▶ research ──G1──▶ outline ──G2──▶ [hu
 | 4 | `/edit` | `final.md` | G4 `/check-final` | Line edit: facts against sources, voice, SEO, prose lint, length |
 | — | **human** | `Signed-off-by:` line in `final.md` | — | Publish-ready |
 
-`/article <slug>` runs the whole chain (the counterpart of rln-agent's feature orchestrator). Each stage also works on its own.
+`/article <slug>` runs the whole chain (the counterpart of rln-agent's feature orchestrator): it asks `article-status.py` for the
+next step, calls that stage's actor, asks again, and stops at the two human checkpoints, on two BLOCKs, on a stale verdict, or when
+done. It writes nothing itself, never a human line, and never calls the same actor twice in a row (ADR-011). Each stage also works on its own.
 
 **Why five gates, not two.** A brief with no named reader produces a generic article, and research with a wrong
 number poisons every later stage; both are cheapest to catch where they are made. G3 and G4 are deliberately
@@ -115,7 +117,8 @@ Prefer a script or a hook over a prompt rule.
 | `record-verdict` | PostToolUse on `Write` | Writes the sidecar beside a saved verdict: the hash of the artifact it judged (approval lines ignored) and the upstream verdict it relied on |
 | `prose-lint.py` | A script, not a hook: called by `/draft` (without `--record`) and `/edit` (without, then with `--record` last); a gate never runs it; also usable alone | STR-4 headings, STR-6 length vs the brief, FACT-1 numbers with no `[F#]` (heuristic), and for a final SEO-1/2/3, VOI-2/3 from `style.md`, and any marker left in the text (FLOW-6, loose pattern). `--record` writes `.prose-lint.json` with the finding lines. Stdlib only |
 | `verify-final` | Stop | `final.md` written this session but no matching prose-lint run recorded → block once per article, quoting the command with the script's absolute path |
-| `session-context` | SessionStart | At most 30 lines: where each article is and what it waits for; records the session start once. Silent outside a workspace |
+| `session-context` | SessionStart | At most 30 lines: where each article is and what it waits for (from `article_state()`, ADR-011); records the session start once. Silent outside a workspace |
+| `article-status.py` | A script, not a hook: called by `/article` before and after every actor; also usable alone | One JSON object per article: `next` (a stage, `approve`, `sign-off`, `stopped`, `stale`, `done`, `unknown`), `reason`, `markers`. Same rules as the guard (FLOW-1 to FLOW-3, stale, FLOW-6), read-only. Stdlib only (ADR-011) |
 
 ## Google Docs copies
 
@@ -160,5 +163,5 @@ says so once and the workflow continues — the local files are canonical (D1). 
 | 3 | **Vertical slice:** `/brief`, `/research`, `/outline`, `/check-brief`, `/check-research`, `/check-outline`, agents `gate` and `fact-gate`. Run on one real brief before going further | done · all three stages ran end to end on one real brief; the outline passed its gate with markers (ADR-008) and a human approved it |
 | 4 | `guard-stage-order`, `record-verdict`, `prose-lint.py`, `verify-final`, `session-context` + hook tests (ADR-009) | built · run in real sessions; draft, edit and final-gate stages are Phase 5 |
 | 5 | `/draft`, `/edit`, `/check-draft`, `/check-final` (open question 3 resolved, ADR-010). They carry markers through and the guard refuses sign-off while one remains (FLOW-6, ADR-008) | built · each stage and gate run in a scratch workspace; a real brief not yet run through them |
-| 6 | `/article` orchestrator with the two human checkpoints |                                                                                                                                                                                                   |
+| 6 | `/article` orchestrator with the two human checkpoints (ADR-011) | built · ran end to end on a scratch article from brief to sign-off, with both checkpoints; a real brief not yet run through it |
 | 7 | `/publish`, `/sync` (resolve open questions 1–2), `/setup`, evals on the test briefs |                                                                                                                                                                                                   |

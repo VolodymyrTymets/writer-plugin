@@ -462,3 +462,62 @@ def test_edit_stage_re_gates_a_hand_edit_after_recording_the_lint():
 def test_edit_stage_reads_synced_comments_only_if_present():
     text = flat('edit-final')
     assert 'comments/' in text and 'no synced comments' in text
+
+
+# ---------------- Phase 6 (ADR-011): the orchestrator dispatches from the status script and writes nothing ----------------
+from test_structure import COMMANDS  # the command map is the one source of truth for actor names
+
+ORCHESTRATOR = 'article'
+# status-script `next` value -> actor directory it runs
+STAGE_ACTOR = {'brief': 'intake-brief', 'research': 'research', 'outline': 'outline', 'draft': 'draft', 'final': 'edit-final'}
+STOPS = ['approve', 'sign-off', 'stopped', 'stale', 'unknown', 'done']
+
+
+def orchestrator_front() -> str:
+    return skill_text(ORCHESTRATOR).split('\n---\n', 1)[0]
+
+
+def test_orchestrator_maps_every_stage_to_its_actor_command():
+    assert set(STAGE_ACTOR.values()) == set(ACTORS), 'every actor, and only actors, are dispatched'
+    text = flat(ORCHESTRATOR)
+    for nxt, d in STAGE_ACTOR.items():
+        assert f'`{nxt}` → `writer-plugin:{COMMANDS[d]}`' in text, f'map row for {nxt} must name writer-plugin:{COMMANDS[d]}'
+
+
+def test_orchestrator_decides_from_the_status_script_and_handles_every_value():
+    text = flat(ORCHESTRATOR)
+    assert 'python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py' in text
+    assert 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py *)' in orchestrator_front()
+    for value in list(STAGE_ACTOR) + STOPS:
+        assert f'`{value}`' in text, f'the skill must say what it does on next = {value}'
+
+
+def test_orchestrator_has_no_write_tool_and_never_writes_a_human_line():
+    tools = next(l for l in orchestrator_front().split('\n') if l.startswith('allowed-tools:'))
+    assert not re.search(r'\b(Write|Edit|NotebookEdit)\b', tools)
+    text = flat(ORCHESTRATOR)
+    assert 'You never write `Approved-by:` or `Signed-off-by:`' in text
+    assert 'never move, rename or edit a verdict' in text
+
+
+def test_orchestrator_never_calls_the_same_actor_twice_in_a_row_and_stops_on_a_guard_block():
+    text = flat(ORCHESTRATOR)
+    assert 'Never invoke the same actor twice in a row' in text
+    assert 'If a hook blocks a write, stop' in text
+
+
+def test_orchestrator_says_how_each_checkpoint_resumes():
+    text = flat(ORCHESTRATOR)
+    assert 'writes a name after `Approved-by:` in `articles/<slug>/outline.md`' in text
+    assert 'writes a name after `Signed-off-by:` in `articles/<slug>/final.md`' in text
+    assert 'FLOW-6' in text and 'run `writer-plugin:article <slug>` again' in text
+
+
+def test_orchestrator_never_guesses_a_slug_or_runs_the_brief_over_an_existing_article():
+    text = flat(ORCHESTRATOR)
+    assert 'take the slug from the path it reports' in text and 'never guess it from the newest folder' in text
+    assert '**`brief` with no brief supplied in this call:** stop and ask for the brief' in text
+
+
+def test_orchestrator_takes_a_stale_stage_from_the_verdict_named_in_reason():
+    assert 'taking the stage from the verdict file named in `reason`' in flat(ORCHESTRATOR)

@@ -695,3 +695,254 @@ def test_an_edit_that_cannot_be_resolved_is_allowed_and_says_so(ws):
 def test_a_shell_write_to_final_is_allowed_by_the_sign_off_rule_a_stated_gap(ws):
     final_ready(ws)
     assert guard(ws.root, bash_payload("sed -i '' 's/Signed-off-by:/Signed-off-by: X/' articles/demo/final.md")).code == 0
+
+
+# ---------------- Phase 6 (ADR-011): one article state for the briefing and the orchestrator ----------------
+CURLY_MARKER = '<Can’t be verified. Reason: a curly apostrophe the guard still catches.>'
+
+
+def build_state(ws, state):
+    """Leave the workspace the way a real flow would at `state`. Neutral synthetic files only (PLG-1)."""
+    art = ws.art
+
+    def drop(*stages):
+        for s in stages:
+            (art / f'{s}.md').unlink()
+
+    if state == 'nothing':
+        drop(*STAGES)
+    elif state == 'brief-only':
+        drop('research', 'outline', 'draft', 'final')
+    elif state == 'brief-passed':
+        drop('research', 'outline', 'draft', 'final')
+        ws.chain('research')
+    elif state in ('one-block', 'two-blocks'):
+        ws.chain('outline')
+        ws.verdict('outline', 1, BLOCK['outline'])
+        if state == 'two-blocks':
+            ws.verdict('outline', 2, BLOCK['outline'])
+    elif state == 'stale':
+        ws.chain('outline')
+        ws.verdict('brief', 2, PASS['brief'], sidecar=True)
+    elif state == 'two-blocks-then-pass':
+        ws.chain('outline')
+        ws.verdict('outline', 1, BLOCK['outline'])
+        ws.verdict('outline', 2, BLOCK['outline'])
+        ws.verdict('outline', 3, PASS['outline'], sidecar=True)
+    elif state in ('unapproved', 'approved', 'approved-no-draft', 'stale-unapproved', 'markers-outline'):
+        ws.chain('outline')
+        if state == 'markers-outline':
+            (art / 'outline.md').write_text(OUTLINE.format(approval='') + f"{MARKER}\n<Can't be verified. Reason: b.>\n")
+        ws.verdict('outline', 1, PASS['outline'], sidecar=True)
+        if state in ('approved', 'approved-no-draft'):
+            ws.approve()
+        if state == 'approved-no-draft':
+            drop('draft', 'final')
+        if state == 'stale-unapproved':
+            ws.verdict('brief', 2, PASS['brief'], sidecar=True)
+    elif state == 'stale-next-missing':
+        ws.chain('outline')
+        drop('outline', 'draft', 'final')
+        ws.verdict('brief', 2, PASS['brief'], sidecar=True)
+    elif state in ('final-unsigned', 'signed', 'marker-final', 'malformed-marker-final', 'fenced-sign-off'):
+        body = {'final-unsigned': '# T\n\nBody.\n\nSigned-off-by:\n',
+                'signed': '# T\n\nBody.\n\nSigned-off-by: Test Human\n',
+                'marker-final': f'# T\n\nBody {MARKER}\n\nSigned-off-by:\n',
+                'malformed-marker-final': f'# T\n\nBody {CURLY_MARKER}\n\nSigned-off-by:\n',
+                'fenced-sign-off': '# T\n\n```\ngit commit -s\nSigned-off-by: A Committer\n```\n\nSigned-off-by:\n'}[state]
+        ws.approve()
+        ws.chain('final')
+        (art / 'final.md').write_text(body)
+        ws.verdict('final', 1, PASS['final'], sidecar=True)
+    else:
+        raise AssertionError(f'unknown state {state}')
+
+
+R1_STATES = ['nothing', 'brief-only', 'brief-passed', 'one-block', 'two-blocks', 'two-blocks-then-pass', 'stale', 'unapproved', 'approved',
+             'approved-no-draft', 'stale-unapproved', 'stale-next-missing', 'markers-outline', 'final-unsigned', 'signed',
+             'marker-final', 'malformed-marker-final', 'fenced-sign-off']
+_STALE = 'STALE: G1-research.r1.md is stale: it relied on G0-brief.r1.md but the latest G0-brief verdict is G0-brief.r2.md'
+# The briefing line per state, exactly as session-context prints it. Pinned before article_state() replaced the logic behind
+# it, so the refactor cannot change what a writer reads by accident.
+BRIEFING = {
+    'nothing': 'no brief.md yet: start with the brief stage',
+    'brief-only': 'brief.md written, G0-brief not run',
+    'brief-passed': 'brief passed; next: the research stage',
+    'one-block': 'G2-outline BLOCK (G2-outline.r1.md): the outline stage fixes it and reruns',
+    'two-blocks': 'G2-outline STOPPED (FLOW-3): two BLOCK verdicts, a human archives them to resume',
+    'stale': f'outline.md written, G2-outline not run · {_STALE}',
+    'unapproved': "outline passed G2, waiting for a human's Approved-by",
+    'approved': 'draft.md written, G3-draft not run',
+    'approved-no-draft': 'outline passed; next: the draft stage',
+    'stale-unapproved': f"outline passed G2, waiting for a human's Approved-by · {_STALE}",
+    'stale-next-missing': f'research passed; next: the outline stage · {_STALE}',
+    'markers-outline': "outline passed G2, waiting for a human's Approved-by · 2 markers to resolve",
+    'final-unsigned': "final passed G4, waiting for a human's Signed-off-by",
+    'signed': 'final passed G4 and is signed off',
+    # WHY: once a final exists its markers are what blocks the sign-off (FLOW-6), so they are counted there, with the guard's
+    # own loose pattern, not in the outline (ADR-011). This line said nothing about the marker before.
+    'marker-final': "final passed G4, waiting for a human's Signed-off-by · 1 marker to resolve",
+    'malformed-marker-final': "final passed G4, waiting for a human's Signed-off-by · 1 marker to resolve",
+    # WHY: sign-off is read with the guard's fence-aware is_signed; a commit trailer quoted in a code block is not a sign-off
+    # (ADR-011). This line called the article signed off before.
+    'fenced-sign-off': "final passed G4, waiting for a human's Signed-off-by",
+    # WHY: the guard stops a stage whose gate has two BLOCKs whatever its latest verdict (FLOW-3); the briefing now says the same
+    # (ADR-011). New state, no earlier string.
+    'two-blocks-then-pass': 'G2-outline STOPPED (FLOW-3): two BLOCK verdicts, a human archives them to resume',
+}
+
+
+@pytest.mark.parametrize('state', R1_STATES)
+def test_the_briefing_line_for_each_state_is_exact(ws, state):
+    build_state(ws, state)
+    assert writer.describe_article(str(ws.root), ws.slug) == BRIEFING[state]
+
+
+MARKER_B = "<Can't be verified. Reason: b.>"
+# state -> (next, stage, markers)
+EXPECTED_STATE = {
+    'nothing': ('brief', 'brief', []),
+    'brief-only': ('brief', 'brief', []),
+    'brief-passed': ('research', 'research', []),
+    'one-block': ('outline', 'outline', []),
+    'two-blocks': ('stopped', 'outline', []),
+    'two-blocks-then-pass': ('stopped', 'outline', []),
+    'stale': ('stale', 'outline', []),
+    'unapproved': ('approve', 'outline', []),
+    'approved': ('draft', 'draft', []),
+    'approved-no-draft': ('draft', 'draft', []),
+    'stale-unapproved': ('stale', 'outline', []),
+    'stale-next-missing': ('stale', 'outline', []),
+    'markers-outline': ('approve', 'outline', [MARKER, MARKER_B]),
+    'final-unsigned': ('sign-off', 'final', []),
+    'signed': ('done', 'final', []),
+    'marker-final': ('sign-off', 'final', [MARKER]),
+    'malformed-marker-final': ('sign-off', 'final', [CURLY_MARKER]),
+    'fenced-sign-off': ('sign-off', 'final', []),
+}
+
+
+@pytest.mark.parametrize('state', R1_STATES)
+def test_article_state_gives_the_next_step_the_stage_and_the_markers(ws, state):
+    build_state(ws, state)
+    s = writer.article_state(str(ws.root), ws.slug)
+    assert (s['next'], s['stage'], s['markers']) == EXPECTED_STATE[state]
+    assert s['stale'] is (s['next'] == 'stale')
+
+
+@pytest.mark.parametrize('state', ['two-blocks', 'two-blocks-then-pass'])
+def test_a_stopped_article_names_both_block_verdicts_and_how_to_resume(ws, state):
+    build_state(ws, state)
+    reason = writer.article_state(str(ws.root), ws.slug)['reason']
+    assert 'G2-outline.r1.md' in reason and 'G2-outline.r2.md' in reason and 'archive' in reason
+
+
+@pytest.mark.parametrize('state', ['stale', 'stale-unapproved', 'stale-next-missing'])
+def test_a_stale_article_quotes_what_check_gate_says(ws, state):
+    build_state(ws, state)
+    s = writer.article_state(str(ws.root), ws.slug)
+    assert s['reason'] == writer.check_gate(str(ws.root), ws.slug, 'research')
+
+
+def status(root, *args, cwd=None):
+    r = subprocess.run([sys.executable, str(BIN / 'article-status.py'), *args], capture_output=True, text=True,
+                       cwd=str(cwd or root))
+    return Result(r.returncode, r.stdout, r.stderr)
+
+
+def tree(root):
+    return sorted(str(p.relative_to(root)) for p in Path(root).rglob('*'))
+
+
+@pytest.mark.parametrize('state', ['nothing', 'unapproved', 'two-blocks', 'stale', 'final-unsigned', 'signed'])
+def test_the_status_script_prints_the_state_as_json_and_writes_nothing(ws, state):
+    build_state(ws, state)
+    before = tree(ws.root)
+    r = status(ws.root, ws.slug)
+    assert r.code == 0
+    out = json.loads(r.out)
+    assert set(out) == {'slug', 'stage', 'next', 'reason', 'markers', 'stale'}
+    assert out['slug'] == ws.slug and out['next'] == EXPECTED_STATE[state][0]
+    assert tree(ws.root) == before
+
+
+def test_the_status_script_takes_a_root_from_anywhere(ws, tmp_path):
+    build_state(ws, 'unapproved')
+    elsewhere = tmp_path / 'elsewhere'
+    elsewhere.mkdir()
+    assert json.loads(status(ws.root, '--root', str(ws.root), ws.slug, cwd=elsewhere).out)['next'] == 'approve'
+
+
+def test_a_slug_with_no_folder_starts_at_the_brief(tmp_path):
+    (tmp_path / 'articles').mkdir()
+    assert json.loads(status(tmp_path, 'new-article').out)['next'] == 'brief'
+
+
+@pytest.mark.parametrize('args', [[], ['../escape'], ['a/b']], ids=['no-slug', 'dot-dot', 'slash'])
+def test_the_status_script_refuses_a_missing_or_unsafe_slug_as_unknown(tmp_path, args):
+    (tmp_path / 'articles').mkdir()
+    r = status(tmp_path, *args)
+    out = json.loads(r.out)
+    assert r.code == 0 and out['next'] == 'unknown' and out['reason']
+
+
+def test_the_status_script_says_unknown_when_the_workspace_cannot_be_read(tmp_path):
+    (tmp_path / 'articles').write_text('a file where the folder should be')
+    r = status(tmp_path, 'demo')
+    out = json.loads(r.out)
+    assert r.code == 0 and out['next'] == 'unknown' and 'articles' in out['reason']
+
+
+@pytest.mark.parametrize('state', R1_STATES)
+def test_the_briefing_and_the_status_script_agree(ws, tmp_path, state):
+    """One function decides both (AC8): the line a writer reads at session start names what the orchestrator will do."""
+    build_state(ws, state)
+    nxt = json.loads(status(ws.root, ws.slug).out)['next']
+    line = session(ws.root, tmp_path / 'state').out
+    assert f'**{ws.slug}**: {BRIEFING[state]}' in line
+    assert nxt == EXPECTED_STATE[state][0]
+
+
+# ---------------- Phase 6 review: guard agreement, root, slug and argument edges ----------------
+# state -> (the artifact the probe writes, the guard's exit code). A stage the orchestrator would run must be allowed (0); at
+# a stop, the artifact it would otherwise move on to must be refused (2). sign-off and done write no artifact, so they have no row.
+GUARD_PROBE = {
+    'nothing': ('brief.md', 0), 'brief-only': ('brief.md', 0), 'brief-passed': ('research.md', 0), 'one-block': ('outline.md', 0),
+    'approved': ('draft.md', 0), 'approved-no-draft': ('draft.md', 0),
+    'two-blocks': ('outline.md', 2), 'two-blocks-then-pass': ('outline.md', 2),
+    'unapproved': ('draft.md', 2), 'markers-outline': ('draft.md', 2),
+    'stale': ('outline.md', 2), 'stale-unapproved': ('draft.md', 2), 'stale-next-missing': ('outline.md', 2),
+}
+
+
+@pytest.mark.parametrize('state', sorted(GUARD_PROBE))
+def test_the_orchestrators_next_step_is_one_the_guard_allows(ws, state):
+    """ADR-011 says the orchestrator and the guard agree. A new guard rule that breaks this turns this red."""
+    build_state(ws, state)
+    artifact, code = GUARD_PROBE[state]
+    assert guard(ws.root, write_payload(ws.rel(artifact))).code == code
+
+
+def test_every_state_that_runs_a_stage_probes_that_stage():
+    runs = {s: EXPECTED_STATE[s][0] for s in R1_STATES if EXPECTED_STATE[s][0] in STAGES}
+    assert {s: GUARD_PROBE[s] for s in runs} == {s: (f'{n}.md', 0) for s, n in runs.items()}
+
+
+def test_a_missing_articles_folder_names_the_root_it_looked_under(tmp_path):
+    out = json.loads(status(tmp_path, 'demo').out)
+    assert out['next'] == 'brief' and str(tmp_path) in out['reason']
+
+
+@pytest.mark.parametrize('slug,ok', [('demo\n', False), ('.hidden', False), ('My Draft', True), ('demo', True)],
+                         ids=['trailing-newline', 'dot-folder', 'space-in-name', 'kebab'])
+def test_a_slug_is_one_visible_folder_name(tmp_path, slug, ok):
+    (tmp_path / 'articles').mkdir()
+    assert (writer.article_state(str(tmp_path), slug)['next'] != 'unknown') is ok
+
+
+@pytest.mark.parametrize('args', [['demo', '--root'], ['a', 'b']], ids=['root-without-value', 'two-slugs'])
+def test_bad_arguments_still_print_json_unknown(tmp_path, args):
+    (tmp_path / 'articles').mkdir()
+    r = status(tmp_path, *args)
+    out = json.loads(r.out)
+    assert r.code == 0 and out['next'] == 'unknown' and out['reason']
