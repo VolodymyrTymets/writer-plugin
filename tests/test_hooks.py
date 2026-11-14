@@ -363,8 +363,8 @@ def test_hooks_json_registers_the_guard_and_the_recorder_on_the_tools_that_exist
     pre = [g for g in hooks['PreToolUse'] if any('guard-stage-order' in h['command'] for h in g['hooks'])]
     post_ = [g for g in hooks['PostToolUse'] if any('record-verdict' in h['command'] for h in g['hooks'])]
     assert pre and post_
-    # MultiEdit does not exist in this build (ADR-009). The one MCP tool parsed is the Drive create call, for FLOW-6 on a Doc title (ADR-012).
-    assert pre[0]['matcher'] == 'Edit|Write|Bash|mcp__claude_ai_Google_Drive__create_file'
+    # MultiEdit does not exist in this build (ADR-009). The MCP tools parsed are the Drive create and update calls, for FLOW-6 on a Doc title (ADR-012).
+    assert pre[0]['matcher'] == 'Edit|Write|Bash|mcp__claude_ai_Google_Drive__create_file|mcp__claude_ai_Google_Drive__update_file'
     assert post_[0]['matcher'] == 'Write'
 
 
@@ -1199,7 +1199,7 @@ def test_a_marker_blocks_the_publish_ready_doc_even_when_signed_by_hand(ws):
 def test_hooks_json_runs_the_guard_on_the_drive_create_tool_the_spike_recorded():
     hooks = json.loads((PLUGIN / 'hooks' / 'hooks.json').read_text())['hooks']['PreToolUse']
     matcher = next(g['matcher'] for g in hooks if any('guard-stage-order' in h['command'] for h in g['hooks']))
-    assert set(matcher.split('|')) == {'Edit', 'Write', 'Bash', DRIVE_CREATE}
+    assert set(matcher.split('|')) == {'Edit', 'Write', 'Bash', DRIVE_CREATE, 'mcp__claude_ai_Google_Drive__update_file'}
 
 
 # ---------------- Phase 7b review: the label is checked on the text, in every spelling, and never fails open ----------------
@@ -1308,3 +1308,27 @@ def test_a_publish_ready_doc_with_raw_front_matter_is_blocked(ws):
     writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')
     raw = writer.strip_fact_ids((ws.art / 'final.md').read_text())
     assert (drive_create_with(ws, READY_TITLE, textContent=raw).code, drive_create(ws, READY_TITLE).code) == (2, 0)
+
+
+# ---------------- Phase 7b: no rename onto the label (update_file can retitle an existing Doc; the copy skill never renames) ----------------
+DRIVE_UPDATE = 'mcp__claude_ai_Google_Drive__update_file'
+
+
+def drive_update(ws, **ti):
+    return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_UPDATE, 'tool_input': dict({'fileId': 'd1'}, **ti)})
+
+
+@pytest.mark.parametrize('state', ['signed', 'final-unsigned'])
+@pytest.mark.parametrize('title', ['demo · final · r1 · publish-ready', 'demo · final · r1 · Publish Ready'], ids=['exact', 'variant'])
+def test_a_doc_is_never_renamed_onto_the_publish_ready_label(ws, state, title):
+    """A rename cannot be checked against the Doc's content, so even a final that qualifies gets its labelled Doc by a new upload."""
+    build_state(ws, state)
+    r = drive_update(ws, title=title)
+    assert (r.code, 'FLOW-6' in r.err) == (2, True)
+
+
+@pytest.mark.parametrize('ti', [{'title': 'demo · final · r1'}, {'starred': True}, {'readOnly': True}],
+                         ids=['plain-title', 'star', 'lock'])
+def test_other_doc_updates_are_allowed(ws, ti):
+    build_state(ws, 'final-unsigned')
+    assert drive_update(ws, **ti).code == 0

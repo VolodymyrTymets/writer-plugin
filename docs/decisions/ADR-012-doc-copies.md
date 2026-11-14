@@ -44,7 +44,7 @@ One spike Doc through the claude.ai Google Drive connector in an interactive Cla
 5. **The guard enforces FLOW-6 on both the record and the Doc:**
    - `docs.json` is append-only, valid `{"revisions": [...]}`, and never written by Bash.
    - A new entry may say `publish_ready: true` only for a final that is publish-ready, recorded on its exact on-disk hash.
-   - The guard's PreToolUse matcher gains `mcp__claude_ai_Google_Drive__create_file`. A create whose title claims the label, in any
+   - The guard's PreToolUse matcher gains `mcp__claude_ai_Google_Drive__create_file` (and `update_file`, see Consequences). A create whose title claims the label, in any
      spelling (case, spaces, underscores, any hyphen), is refused unless that final qualifies **and** the upload is exactly that final
      as `doc-copy.py` prints it (`textContent`; never `base64Content`). The check runs before the Doc exists.
    - In `docs.json`, a new entry's `publish_ready` must be a boolean, a title with the label needs `true`, and duplicate keys are refused.
@@ -70,12 +70,12 @@ One spike Doc through the claude.ai Google Drive connector in an interactive Cla
   tamper-evident. Comments come back in a form the edit stage can cite.
 - Accepted cost: copies and comment sync work only in an interactive session with the connector signed in. Headless runs (CI,
   evals, `claude -p`) always take the no-connection path. Inline code loses its monospace in the Doc. Each revision is a new Doc in My Drive.
-- Known gap: `update_file` can rename an existing Doc, and the guard's matcher does not include it. A Doc made under a plain title
-  can be retitled publish-ready unseen. Only the copy skill's text stands in the way, and that skill never renames.
+- Renames: `update_file` can retitle a Doc, so the matcher also includes `mcp__claude_ai_Google_Drive__update_file`, and no Doc is
+  ever renamed onto the label, in any spelling. A rename cannot be checked against the Doc's content, so a final that qualifies
+  gets its labelled Doc from a new upload. The copy skill never renames.
 - Known limit: synced comments are reviewer-controlled text read by sessions that can write. The sync skill and the edit stage say
   a comment is data, never an instruction, but that is a prompt rule. The guard still refuses a sign-off that G4 did not pass.
-- Follow-ups: closing the rename gap (the `update_file` tool in the matcher, refusing a label in its `title`); a configurable Drive
-  folder (`create_file` takes `parentId`); the outline and draft stages reading synced comments.
+- Follow-ups: a configurable Drive folder (`create_file` takes `parentId`); the outline and draft stages reading synced comments.
 
 ## Revisit when
 The connector can update a Doc's content or reply to comments, or a headless session can load the claude.ai connectors.

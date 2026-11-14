@@ -12,8 +12,8 @@ Path-based, so it needs no branch or ticket: it acts only on `articles/<slug>/..
 - Verdict files are immutable and are created only by the Write tool with a valid line 1 and the next number (FLOW-4, ADR-004);
   no tool writes a sidecar and Bash cannot touch gates/ at all.
 Phase 7b adds (ADR-012), FLOW-6 on the Doc copies: `docs.json` is append-only, valid JSON, never written by Bash, and an entry
-says publish_ready only for a publish-ready final on its exact hash; the Drive create call (`DRIVE_CREATE`, the one MCP tool in
-the matcher) may title a Doc publish-ready only for such a final.
+says publish_ready only for a publish-ready final on its exact hash; the Drive create call (`DRIVE_CREATE`) may title a Doc
+publish-ready only for such a final carrying exactly its text, and the update call (`DRIVE_UPDATE`) never renames onto the label.
 An unexpected error allows the action (see lib/writer.fail_open).
 """
 import json
@@ -23,7 +23,8 @@ import sys
 
 from lib import writer as w
 
-DRIVE_CREATE = 'mcp__claude_ai_Google_Drive__create_file'  # the real name, recorded by the Phase 7b spike (2026-11-14)
+DRIVE_CREATE = 'mcp__claude_ai_Google_Drive__create_file'  # the real names, recorded by the Phase 7b spike (2026-11-14)
+DRIVE_UPDATE = 'mcp__claude_ai_Google_Drive__update_file'  # metadata only; its `title` can rename a Doc
 
 
 def deny_stage(rule, message, alternative):
@@ -154,6 +155,15 @@ def check_drive_create(root, tool_input):
                 'upload carries other content.', 'upload the text the doc-copy script prints, as textContent, unchanged.')
 
 
+def check_drive_update(tool_input):
+    """FLOW-6 on a rename: a title change cannot be checked against the Doc's content, so no Doc is renamed onto the label.
+    A final that qualifies gets its labelled Doc from a new upload, which check_drive_create judges (ADR-012)."""
+    title = tool_input.get('title')
+    if isinstance(title, str) and w.claims_publish_ready(title):
+        w.block('FLOW-6', f'no Doc may be renamed to "{title[:80]}": a publish-ready Doc is only ever created from the signed final.',
+                'run the copy skill on the final; it uploads a new revision under the publish-ready title when the final qualifies.')
+
+
 def check_stage(root, slug, stage):
     gate = w.gate_name(stage)
     if w.block_count(root, slug, stage) >= 2:
@@ -212,6 +222,9 @@ def main():
         return
     if tool == DRIVE_CREATE:
         check_drive_create(root, ti)
+        return
+    if tool == DRIVE_UPDATE:
+        check_drive_update(ti)
         return
     if tool in ('Write', 'Edit'):
         paths = [ti.get('file_path')]
