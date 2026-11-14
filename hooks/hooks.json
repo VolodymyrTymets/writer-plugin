@@ -14,7 +14,7 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Edit|Write|Bash",
+        "matcher": "Edit|Write|Bash|mcp__claude_ai_Google_Drive__create_file",
         "hooks": [
           {
             "type": "command",

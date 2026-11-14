@@ -363,7 +363,8 @@ def test_hooks_json_registers_the_guard_and_the_recorder_on_the_tools_that_exist
     pre = [g for g in hooks['PreToolUse'] if any('guard-stage-order' in h['command'] for h in g['hooks'])]
     post_ = [g for g in hooks['PostToolUse'] if any('record-verdict' in h['command'] for h in g['hooks'])]
     assert pre and post_
-    assert pre[0]['matcher'] == 'Edit|Write|Bash', 'MultiEdit does not exist in this build; mcp tools are not parsed (ADR-009)'
+    # MultiEdit does not exist in this build (ADR-009). The one MCP tool parsed is the Drive create call, for FLOW-6 on a Doc title (ADR-012).
+    assert pre[0]['matcher'] == 'Edit|Write|Bash|mcp__claude_ai_Google_Drive__create_file'
     assert post_[0]['matcher'] == 'Write'
 
 
@@ -1070,3 +1071,128 @@ def test_the_doc_copy_script_writes_nothing(ws):
     before = sorted(p.relative_to(ws.root) for p in ws.root.rglob('*'))
     doc_copy(ws.root, ws.slug, 'final')
     assert sorted(p.relative_to(ws.root) for p in ws.root.rglob('*')) == before
+
+
+# ---------------- Phase 7b (R8): FLOW-6 on the Doc copy record and on the Doc title itself ----------------
+DRIVE_CREATE = 'mcp__claude_ai_Google_Drive__create_file'
+
+
+def entry(ws, rev=1, ready=True, sha=None, stage='final'):
+    return {'stage': stage, 'rev': rev, 'id': f'd{rev}', 'url': f'https://docs.example/d{rev}', 'at': 't',
+            'sha256': sha if sha is not None else writer.artifact_hash(str(ws.root), ws.slug, stage),
+            'title': f'{ws.slug} · {stage} · r{rev}' + (' · publish-ready' if ready else ''), 'publish_ready': ready}
+
+
+def docs_write(ws, entries):
+    return guard(ws.root, write_payload(ws.rel('docs.json'), json.dumps({'revisions': entries})))
+
+
+def docs_edit(ws, old, new):
+    return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': 'Edit', 'tool_input': {
+        'file_path': ws.rel('docs.json'), 'old_string': old, 'new_string': new, 'replace_all': False}})
+
+
+def drive_create(ws, title):
+    return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE,
+                           'tool_input': {'title': title, 'textContent': '# T\n', 'contentMimeType': 'text/markdown'}})
+
+
+def signed_with_marker(ws):
+    build_state(ws, 'signed')
+    (ws.art / 'final.md').write_text(f'# T\n\nBody {MARKER}\n\nSigned-off-by: Test Human\n')
+    writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')
+
+
+@pytest.mark.parametrize('state,code', [('signed', 0), ('final-unsigned', 2), ('marker-final', 2), ('stale', 2)],
+                         ids=['signed', 'unsigned', 'unsigned-marker', 'stale'])
+def test_a_publish_ready_entry_needs_a_publish_ready_final(ws, state, code):
+    build_state(ws, state)
+    assert docs_write(ws, [entry(ws)]).code == code
+
+
+def test_a_hand_signed_final_with_a_marker_cannot_be_recorded_publish_ready(ws):
+    signed_with_marker(ws)
+    r = docs_write(ws, [entry(ws)])
+    assert (r.code, 'FLOW-6' in r.err) == (2, True)
+
+
+def test_a_final_with_fact_tags_is_recorded_against_the_hash_of_the_file_on_disk(ws):
+    build_state(ws, 'signed')
+    (ws.art / 'final.md').write_text('# T\n\nBody [F1].\n\nSigned-off-by: Test Human\n')
+    writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')
+    assert docs_write(ws, [entry(ws)]).code == 0
+
+
+def test_a_publish_ready_entry_with_an_older_hash_is_blocked(ws):
+    build_state(ws, 'signed')
+    assert docs_write(ws, [entry(ws, sha='0' * 64)]).code == 2
+
+
+def test_an_entry_that_is_not_publish_ready_is_allowed_in_any_state(ws):
+    build_state(ws, 'final-unsigned')
+    assert docs_write(ws, [entry(ws, ready=False)]).code == 0
+
+
+def test_only_a_final_can_be_recorded_publish_ready(ws):
+    build_state(ws, 'signed')
+    assert docs_write(ws, [entry(ws, stage='outline')]).code == 2
+
+
+def test_appending_keeps_history_and_is_allowed(ws):
+    build_state(ws, 'final-unsigned')
+    first = entry(ws, ready=False)
+    (ws.art / 'docs.json').write_text(json.dumps({'revisions': [first]}))
+    assert docs_write(ws, [first, entry(ws, rev=2, ready=False)]).code == 0
+
+
+@pytest.mark.parametrize('change', ['remove', 'alter', 'reorder'])
+def test_an_existing_entry_cannot_be_changed_removed_or_reordered(ws, change):
+    build_state(ws, 'signed')
+    a, b = entry(ws, ready=False), entry(ws, rev=2, ready=False)
+    (ws.art / 'docs.json').write_text(json.dumps({'revisions': [a, b]}))
+    new = {'remove': [b], 'alter': [dict(a, url='https://elsewhere'), b], 'reorder': [b, a]}[change]
+    r = docs_write(ws, new)
+    assert (r.code, 'FLOW-6' in r.err) == (2, True)
+
+
+def test_an_edit_that_flips_a_recorded_flag_is_blocked_even_on_a_signed_final(ws):
+    build_state(ws, 'signed')
+    (ws.art / 'docs.json').write_text(json.dumps({'revisions': [entry(ws, ready=False)]}))
+    assert docs_edit(ws, '"publish_ready": false', '"publish_ready": true').code == 2
+
+
+@pytest.mark.parametrize('content', ['{not json', '{}', '{"revisions": {}}', '{"revisions": [1]}', '[]'],
+                         ids=['not-json', 'no-revisions', 'revisions-not-list', 'entry-not-object', 'top-level-list'])
+def test_a_docs_json_that_is_not_a_revision_list_is_blocked(ws, content):
+    assert guard(ws.root, write_payload(ws.rel('docs.json'), content)).code == 2
+
+
+@pytest.mark.parametrize('command', ['echo x > articles/demo/docs.json', 'cp /tmp/x articles/demo/docs.json'],
+                         ids=['redirect', 'cp'])
+def test_bash_cannot_write_docs_json(ws, command):
+    assert guard(ws.root, bash_payload(command)).code == 2
+
+
+@pytest.mark.parametrize('state,title,code', [
+    ('final-unsigned', 'demo · final · r2 · publish-ready', 2),
+    ('signed', 'demo · final · r2 · publish-ready', 0),
+    ('signed', 'publish-ready copy', 2),
+    ('signed', 'other · final · r1 · publish-ready', 2),
+    ('final-unsigned', 'demo · final · r2', 0),
+    ('final-unsigned', 'demo · outline · r1 · ungated', 0),
+], ids=['unsigned', 'signed', 'no-slug', 'other-article', 'no-label', 'outline'])
+def test_a_doc_titled_publish_ready_is_created_only_for_a_publish_ready_final(ws, state, title, code):
+    build_state(ws, state)
+    assert drive_create(ws, title).code == code
+
+
+def test_a_marker_blocks_the_publish_ready_doc_even_when_signed_by_hand(ws):
+    signed_with_marker(ws)
+    r = drive_create(ws, 'demo · final · r2 · publish-ready')
+    assert (r.code, 'FLOW-6' in r.err) == (2, True)
+
+
+def test_hooks_json_runs_the_guard_on_the_drive_create_tool_the_spike_recorded():
+    hooks = json.loads((PLUGIN / 'hooks' / 'hooks.json').read_text())['hooks']['PreToolUse']
+    matcher = next(g['matcher'] for g in hooks if any('guard-stage-order' in h['command'] for h in g['hooks']))
+    assert set(matcher.split('|')) == {'Edit', 'Write', 'Bash', DRIVE_CREATE}
