@@ -53,12 +53,14 @@ brief, the outline and the fact bank, and lists the rest for the human.
 Anchor:
 > <anchor text, or "(no anchor)">
 
-<authorName>:
+Comment by `<authorName>`:
 > <headPost content>
 
-Reply, <authorName>:
+Reply by `<authorName>`:
 > <reply content>
 ```
+
+An author name is reviewer-controlled text too: write it only inside the backticks, with any backtick in it removed.
 
 Number the threads in the order the anchors appear in `fileContent`, unanchored ones last. With no threads, write the header and
 one line, `No comments on this revision.`, so the edit stage can tell a synced empty Doc from one never synced.

@@ -473,6 +473,24 @@ def docs_path(root: str, slug: str) -> str:
     return os.path.join(article_dir(root, slug), 'docs.json')
 
 
+def _no_duplicate_keys(pairs: List[Tuple[str, object]]) -> Dict[str, object]:
+    keys = [k for k, _ in pairs]
+    dup = next((k for k in keys if keys.count(k) > 1), None)
+    if dup is not None:
+        # json keeps the last value, but a reader sees the first: `"publish_ready": true, "publish_ready": false` would mislead
+        raise ValueError(f'duplicate key "{dup}"')
+    return dict(pairs)
+
+
+def parse_docs(text: str) -> List[Dict[str, object]]:
+    """The revisions list of a docs.json text; ValueError when it is not valid {"revisions": [{...}, ...]} with unique keys."""
+    data = json.loads(text, object_pairs_hook=_no_duplicate_keys)
+    revs = data.get('revisions') if isinstance(data, dict) else None
+    if not isinstance(revs, list) or not all(isinstance(e, dict) for e in revs):
+        raise ValueError('it is not {"revisions": [...]}, a list of entries')
+    return revs
+
+
 def docs_index(root: str, slug: str) -> List[Dict[str, object]]:
     """The recorded Doc revisions, oldest first. A missing file is no history; an unreadable one raises ValueError, because
     reading it as empty would restart the numbering and hide which revision reviewers commented on."""
@@ -481,13 +499,9 @@ def docs_index(root: str, slug: str) -> List[Dict[str, object]]:
         return []
     try:
         with open(path, encoding='utf-8') as fh:
-            data = json.load(fh)
+            return parse_docs(fh.read())
     except (OSError, ValueError) as exc:
         raise ValueError(f'articles/{slug}/docs.json cannot be read ({exc})') from exc
-    revs = data.get('revisions') if isinstance(data, dict) else None
-    if not isinstance(revs, list) or not all(isinstance(e, dict) for e in revs):
-        raise ValueError(f'articles/{slug}/docs.json is not {{"revisions": [...]}}')
-    return revs
 
 
 def next_rev(root: str, slug: str, stage: str) -> int:
@@ -501,6 +515,20 @@ def publish_ready(root: str, slug: str) -> bool:
     if article_state(root, slug)['next'] != 'done':
         return False
     return not MARKER_LOOSE.search(read_text(os.path.join(article_dir(root, slug), 'final.md')))
+
+
+def publish_ready_or_false(root: str, slug: str) -> bool:
+    """publish_ready() for the guard. Any failure reading the final means not publish-ready: here a false allow is a FLOW-6
+    breach, while a false block costs only the label, so this check fails closed, unlike the rest of the guard."""
+    try:
+        return publish_ready(root, slug)
+    except (OSError, ValueError):  # ValueError covers UnicodeDecodeError: a final that is not UTF-8
+        return False
+
+
+def claims_publish_ready(title: str) -> bool:
+    """True for any spelling a reader takes as the label: case, spaces, underscores, other hyphens or none at all."""
+    return 'publishready' in re.sub(r'[\W_]+', '', title.lower())
 
 
 def doc_title(slug: str, stage: str, rev: int, ready: bool, gated: bool) -> str:

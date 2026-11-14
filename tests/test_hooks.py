@@ -1093,8 +1093,11 @@ def docs_edit(ws, old, new):
 
 
 def drive_create(ws, title):
+    """A create call that uploads the final exactly as doc-copy.py prints it, so only the title and the article's state decide."""
+    final = ws.art / 'final.md'
+    text = writer.strip_fact_ids(final.read_text(errors='replace')) if final.exists() else '# T\n'
     return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE,
-                           'tool_input': {'title': title, 'textContent': '# T\n', 'contentMimeType': 'text/markdown'}})
+                           'tool_input': {'title': title, 'textContent': text, 'contentMimeType': 'text/markdown'}})
 
 
 def signed_with_marker(ws):
@@ -1196,3 +1199,71 @@ def test_hooks_json_runs_the_guard_on_the_drive_create_tool_the_spike_recorded()
     hooks = json.loads((PLUGIN / 'hooks' / 'hooks.json').read_text())['hooks']['PreToolUse']
     matcher = next(g['matcher'] for g in hooks if any('guard-stage-order' in h['command'] for h in g['hooks']))
     assert set(matcher.split('|')) == {'Edit', 'Write', 'Bash', DRIVE_CREATE}
+
+
+# ---------------- Phase 7b review: the label is checked on the text, in every spelling, and never fails open ----------------
+READY_TITLE = 'demo · final · r2 · publish-ready'
+
+
+def drive_create_with(ws, title, **content):
+    ti = dict({'title': title, 'contentMimeType': 'text/markdown'}, **content)
+    return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE, 'tool_input': ti})
+
+
+def test_a_publish_ready_doc_must_carry_exactly_the_final_as_doc_copy_prints_it(ws):
+    build_state(ws, 'signed')
+    text = json.loads(doc_copy(ws.root, ws.slug, 'final').out)['text']
+    assert drive_create_with(ws, READY_TITLE, textContent=text).code == 0
+
+
+@pytest.mark.parametrize('content', [
+    {'textContent': '# Older draft\n\nSomething else.\n'},
+    {'textContent': f'# T\n\nBody {MARKER}\n\nSigned-off-by: Test Human\n'},
+    {'base64Content': 'IyBUCg=='},
+    {},
+], ids=['other-text', 'text-with-marker', 'base64', 'no-content'])
+def test_a_publish_ready_doc_with_any_other_content_is_blocked(ws, content):
+    build_state(ws, 'signed')
+    r = drive_create_with(ws, READY_TITLE, **content)
+    assert (r.code, 'FLOW-6' in r.err) == (2, True)
+
+
+@pytest.mark.parametrize('title', [
+    'demo · final · r2 · Publish-Ready', 'demo · final · r2 · publish ready', 'demo · final · r2 · PUBLISH_READY',
+    'demo · final · r2 · publish‑ready', 'demo · final · r2 ·  publish-ready ', 'publishready',
+], ids=['case', 'space', 'underscore', 'nb-hyphen', 'padded', 'joined'])
+def test_every_spelling_of_the_label_is_checked_on_an_unsigned_final(ws, title):
+    build_state(ws, 'final-unsigned')
+    assert drive_create(ws, title).code == 2
+
+
+def test_a_final_that_cannot_be_read_is_not_publish_ready_for_the_guard(ws):
+    build_state(ws, 'signed')
+    (ws.art / 'final.md').write_bytes(b'# T\n\n\xff\xfe broken\n\nSigned-off-by: Test Human\n')
+    r_doc, r_rec = drive_create(ws, READY_TITLE), docs_write(ws, [entry(ws, sha='0' * 64)])
+    assert (r_doc.code, r_rec.code, 'unexpected error' in r_doc.err) == (2, 2, False)
+
+
+@pytest.mark.parametrize('bad', [{'publish_ready': 1}, {'publish_ready': 'true'}, {'publish_ready': None}],
+                         ids=['int', 'string', 'null'])
+def test_a_new_entry_says_publish_ready_as_a_boolean(ws, bad):
+    build_state(ws, 'final-unsigned')
+    assert docs_write(ws, [dict(entry(ws, ready=False), **bad)]).code == 2
+
+
+def test_a_new_entry_cannot_carry_the_label_in_its_title_while_saying_false(ws):
+    build_state(ws, 'final-unsigned')
+    e = dict(entry(ws, ready=False), title='demo · final · r1 · publish-ready')
+    assert docs_write(ws, [e]).code == 2
+
+
+def test_a_docs_json_with_a_duplicate_key_is_blocked(ws):
+    build_state(ws, 'final-unsigned')
+    body = json.dumps({'revisions': [entry(ws, ready=False)]}).replace('"publish_ready": false', '"publish_ready": true, "publish_ready": false')
+    assert guard(ws.root, write_payload(ws.rel('docs.json'), body)).code == 2
+
+
+def test_a_duplicate_key_makes_the_recorded_history_unreadable(ws):
+    (ws.art / 'docs.json').write_text('{"revisions": [], "revisions": []}')
+    with pytest.raises(ValueError, match='duplicate'):
+        writer.docs_index(str(ws.root), ws.slug)

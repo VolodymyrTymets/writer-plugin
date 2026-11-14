@@ -98,13 +98,10 @@ def check_docs(root, slug, rel, tool, tool_input):
         sys.stderr.write(f'[writer-plugin] guard-stage-order could not work out the content of {rel}, so the docs.json check was skipped.\n')
         return
     try:
-        data = json.loads(text)
-    except ValueError:
-        data = None
-    new = data.get('revisions') if isinstance(data, dict) else None
-    if not isinstance(new, list) or not all(isinstance(e, dict) for e in new):
-        w.block('FLOW-6', f'articles/{slug}/docs.json must stay {{"revisions": [...]}}, a list of entries; this write would replace it.',
-                'read the file, append one entry to its revisions list and write the whole file back.')
+        new = w.parse_docs(text)
+    except ValueError as exc:
+        w.block('FLOW-6', f'articles/{slug}/docs.json must stay {{"revisions": [...]}}, a list of entries with unique keys; this write '
+                f'would break it ({exc}).', 'read the file, append one entry to its revisions list and write the whole file back.')
     try:
         old = w.docs_index(root, slug)
     except ValueError:
@@ -113,12 +110,19 @@ def check_docs(root, slug, rel, tool, tool_input):
         w.block('FLOW-6', f'articles/{slug}/docs.json is append-only: this write changes, removes or reorders an entry already recorded.',
                 'keep every existing entry as it is and append the new one at the end.')
     for e in new[len(old):]:
-        if e.get('publish_ready') is not True:
+        ready = e.get('publish_ready')
+        if not isinstance(ready, bool):
+            w.block('FLOW-6', f'publish_ready must be true or false, not {json.dumps(ready)}.',
+                    'copy publish_ready from the doc-copy script unchanged.')
+        if not ready:
+            if w.claims_publish_ready(str(e.get('title', ''))):
+                w.block('FLOW-6', 'this entry says publish_ready false but its title carries the publish-ready label.',
+                        'copy the title from the doc-copy script unchanged.')
             continue
         if e.get('stage') != 'final':
             w.block('FLOW-6', f'only a final can be publish-ready; this entry is for "{e.get("stage")}".',
                     'record it with "publish_ready": false, exactly as the doc-copy script printed it.')
-        if not w.publish_ready(root, slug):
+        if not w.publish_ready_or_false(root, slug):
             w.block('FLOW-6', f'articles/{slug}/final.md is not publish-ready: it needs a non-empty Signed-off-by on a current G4 PASS '
                     'and no unverified-claim marker.', 'record the copy with "publish_ready": false, or sign off a final that qualifies.')
         if e.get('sha256') != w.artifact_hash(root, slug, 'final'):
@@ -130,19 +134,24 @@ PUBLISH_READY_TITLE = re.compile(r'^(?P<slug>.+?) · final · r\d+ · publish-re
 
 
 def check_drive_create(root, tool_input):
-    """FLOW-6 on the Doc itself: checked before the Doc exists, so no mislabelled copy is ever created (ADR-012)."""
+    """FLOW-6 on the Doc itself: checked before the Doc exists, so no mislabelled copy is ever created (ADR-012). The label
+    is caught in any spelling, and a labelled Doc must carry exactly the final that qualifies, as doc-copy.py prints it."""
     title = str(tool_input.get('title') or '')
-    if 'publish-ready' not in title.lower():
+    if not w.claims_publish_ready(title):
         return
     m = PUBLISH_READY_TITLE.match(title)
     slug = m.group('slug') if m else None
     if not slug or not w.SLUG.match(slug):
-        w.block('FLOW-6', f'a Doc titled "{title[:80]}" claims to be publish-ready but names no article final.',
+        w.block('FLOW-6', f'a Doc titled "{title[:80]}" claims to be publish-ready but is not titled as one article\'s final.',
                 'use the title the doc-copy script prints: <slug> · final · r<k> · publish-ready.')
-    if not w.publish_ready(root, slug):
+    if not w.publish_ready_or_false(root, slug):
         w.block('FLOW-6', f'articles/{slug}/final.md is not publish-ready (it needs a non-empty Signed-off-by on a current G4 PASS and no '
                 'unverified-claim marker), so no Doc may be labelled publish-ready.',
                 'make the copy under the title the doc-copy script prints now, which carries no publish-ready label.')
+    expected = w.strip_fact_ids(w.read_text(os.path.join(w.article_dir(root, slug), 'final.md')))
+    if tool_input.get('base64Content') is not None or tool_input.get('textContent') != expected:
+        w.block('FLOW-6', f'a publish-ready Doc must carry exactly articles/{slug}/final.md as signed off (fact IDs stripped); this '
+                'upload carries other content.', 'upload the text the doc-copy script prints, as textContent, unchanged.')
 
 
 def check_stage(root, slug, stage):

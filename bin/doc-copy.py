@@ -11,7 +11,7 @@ import argparse
 import json
 import os
 import sys
-from typing import Dict
+from typing import Dict, Sequence
 
 from lib import writer as w
 
@@ -28,7 +28,7 @@ class _Parser(argparse.ArgumentParser):
         raise _ArgError(message)
 
 
-def copy_for(argv) -> Dict[str, object]:
+def copy_for(argv: Sequence[str]) -> Dict[str, object]:
     ap = _Parser(add_help=False)
     ap.add_argument('--root', default=None)
     ap.add_argument('slug')
