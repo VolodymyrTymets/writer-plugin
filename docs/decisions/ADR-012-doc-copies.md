@@ -29,12 +29,15 @@ One spike Doc through the claude.ai Google Drive connector in an interactive Cla
 ## Decision
 1. **A revision is a new Doc**, titled `<slug> · <stage> · r<k>`, plus ` · publish-ready` for a final that qualifies or ` · ungated`
    when the stage has no current PASS. Earlier Docs stay as the record of what reviewers commented on.
-2. **The upload is Markdown** (`text/markdown`) with fact tags stripped outside code fences. No HTML or `.docx` conversion.
+2. **The upload is Markdown** (`text/markdown`) with fact tags stripped outside code fences. No HTML or `.docx` conversion. A
+   leading front-matter block becomes a `- **Title:** …` list (`writer.doc_text`). In the live run, Google turned raw front matter
+   into a horizontal rule plus a stray heading, and a reviewer still needs to check the title, meta description and slug.
 3. **`bin/doc-copy.py <slug> <stage>` computes everything the copy needs:** `text`, `sha256`, `rev`, `publish_ready`, `title`,
    `skip` and `existing_url`. It is read-only (the ADR-011 pattern). The `publish` skill uploads `text` under `title` and copies the
    fields unchanged into `articles/<slug>/docs.json`; the model never hashes, numbers or labels. `sha256` is the on-disk artifact's
-   `text_hash` (approval lines ignored), never the hash of the upload. A copy is skipped only when the stage's last entry has the same
-   hash **and** the same label, so a sign-off or a later PASS on unchanged text still makes a new Doc.
+   `text_hash` (approval lines ignored); the guard checks it. `text_sha256` is the hash of what reviewers see. A copy is skipped only
+   when the stage's last entry has the same `text_sha256` **and** the same label. So a sign-off or a later PASS on unchanged text
+   still makes a new Doc, and so does a change in how the text is rendered; an entry recorded without `text_sha256` never causes a skip.
 4. **Publish-ready is defined once**, as `writer.publish_ready()`: the article is `done` (signed off on a current G4 PASS) **and**
    `final.md` holds no marker. `done` alone is not enough, because G4 may pass a marker (ADR-008) and a sign-off typed by hand skips
    the guard.

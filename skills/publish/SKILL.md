@@ -29,7 +29,7 @@ yourself, and do not treat this as an error: the workflow goes on without the co
 ## Step 3 — Get the copy from the script
 
 Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/doc-copy.py <slug> <stage>` from the workspace root. It prints one JSON object:
-`text`, `sha256`, `rev`, `publish_ready`, `title`, `skip`, `existing_url`, or `error`.
+`text`, `sha256`, `text_sha256`, `rev`, `publish_ready`, `title`, `skip`, `existing_url`, or `error`.
 - On `error`: stop and quote it.
 - If `skip` is true, this exact copy already exists: report `existing_url` and stop. No new Doc, no new entry.
 
@@ -52,10 +52,10 @@ Read `articles/<slug>/docs.json` if it exists. Append one entry to its `revision
 
 ```json
 {"stage": "<stage>", "rev": <rev>, "id": "<the new Doc's id>", "url": "<its viewUrl>", "sha256": "<sha256>",
- "title": "<title>", "at": "<its createdTime>", "publish_ready": <publish_ready>}
+ "text_sha256": "<text_sha256>", "title": "<title>", "at": "<its createdTime>", "publish_ready": <publish_ready>}
 ```
 
-`rev`, `sha256`, `title` and `publish_ready` come from the script; `id`, `url` and `at` come from the create call's result. Keep
+`rev`, `sha256`, `text_sha256`, `title` and `publish_ready` come from the script; `id`, `url` and `at` come from the create call's result. Keep
 every existing entry byte for byte: never change or remove an existing entry, never reorder them. If a hook blocks the write, stop
 and report its message together with the new Doc's URL, and say the Doc exists but is not recorded.
 

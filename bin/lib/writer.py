@@ -469,6 +469,24 @@ def strip_fact_ids(text: str) -> str:
     return '\n'.join(out)
 
 
+_FRONT_MATTER = re.compile(r'\A---\n(.*?)\n---\n', re.S)
+
+
+def doc_text(text: str) -> str:
+    """The Markdown a reviewer's Doc gets: fact tags stripped, and a leading front-matter block turned into a list. Google
+    reads raw front matter as a rule plus a heading (live run, 2026-11-14), but the title, meta description and slug are
+    things a reviewer checks, so they stay, as `- **Title:** …` lines."""
+    m = _FRONT_MATTER.match(text)
+    if not m:
+        return strip_fact_ids(text)
+    items = []
+    for line in m.group(1).split('\n'):
+        key, sep, value = line.partition(':')
+        if sep and key.strip():
+            items.append(f'- **{key.strip().replace("_", " ").capitalize()}:** {value.strip()}')
+    return '\n'.join(items) + '\n\n' + strip_fact_ids(text[m.end():])
+
+
 def docs_path(root: str, slug: str) -> str:
     return os.path.join(article_dir(root, slug), 'docs.json')
 
@@ -539,15 +557,18 @@ def doc_title(slug: str, stage: str, rev: int, ready: bool, gated: bool) -> str:
 def doc_copy(root: str, slug: str, stage: str) -> Dict[str, object]:
     """Everything the copy skill uploads and records, so the model never computes a hash, a revision or a label.
 
-    `skip` is true when the stage's last recorded copy has the same hash and the same label: the hash ignores approval
-    lines, so a sign-off or a later PASS on unchanged text still gives a new Doc."""
+    `sha256` is the artifact on disk (what the guard checks); `text_sha256` is what reviewers see. `skip` is true when the
+    stage's last recorded copy has the same `text_sha256` and the same label. Both hashes ignore approval lines, so a
+    sign-off or a later PASS on unchanged text still gives a new Doc through its label, and a change in how the text is
+    rendered gives a new Doc through `text_sha256` (an entry recorded without one never causes a skip)."""
     text = read_text(os.path.join(article_dir(root, slug), f'{stage}.md'))
     rev = next_rev(root, slug, stage)
     ready = stage == 'final' and publish_ready(root, slug)
     title = doc_title(slug, stage, rev, ready, check_gate(root, slug, stage) is None)
-    sha = text_hash(text)
+    shown = doc_text(text)
+    shown_sha = text_hash(shown)
     last = next((e for e in reversed(docs_index(root, slug)) if e.get('stage') == stage), None)
-    skip = bool(last) and last.get('sha256') == sha and \
+    skip = bool(last) and last.get('text_sha256') == shown_sha and \
         _REV_IN_TITLE.sub('', str(last.get('title', ''))) == _REV_IN_TITLE.sub('', title)
-    return {'text': strip_fact_ids(text), 'sha256': sha, 'rev': rev, 'publish_ready': ready, 'title': title,
-            'skip': skip, 'existing_url': last.get('url') if skip else None}
+    return {'text': shown, 'sha256': text_hash(text), 'text_sha256': shown_sha, 'rev': rev, 'publish_ready': ready,
+            'title': title, 'skip': skip, 'existing_url': last.get('url') if skip else None}

@@ -631,6 +631,14 @@ def test_publish_skips_an_unchanged_copy_and_appends_without_changing_history():
     assert '`articles/<slug>/docs.json`' in text
 
 
+def test_publish_records_every_field_the_script_prints_for_the_record():
+    """doc-copy.py's record fields; `text_sha256` decides the next skip, so an entry without it re-uploads every time."""
+    text = flat(PUBLISH)
+    for field in ('sha256', 'text_sha256', 'rev', 'title', 'publish_ready'):
+        assert f'"{field}": ' in text, f'the docs.json entry template must carry {field}'
+    assert '`rev`, `sha256`, `text_sha256`, `title` and `publish_ready` come from the script' in text
+
+
 def test_publish_reports_a_guard_block_and_the_unrecorded_doc():
     assert 'If a hook blocks the write, stop' in flat(PUBLISH)
 

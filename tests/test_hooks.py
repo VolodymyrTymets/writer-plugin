@@ -1007,7 +1007,8 @@ def test_the_doc_copy_of_a_final_strips_ids_and_hashes_the_file_on_disk(ws):
     r = doc_copy(ws.root, ws.slug, 'final')
     out = json.loads(r.out)
     assert r.code == 0
-    assert out == {'text': '# T\n\nBody.\n\nSigned-off-by: Test Human\n', 'sha256': writer.text_hash(body), 'rev': 1,
+    uploaded = '# T\n\nBody.\n\nSigned-off-by: Test Human\n'
+    assert out == {'text': uploaded, 'sha256': writer.text_hash(body), 'text_sha256': writer.text_hash(uploaded), 'rev': 1,
                    'publish_ready': True, 'title': 'demo · final · r1 · publish-ready', 'skip': False, 'existing_url': None}
 
 
@@ -1020,14 +1021,14 @@ def test_an_unchanged_copy_is_skipped_and_names_the_existing_doc(ws):
     build_state(ws, 'unapproved')
     first = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
     record_doc(ws, [dict(stage='outline', rev=1, id='d1', url='https://docs.example/d1', at='t', sha256=first['sha256'],
-                         title=first['title'], publish_ready=False)])
+                         text_sha256=first['text_sha256'], title=first['title'], publish_ready=False)])
     again = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
     assert (again['skip'], again['existing_url'], again['rev']) == (True, 'https://docs.example/d1', 2)
 
 
 def entry_from(out, rev, url):
-    return dict(stage='final', rev=rev, id=f'd{rev}', url=url, at='t', sha256=out['sha256'], title=out['title'],
-                publish_ready=out['publish_ready'])
+    return dict(stage='final', rev=rev, id=f'd{rev}', url=url, at='t', sha256=out['sha256'], text_sha256=out['text_sha256'],
+                title=out['title'], publish_ready=out['publish_ready'])
 
 
 def test_a_sign_off_on_unchanged_text_still_makes_a_new_doc(ws):
@@ -1095,7 +1096,7 @@ def docs_edit(ws, old, new):
 def drive_create(ws, title):
     """A create call that uploads the final exactly as doc-copy.py prints it, so only the title and the article's state decide."""
     final = ws.art / 'final.md'
-    text = writer.strip_fact_ids(final.read_text(errors='replace')) if final.exists() else '# T\n'
+    text = writer.doc_text(final.read_text(errors='replace')) if final.exists() else '# T\n'
     return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE,
                            'tool_input': {'title': title, 'textContent': text, 'contentMimeType': 'text/markdown'}})
 
@@ -1267,3 +1268,43 @@ def test_a_duplicate_key_makes_the_recorded_history_unreadable(ws):
     (ws.art / 'docs.json').write_text('{"revisions": [], "revisions": []}')
     with pytest.raises(ValueError, match='duplicate'):
         writer.docs_index(str(ws.root), ws.slug)
+
+
+# ---------------- Phase 7b live run: front matter reads as a list in the Doc, and the skip rule follows the uploaded text ----------------
+# The live run showed Google turning `---` into a rule and `title: …` into a heading, so the Doc opened with a stray heading.
+FRONT = '---\ntitle: HTTP caching\nmeta_description: How caching works.\nslug: http-caching\n---\n# HTTP caching\n\nBody [F1].\n'
+
+
+def test_front_matter_becomes_a_list_reviewers_can_read():
+    assert writer.doc_text(FRONT) == ('- **Title:** HTTP caching\n- **Meta description:** How caching works.\n- **Slug:** http-caching\n'
+                                      '\n# HTTP caching\n\nBody.\n')
+
+
+@pytest.mark.parametrize('text', ['# T\n\n---\n\nA rule mid-text.\n', 'No front matter [F2].\n', '---\nnot closed\n'],
+                         ids=['rule-later', 'none', 'unclosed'])
+def test_only_a_leading_closed_front_matter_block_is_rendered(text):
+    assert writer.doc_text(text) == writer.strip_fact_ids(text)
+
+
+def test_an_entry_from_before_the_text_hash_never_causes_a_skip(ws):
+    build_state(ws, 'unapproved')
+    first = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    old = dict(stage='outline', rev=1, id='d1', url='u', at='t', sha256=first['sha256'], title=first['title'], publish_ready=False)
+    record_doc(ws, [old])
+    assert json.loads(doc_copy(ws.root, ws.slug, 'outline').out)['skip'] is False
+
+
+def test_a_change_in_what_reviewers_see_makes_a_new_doc_even_when_the_file_is_unchanged(ws):
+    build_state(ws, 'unapproved')
+    first = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    record_doc(ws, [dict(entry_from(first, 1, 'u'), stage='outline', text_sha256='0' * 64)])
+    again = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    assert (again['sha256'] == first['sha256'], again['skip']) == (True, False)
+
+
+def test_a_publish_ready_doc_with_raw_front_matter_is_blocked(ws):
+    build_state(ws, 'signed')
+    (ws.art / 'final.md').write_text(FRONT + '\nSigned-off-by: Test Human\n')
+    writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')
+    raw = writer.strip_fact_ids((ws.art / 'final.md').read_text())
+    assert (drive_create_with(ws, READY_TITLE, textContent=raw).code, drive_create(ws, READY_TITLE).code) == (2, 0)

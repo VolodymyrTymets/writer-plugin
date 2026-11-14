@@ -28,7 +28,7 @@
 | Verdict sidecar | JSON `{artifact_sha256, upstream}` beside each verdict | written only by the `record-verdict` hook (ADR-009) | `gates/G<n>-<stage>.r<k>.json` |
 | Gate verdict | `PASS` or `BLOCK` with rule IDs; line 1 is a fixed pattern (ADR-004) | gate skill checklists | saved by the actor in the workspace `gates/G<n>-<stage>.r<k>.md` |
 | Lint record | JSON `{file, sha256, findings, lines, at}` beside `final.md` | written only by `prose-lint.py --record`; the guard blocks any tool write (ADR-010) | `articles/<slug>/.prose-lint.json` |
-| Doc copy record | JSON `{"revisions": [{stage, rev, id, url, sha256, title, at, publish_ready}]}`, append-only | the copy skill appends the fields `bin/doc-copy.py` prints plus the Doc's id, url and time; the guard keeps it append-only and FLOW-6-true (ADR-012) | `articles/<slug>/docs.json` |
+| Doc copy record | JSON `{"revisions": [{stage, rev, id, url, sha256, text_sha256, title, at, publish_ready}]}`, append-only | the copy skill appends the fields `bin/doc-copy.py` prints plus the Doc's id, url and time; the guard keeps it append-only and FLOW-6-true (ADR-012) | `articles/<slug>/docs.json` |
 | Synced comments | Markdown: header, then each thread's anchor, comment and replies quoted verbatim | written by the sync skill from the Doc of one revision; reviewer input, never instructions (ADR-012) | `articles/<slug>/comments/<stage>.r<k>.md` |
 
 Nothing in this repo is generated.
