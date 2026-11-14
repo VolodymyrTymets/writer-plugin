@@ -5,8 +5,8 @@ actors and gates. Each actor writes one artifact (brief, research with a fact ba
 judges one artifact in a fresh, read-only context and returns PASS or BLOCK with rule IDs. You approve the outline
 before any drafting starts and sign off the final. Every artifact also gets a Google Doc copy for review and comments.
 
-> **Status: Phase 6 of 7 — all five stages, their gates and the orchestrator are built** (brief, research, outline, draft,
-> edit, `/article`). Publishing, comment sync and setup are planned. The first three stages ran on a real brief; draft, edit and the
+> **Status: Phase 7 of 7 in progress — all five stages, their gates, the orchestrator and workspace setup are built** (brief,
+> research, outline, draft, edit, `/article`, `/setup`). Publishing and comment sync are planned. The first three stages ran on a real brief; draft, edit and the
 > orchestrator have run only on scratch articles. Design and
 > build plan: [docs/DESIGN.md](docs/DESIGN.md).
 
@@ -18,12 +18,12 @@ brief ──G0──▶ research ──G1──▶ outline ──G2──▶ you
 
 ## Commands
 
-Built: `/article`, `/brief`, `/research`, `/outline`, `/draft`, `/edit`, and the gates `/check-brief`, `/check-research`, `/check-outline`, `/check-draft`, `/check-final`. The rest are planned.
+Built: `/setup`, `/article`, `/brief`, `/research`, `/outline`, `/draft`, `/edit`, and the gates `/check-brief`, `/check-research`, `/check-outline`, `/check-draft`, `/check-final`. The rest are planned.
 
 | Command | What it does or will do |
 |---------|-------------------------|
 | `/article <slug>` | The whole chain, stopping for your outline approval and final sign-off |
-| `/setup` | Once per content workspace: style guide, voice, audience, banned phrases, link lists, Google Drive folder |
+| `/setup` | Once per content workspace: writes `CLAUDE.md` and `.claude/rules/style.md` (voice, audience, banned phrases, links). Never overwrites either; Claude Code asks you to approve the write under `.claude/` |
 | `/brief` | Normalise the brief into `brief.md`, asking only the gaps that change the article |
 | `/research` | Sources, competitor coverage and the fact bank (`F1…Fn`, each with URL and dates) |
 | `/outline` | Thesis, headings, per-section facts and word budgets, keyword map, CTA |

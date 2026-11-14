@@ -8,6 +8,8 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- `prose-lint.py` reads a style-guide `**Phrases:**` or `**Tells:**` value of exactly `none` as an empty list. Before, it banned the
+  word "none" itself, so a workspace with no banned phrases would have had G4 block on noise.
 - The five stage actors pre-approve `Edit` as well as `Write`, and after a BLOCK they read the file back to check every fix
   landed before running the gate again; a fix that cannot be made stops the stage instead. A headless run had spent an
   actor's second BLOCK re-gating a file whose edits had been refused.
@@ -24,6 +26,9 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - G1 prints `Coverage: <a> answered, <o> open (of <m>)` on line 3 of its verdict.
 
 ### Added
+- Phase 7a: the setup skill (`/setup`) writes a content workspace's `CLAUDE.md` from `rules/core/CLAUDE.template.md` and its
+  `.claude/rules/style.md` from `templates/style.md`, asking at most two rounds of questions. It never overwrites an existing file,
+  writes only a missing one, and refuses in the plugin's own repository.
 - Phase 6 (ADR-011): the orchestrator (`/article`) runs the chain, calling each stage's actor in order and stopping at the outline
   approval and the final sign-off, on two BLOCKs, on a stale verdict, or when done; it writes nothing. `bin/article-status.py` prints an
   article's next step as JSON; the session briefing is built on the same `article_state()` and now counts markers in the final, ignores a
