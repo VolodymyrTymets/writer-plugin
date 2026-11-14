@@ -598,3 +598,38 @@ def test_setup_copies_every_rule_id_verbatim_and_checks_for_placeholders():
     text = flat(SETUP)
     assert 'Change nothing else in the constitution' in text
     assert 'no `{{` is left' in text
+
+
+# ---------------- Phase 7b (ADR-012): the Doc copy skill uploads what the script computed and appends one record ----------------
+PUBLISH = 'publish'
+DRIVE_CREATE = 'mcp__claude_ai_Google_Drive__create_file'   # recorded by the R4 spike, 2026-11-14
+DOC_COPY_RUN = 'python3 ${CLAUDE_PLUGIN_ROOT}/bin/doc-copy.py'
+
+
+def test_publish_pre_approves_only_the_script_the_write_and_the_drive_create_tool():
+    assert allowed_tools(PUBLISH) == {'Read', 'Write', f'Bash({DOC_COPY_RUN} *)', DRIVE_CREATE}
+
+
+def test_publish_takes_every_field_from_the_script_and_computes_none_itself():
+    text = flat(PUBLISH)
+    assert f'{DOC_COPY_RUN} <slug> <stage>' in text
+    assert 'copy them unchanged' in text
+    assert 'You never strip fact tags, hash a file, pick a revision number or decide a label yourself' in text
+    assert 'article-status.py' not in text, 'the label has one source: the copy script'
+
+
+def test_publish_uploads_markdown_and_stops_cleanly_without_a_drive_connection():
+    text = flat(PUBLISH)
+    assert '`contentMimeType`: `text/markdown`' in text
+    assert 'Doc copy: no Google Drive connection' in text and 'write nothing' in text
+
+
+def test_publish_skips_an_unchanged_copy_and_appends_without_changing_history():
+    text = flat(PUBLISH)
+    assert 'If `skip` is true' in text and '`existing_url`' in text
+    assert 'never change or remove an existing entry' in text
+    assert '`articles/<slug>/docs.json`' in text
+
+
+def test_publish_reports_a_guard_block_and_the_unrecorded_doc():
+    assert 'If a hook blocks the write, stop' in flat(PUBLISH)
