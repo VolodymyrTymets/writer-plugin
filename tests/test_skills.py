@@ -542,3 +542,53 @@ def test_actor_confirms_its_fix_landed_before_it_gates_again(d):
     text = flat(d)
     assert 'read the file back and check that every fix is in it' in text
     assert 'If a fix cannot be made, stop and report it instead of running the gate again' in text
+
+
+# ---------------- Phase 7a: the setup skill fills the workspace constitution and style guide, never over a file ----------------
+SETUP = 'setup-workspace'
+STYLE_LABELS_LINT_READS = ['**Phrases:**', '**Tells:**']  # prose-lint.py:style_list parses these on one line
+
+
+def test_setup_reads_both_library_files_through_the_plugin_root():
+    text = flat(SETUP)
+    assert '${CLAUDE_PLUGIN_ROOT}/rules/core/CLAUDE.template.md' in text
+    assert '${CLAUDE_PLUGIN_ROOT}/templates/style.md' in text
+
+
+def test_setup_writes_the_style_guide_where_prose_lint_and_the_stages_look_for_it():
+    lint_src = (ROOT / 'bin' / 'prose-lint.py').read_text(encoding='utf-8')
+    assert "os.path.join(d, '.claude', 'rules', 'style.md')" in lint_src
+    assert 'Write `.claude/rules/style.md`' in flat(SETUP)
+
+
+def test_setup_never_overwrites_and_writes_only_a_missing_file():
+    text = flat(SETUP)
+    assert 'You never overwrite, edit or merge into an existing `CLAUDE.md` or `.claude/rules/style.md`' in text
+    assert 'If both exist, write nothing' in text
+    assert 'Edit' not in allowed_tools(SETUP)
+
+
+def test_setup_refuses_in_the_plugin_source_repo():
+    text = flat(SETUP)
+    assert '`.claude-plugin/plugin.json`' in text and '`"name": "writer-plugin"`' in text
+    assert 'stop and write nothing' in text
+
+
+def test_setup_pre_approves_only_what_it_needs():
+    assert allowed_tools(SETUP) == {'Read', 'Write', 'Glob', 'AskUserQuestion'}
+
+
+def test_setup_keeps_the_labels_prose_lint_parses_and_never_invents_a_voice():
+    style = (ROOT / 'templates' / 'style.md').read_text(encoding='utf-8')
+    text = flat(SETUP)
+    for label in STYLE_LABELS_LINT_READS:
+        assert label in style and label in text
+    assert 'on one line, comma separated' in text
+    assert 'Never invent a reader, a voice or a link' in text
+    assert 'at most **two batched rounds**' in text
+
+
+def test_setup_copies_every_rule_id_verbatim_and_checks_for_placeholders():
+    text = flat(SETUP)
+    assert 'Change nothing else in the constitution' in text
+    assert 'no `{{` is left' in text
