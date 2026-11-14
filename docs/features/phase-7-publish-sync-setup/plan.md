@@ -84,6 +84,28 @@ and Phase 6 R0 (a throwaway probe before any code) for both spikes. `claude plug
 
 ### 7b — publish and sync
 #### R4 — Spike: open questions 1–2 (S, on your Drive; first, before any 7b code)
+- **Result (2026-11-14, claude.ai Google Drive connector in this Claude Code session, after `/mcp` sign-in; one spike Doc):**
+  - **Q2, tools present:** yes, once signed in, as `mcp__claude_ai_Google_Drive__*`. Before sign-in only an authenticate tool exists, so
+    publish must treat "no create tool" as the normal unsigned case (AC7). Real names and arguments:
+    - `create_file(title, textContent | base64Content, contentMimeType, parentId?, disableConversionToGoogleType?)`. It returns
+      `id`, `viewUrl` and `mimeType`; text converts to `application/vnd.google-apps.document` by default.
+    - `read_file_content(fileId, includeComments)`.
+    - `update_file` changes metadata only (title, parent, lock), never content. `trash_file` also exists.
+  - **Q1, fidelity:** `contentMimeType: text/markdown` keeps H1/H2/H3, bulleted and numbered lists, bold, and both links (inline and
+    autolink), checked by HTML export and by read-back. Inline code loses its monospace and stays as plain text. So `doc-copy.py` puts
+    Markdown in `text`; no HTML or `.docx` converter is needed, and HTML was not tried.
+  - **Comments:** `includeComments: true` returns `commentThreads[]`: `commentId`, `headPost` {`authorName`, `content`,
+    `modifiedTime`}, `replies[]` and `status`. Anchors are inline in `fileContent` as `<comment_start id=X>anchor<comment_end id=X>`.
+    An instruction-shaped comment arrives as ordinary `content`. Sync writes it as quoted data.
+  - **Folder:** `create_file` takes `parentId`. A configurable folder stays a follow-up (Assumptions).
+- **Added 2026-11-14 at the approver's request (review of PR #13):** Docs go into `articles/<workspace folder name>/<slug>/` in My
+  Drive (an `articles` top folder keeps every workspace in one place; the approver's second remark), and titles stay full. Spike, same session:
+  - `create_file(title, contentMimeType: application/vnd.google-apps.folder, parentId?)` makes a folder, and folders nest.
+  - A Doc created with `parentId` lands in that folder.
+  - `search_files` with `title = '<name>' and mimeType = 'application/vnd.google-apps.folder' and parentId = '<id or root>' and
+    trashed = false` finds a just-created folder.
+  - So `doc-copy.py` prints `folder_path` and the recorded `folder_id`; the skill finds or creates the two folders once and
+    records the slug folder in `docs.json` (`"folder": {"id", "path"}`). Revisions stay append-only; the folder record is not FLOW-6.
 - Authenticate; record the real tool names and arguments (rule D4). Upload one synthetic Markdown article as `text/markdown`, then
   `text/html`, read each back, and compare headings, lists and links. If neither keeps the structure, try a stdlib `.docx` (zipfile + XML).
   Check `read_file_content(includeComments: true)` on a Doc with one hand-added comment, and whether create takes a parent folder.

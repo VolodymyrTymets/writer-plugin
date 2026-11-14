@@ -60,13 +60,13 @@ repeat any of that. When it returns, go back to Step 2.
 | `stopped` | Quote `reason` (it names both BLOCK verdicts and how a human archives them). Two BLOCKs hand the article to the human (FLOW-3). |
 | `stale` | Quote `reason`. A verdict no longer covers what is on disk: the artifact it names was changed or its upstream was re-gated. Rebuilding or re-gating it is the human's decision; say which stage's command reruns it, taking the stage from the verdict file named in `reason` (`G<n>-<stage>.r<k>.md`), not from `stage`, which is where the chain stopped. |
 | `unknown` | Quote `reason`. Do not guess a stage. |
-| `done` | The final passed G4 and is signed off. Nothing to run. |
+| `done` | The final passed G4 and is signed off. Nothing to run. For the publish-ready review copy, a human runs `writer-plugin:publish <slug> final`. |
 
 ## Step 4 — Report
 
 A few lines: the slug, each stage you ran in this call with its verdict file (the latest `gates/G<n>-<stage>.r<k>.md`), the
-markers (each, and the count), and what the article waits for now, in the words of Step 3. Say once: "Doc copy: not yet
-available". If you ran nothing, say why.
+markers (each, and the count), and what the article waits for now, in the words of Step 3. Doc copies: as each actor reported (a URL,
+or no Google Drive connection). If you ran nothing, say why.
 
 ## Definition of done
 - [ ] Every decision came from `article-status.py`, run again after each actor

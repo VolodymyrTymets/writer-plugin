@@ -449,3 +449,150 @@ def describe_article(root: str, slug: str) -> str:
     if n:
         parts.append(f'{n} marker{"s" if n != 1 else ""} to resolve')
     return ' · '.join(parts)
+
+
+# ---------------- Doc copies (Phase 7b, ADR-012) ----------------
+# A fact tag as the draft stage writes it: `[F7]` or `[F7, F9]`, with the one space before it, so "claim [F7]." becomes "claim.".
+FACT_TAG = re.compile(r'[ \t]?\[F\d+(?:[ \t]*,[ \t]*F\d+)*\]')
+_REV_IN_TITLE = re.compile(r' · r\d+')
+
+
+def strip_fact_ids(text: str) -> str:
+    """The text a reviewer sees: fact tags removed outside code fences, everything else unchanged."""
+    out, fenced = [], False
+    for line in text.split('\n'):
+        if _FENCE.match(line):
+            fenced = not fenced
+            out.append(line)
+        else:
+            out.append(line if fenced else FACT_TAG.sub('', line))
+    return '\n'.join(out)
+
+
+_FRONT_MATTER = re.compile(r'\A---\n(.*?)\n---\n', re.S)
+
+
+def doc_text(text: str) -> str:
+    """The Markdown a reviewer's Doc gets: fact tags stripped, and a leading front-matter block turned into a list. Google
+    reads raw front matter as a rule plus a heading (live run, 2026-11-14), but the title, meta description and slug are
+    things a reviewer checks, so they stay, as `- **Title:** …` lines."""
+    m = _FRONT_MATTER.match(text)
+    if not m:
+        return strip_fact_ids(text)
+    items = []
+    for line in m.group(1).split('\n'):
+        key, sep, value = line.partition(':')
+        if sep and key.strip():
+            items.append(f'- **{key.strip().replace("_", " ").capitalize()}:** {value.strip()}')
+    return '\n'.join(items) + '\n\n' + strip_fact_ids(text[m.end():])
+
+
+def docs_path(root: str, slug: str) -> str:
+    return os.path.join(article_dir(root, slug), 'docs.json')
+
+
+def _no_duplicate_keys(pairs: List[Tuple[str, object]]) -> Dict[str, object]:
+    keys = [k for k, _ in pairs]
+    dup = next((k for k in keys if keys.count(k) > 1), None)
+    if dup is not None:
+        # json keeps the last value, but a reader sees the first: `"publish_ready": true, "publish_ready": false` would mislead
+        raise ValueError(f'duplicate key "{dup}"')
+    return dict(pairs)
+
+
+def parse_docs(text: str) -> List[Dict[str, object]]:
+    """The revisions list of a docs.json text; ValueError when it is not valid {"revisions": [{...}, ...]} with unique keys."""
+    data = json.loads(text, object_pairs_hook=_no_duplicate_keys)
+    revs = data.get('revisions') if isinstance(data, dict) else None
+    if not isinstance(revs, list) or not all(isinstance(e, dict) for e in revs):
+        raise ValueError('it is not {"revisions": [...]}, a list of entries')
+    return revs
+
+
+def docs_index(root: str, slug: str) -> List[Dict[str, object]]:
+    """The recorded Doc revisions, oldest first. A missing file is no history; an unreadable one raises ValueError, because
+    reading it as empty would restart the numbering and hide which revision reviewers commented on."""
+    path = docs_path(root, slug)
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, encoding='utf-8') as fh:
+            return parse_docs(fh.read())
+    except (OSError, ValueError) as exc:
+        raise ValueError(f'articles/{slug}/docs.json cannot be read ({exc})') from exc
+
+
+DRIVE_TOP_FOLDER = 'articles'  # one place in My Drive for every workspace's copies
+
+
+def drive_folder_path(root: str, slug: str) -> List[str]:
+    """Where an article's Doc copies live in My Drive: `articles/<workspace folder name>/<slug>/` (approver's choice on PR #13)."""
+    return [DRIVE_TOP_FOLDER, os.path.basename(os.path.realpath(root)) or 'workspace', slug]
+
+
+def recorded_folder_id(root: str, slug: str) -> Optional[str]:
+    """The Drive folder id recorded in docs.json for this article, if it was recorded for the same folder path. A renamed
+    workspace changes the path, and then the skill looks the folders up again."""
+    path = docs_path(root, slug)
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding='utf-8') as fh:
+        data = json.loads(fh.read(), object_pairs_hook=_no_duplicate_keys)
+    folder = data.get('folder') if isinstance(data, dict) else None
+    if isinstance(folder, dict) and folder.get('path') == '/'.join(drive_folder_path(root, slug)) and \
+            isinstance(folder.get('id'), str) and folder['id']:
+        return folder['id']
+    return None
+
+
+def next_rev(root: str, slug: str, stage: str) -> int:
+    revs = [e.get('rev') for e in docs_index(root, slug) if e.get('stage') == stage]
+    return 1 + max((r for r in revs if isinstance(r, int)), default=0)
+
+
+def publish_ready(root: str, slug: str) -> bool:
+    """FLOW-6, defined once for the copy script and the guard: the final is signed off on a current G4 PASS (`done`) and holds
+    no marker. `done` alone is not enough: G4 may pass a marker (ADR-008) and a sign-off typed by hand skips the guard."""
+    if article_state(root, slug)['next'] != 'done':
+        return False
+    return not MARKER_LOOSE.search(read_text(os.path.join(article_dir(root, slug), 'final.md')))
+
+
+def publish_ready_or_false(root: str, slug: str) -> bool:
+    """publish_ready() for the guard. Any failure reading the final means not publish-ready: here a false allow is a FLOW-6
+    breach, while a false block costs only the label, so this check fails closed, unlike the rest of the guard."""
+    try:
+        return publish_ready(root, slug)
+    except (OSError, ValueError):  # ValueError covers UnicodeDecodeError: a final that is not UTF-8
+        return False
+
+
+def claims_publish_ready(title: str) -> bool:
+    """True for any spelling a reader takes as the label: case, spaces, underscores, other hyphens or none at all."""
+    return 'publishready' in re.sub(r'[\W_]+', '', title.lower())
+
+
+def doc_title(slug: str, stage: str, rev: int, ready: bool, gated: bool) -> str:
+    label = ' · publish-ready' if ready else ('' if gated else ' · ungated')
+    return f'{slug} · {stage} · r{rev}{label}'
+
+
+def doc_copy(root: str, slug: str, stage: str) -> Dict[str, object]:
+    """Everything the copy skill uploads and records, so the model never computes a hash, a revision or a label.
+
+    `sha256` is the artifact on disk (what the guard checks); `text_sha256` is what reviewers see. `skip` is true when the
+    stage's last recorded copy has the same `text_sha256` and the same label. Both hashes ignore approval lines, so a
+    sign-off or a later PASS on unchanged text still gives a new Doc through its label, and a change in how the text is
+    rendered gives a new Doc through `text_sha256` (an entry recorded without one never causes a skip)."""
+    text = read_text(os.path.join(article_dir(root, slug), f'{stage}.md'))
+    rev = next_rev(root, slug, stage)
+    ready = stage == 'final' and publish_ready(root, slug)
+    title = doc_title(slug, stage, rev, ready, check_gate(root, slug, stage) is None)
+    shown = doc_text(text)
+    shown_sha = text_hash(shown)
+    last = next((e for e in reversed(docs_index(root, slug)) if e.get('stage') == stage), None)
+    skip = bool(last) and last.get('text_sha256') == shown_sha and \
+        _REV_IN_TITLE.sub('', str(last.get('title', ''))) == _REV_IN_TITLE.sub('', title)
+    return {'text': shown, 'sha256': text_hash(text), 'text_sha256': shown_sha, 'rev': rev, 'publish_ready': ready,
+            'title': title, 'skip': skip, 'existing_url': last.get('url') if skip else None,
+            'folder_path': drive_folder_path(root, slug), 'folder_id': recorded_folder_id(root, slug)}

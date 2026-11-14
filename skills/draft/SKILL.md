@@ -67,7 +67,7 @@ Fix only what the findings name, in `draft.md`. Before you repeat Step 4, read t
 ## Step 6 — On PASS
 
 Report in a few lines: the draft path, the verdict path, the markers (each, and the count), and the gate's advisory findings.
-Say once: "Doc copy: not yet available". The next stage is the edit stage.
+Then invoke `writer-plugin:publish <slug> draft` through the Skill tool for the review copy, and report the Doc URL it gives, or its one line saying there is no Google Drive connection. The next stage is the edit stage.
 
 ## After the gate
 

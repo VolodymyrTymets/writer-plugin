@@ -363,7 +363,8 @@ def test_hooks_json_registers_the_guard_and_the_recorder_on_the_tools_that_exist
     pre = [g for g in hooks['PreToolUse'] if any('guard-stage-order' in h['command'] for h in g['hooks'])]
     post_ = [g for g in hooks['PostToolUse'] if any('record-verdict' in h['command'] for h in g['hooks'])]
     assert pre and post_
-    assert pre[0]['matcher'] == 'Edit|Write|Bash', 'MultiEdit does not exist in this build; mcp tools are not parsed (ADR-009)'
+    # MultiEdit does not exist in this build (ADR-009). The MCP tools parsed are the Drive create and update calls, for FLOW-6 on a Doc title (ADR-012).
+    assert pre[0]['matcher'] == 'Edit|Write|Bash|mcp__claude_ai_Google_Drive__create_file|mcp__claude_ai_Google_Drive__update_file'
     assert post_[0]['matcher'] == 'Write'
 
 
@@ -946,3 +947,430 @@ def test_bad_arguments_still_print_json_unknown(tmp_path, args):
     r = status(tmp_path, *args)
     out = json.loads(r.out)
     assert r.code == 0 and out['next'] == 'unknown' and out['reason']
+
+
+# ---------------- Phase 7b (R5): the Doc copy is computed by a read-only script, never by the model ----------------
+def doc_copy(root, *args):
+    r = subprocess.run([sys.executable, str(BIN / 'doc-copy.py'), *args], capture_output=True, text=True, cwd=str(root))
+    return Result(r.returncode, r.stdout, r.stderr)
+
+
+def record_doc(ws, entries):
+    (ws.art / 'docs.json').write_text(json.dumps({'revisions': entries}))
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('A claim [F7].', 'A claim.'),
+    ('Two facts [F7, F9] here.', 'Two facts here.'),
+    ('Spaced [F7,F12] and [F3]: done', 'Spaced and: done'),
+    ('[F1] at the start', ' at the start'),
+    ('A quote ("x") [F12], then more.', 'A quote ("x"), then more.'),
+    ('Not a tag [Figure 2] or [F] or [f7].', 'Not a tag [Figure 2] or [F] or [f7].'),
+], ids=['one', 'two', 'spacing', 'line-start', 'before-comma', 'look-alikes'])
+def test_fact_ids_are_stripped_and_the_punctuation_stays(text, expected):
+    assert writer.strip_fact_ids(text) == expected
+
+
+def test_fact_ids_inside_a_code_fence_are_left_alone():
+    text = 'Claim [F1].\n\n```\nlist[F1] = 0\n```\nAfter [F2].\n'
+    assert writer.strip_fact_ids(text) == 'Claim.\n\n```\nlist[F1] = 0\n```\nAfter.\n'
+
+
+def test_the_next_revision_is_per_stage_and_one_past_the_highest(ws):
+    assert writer.next_rev(str(ws.root), ws.slug, 'outline') == 1
+    record_doc(ws, [{'stage': 'outline', 'rev': 1}, {'stage': 'outline', 'rev': 3}, {'stage': 'final', 'rev': 7}])
+    assert (writer.next_rev(str(ws.root), ws.slug, 'outline'), writer.next_rev(str(ws.root), ws.slug, 'draft')) == (4, 1)
+
+
+@pytest.mark.parametrize('state,ready', [
+    ('signed', True), ('final-unsigned', False), ('marker-final', False), ('malformed-marker-final', False),
+    ('fenced-sign-off', False), ('stale', False),
+])
+def test_publish_ready_needs_done_and_no_marker_in_the_final(ws, state, ready):
+    build_state(ws, state)
+    assert writer.publish_ready(str(ws.root), ws.slug) is ready
+
+
+def test_a_hand_signed_final_with_a_marker_is_not_publish_ready(ws):
+    """G4 may PASS a final that holds a marker (ADR-008) and a hand sign-off skips the guard: `done` alone is not enough."""
+    build_state(ws, 'signed')
+    (ws.art / 'final.md').write_text(f'# T\n\nBody {MARKER}\n\nSigned-off-by: Test Human\n')
+    writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')  # the gate judged this text, so the state is `done`
+    assert (writer.article_state(str(ws.root), ws.slug)['next'], writer.publish_ready(str(ws.root), ws.slug)) == ('done', False)
+
+
+def test_the_doc_copy_of_a_final_strips_ids_and_hashes_the_file_on_disk(ws):
+    build_state(ws, 'signed')
+    body = '# T\n\nBody [F1].\n\nSigned-off-by: Test Human\n'
+    (ws.art / 'final.md').write_text(body)
+    writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')
+    r = doc_copy(ws.root, ws.slug, 'final')
+    out = json.loads(r.out)
+    assert r.code == 0
+    uploaded = '# T\n\nBody.\n\nSigned-off-by: Test Human\n'
+    assert out == {'text': uploaded, 'sha256': writer.text_hash(body), 'text_sha256': writer.text_hash(uploaded), 'rev': 1,
+                   'publish_ready': True, 'title': 'demo · final · r1 · publish-ready', 'skip': False, 'existing_url': None,
+                   'folder_path': ['articles', os.path.basename(os.path.realpath(ws.root)), 'demo'], 'folder_id': None}
+
+
+def test_an_ungated_stage_is_labelled_ungated(ws):
+    build_state(ws, 'one-block')
+    assert json.loads(doc_copy(ws.root, ws.slug, 'outline').out)['title'] == 'demo · outline · r1 · ungated'
+
+
+def test_an_unchanged_copy_is_skipped_and_names_the_existing_doc(ws):
+    build_state(ws, 'unapproved')
+    first = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    record_doc(ws, [dict(stage='outline', rev=1, id='d1', url='https://docs.example/d1', at='t', sha256=first['sha256'],
+                         text_sha256=first['text_sha256'], title=first['title'], publish_ready=False)])
+    again = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    assert (again['skip'], again['existing_url'], again['rev']) == (True, 'https://docs.example/d1', 2)
+
+
+def entry_from(out, rev, url):
+    return dict(stage='final', rev=rev, id=f'd{rev}', url=url, at='t', sha256=out['sha256'], text_sha256=out['text_sha256'],
+                title=out['title'], publish_ready=out['publish_ready'])
+
+
+def test_a_sign_off_on_unchanged_text_still_makes_a_new_doc(ws):
+    """The hash ignores approval lines, so only the label tells the signed copy from the unsigned one."""
+    build_state(ws, 'final-unsigned')
+    before = json.loads(doc_copy(ws.root, ws.slug, 'final').out)
+    record_doc(ws, [entry_from(before, 1, 'https://docs.example/d1')])
+    (ws.art / 'final.md').write_text('# T\n\nBody.\n\nSigned-off-by: Test Human\n')
+    after = json.loads(doc_copy(ws.root, ws.slug, 'final').out)
+    assert (before['sha256'] == after['sha256'], after['skip'], after['title']) == (True, False, 'demo · final · r2 · publish-ready')
+
+
+def test_an_ungated_copy_that_later_passes_makes_a_new_doc(ws):
+    build_state(ws, 'unapproved')
+    (ws.art / 'gates' / 'G2-outline.r1.md').unlink()
+    (ws.art / 'gates' / 'G2-outline.r1.json').unlink()
+    ungated = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    record_doc(ws, [dict(entry_from(ungated, 1, 'u'), stage='outline')])
+    ws.verdict('outline', 1, PASS['outline'], sidecar=True)
+    gated = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    assert (ungated['title'], gated['skip'], gated['title']) == ('demo · outline · r1 · ungated', False, 'demo · outline · r2')
+
+
+@pytest.mark.parametrize('args,why', [
+    (['demo', 'summary'], 'not a stage'), (['demo'], 'usage'), (['../x', 'final'], 'slug'), (['demo', 'research'], 'research.md'),
+], ids=['bad-stage', 'no-stage', 'bad-slug', 'missing-artifact'])
+def test_a_bad_request_prints_an_error_and_exits_1(ws, args, why):
+    (ws.art / 'research.md').unlink()
+    r = doc_copy(ws.root, *args)
+    assert (r.code, why in json.loads(r.out)['error']) == (1, True)
+
+
+def test_an_unreadable_docs_json_is_an_error_not_an_empty_history(ws):
+    (ws.art / 'docs.json').write_text('{not json')
+    r = doc_copy(ws.root, ws.slug, 'outline')
+    assert (r.code, 'docs.json' in json.loads(r.out)['error']) == (1, True)
+
+
+def test_the_doc_copy_script_writes_nothing(ws):
+    build_state(ws, 'signed')
+    before = sorted(p.relative_to(ws.root) for p in ws.root.rglob('*'))
+    doc_copy(ws.root, ws.slug, 'final')
+    assert sorted(p.relative_to(ws.root) for p in ws.root.rglob('*')) == before
+
+
+# ---------------- Phase 7b (R8): FLOW-6 on the Doc copy record and on the Doc title itself ----------------
+DRIVE_CREATE = 'mcp__claude_ai_Google_Drive__create_file'
+
+
+def entry(ws, rev=1, ready=True, sha=None, stage='final'):
+    return {'stage': stage, 'rev': rev, 'id': f'd{rev}', 'url': f'https://docs.example/d{rev}', 'at': 't',
+            'sha256': sha if sha is not None else writer.artifact_hash(str(ws.root), ws.slug, stage),
+            'title': f'{ws.slug} · {stage} · r{rev}' + (' · publish-ready' if ready else ''), 'publish_ready': ready}
+
+
+def docs_write(ws, entries):
+    return guard(ws.root, write_payload(ws.rel('docs.json'), json.dumps({'revisions': entries})))
+
+
+def docs_edit(ws, old, new):
+    return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': 'Edit', 'tool_input': {
+        'file_path': ws.rel('docs.json'), 'old_string': old, 'new_string': new, 'replace_all': False}})
+
+
+def drive_create(ws, title):
+    """A create call that uploads the final exactly as doc-copy.py prints it, so only the title and the article's state decide."""
+    final = ws.art / 'final.md'
+    text = writer.doc_text(final.read_text(errors='replace')) if final.exists() else '# T\n'
+    return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE,
+                           'tool_input': {'title': title, 'textContent': text, 'contentMimeType': 'text/markdown'}})
+
+
+def signed_with_marker(ws):
+    build_state(ws, 'signed')
+    (ws.art / 'final.md').write_text(f'# T\n\nBody {MARKER}\n\nSigned-off-by: Test Human\n')
+    writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')
+
+
+@pytest.mark.parametrize('state,code', [('signed', 0), ('final-unsigned', 2), ('marker-final', 2), ('stale', 2)],
+                         ids=['signed', 'unsigned', 'unsigned-marker', 'stale'])
+def test_a_publish_ready_entry_needs_a_publish_ready_final(ws, state, code):
+    build_state(ws, state)
+    assert docs_write(ws, [entry(ws)]).code == code
+
+
+def test_a_hand_signed_final_with_a_marker_cannot_be_recorded_publish_ready(ws):
+    signed_with_marker(ws)
+    r = docs_write(ws, [entry(ws)])
+    assert (r.code, 'FLOW-6' in r.err) == (2, True)
+
+
+def test_a_final_with_fact_tags_is_recorded_against_the_hash_of_the_file_on_disk(ws):
+    build_state(ws, 'signed')
+    (ws.art / 'final.md').write_text('# T\n\nBody [F1].\n\nSigned-off-by: Test Human\n')
+    writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')
+    assert docs_write(ws, [entry(ws)]).code == 0
+
+
+def test_a_publish_ready_entry_with_an_older_hash_is_blocked(ws):
+    build_state(ws, 'signed')
+    assert docs_write(ws, [entry(ws, sha='0' * 64)]).code == 2
+
+
+def test_an_entry_that_is_not_publish_ready_is_allowed_in_any_state(ws):
+    build_state(ws, 'final-unsigned')
+    assert docs_write(ws, [entry(ws, ready=False)]).code == 0
+
+
+def test_only_a_final_can_be_recorded_publish_ready(ws):
+    build_state(ws, 'signed')
+    assert docs_write(ws, [entry(ws, stage='outline')]).code == 2
+
+
+def test_appending_keeps_history_and_is_allowed(ws):
+    build_state(ws, 'final-unsigned')
+    first = entry(ws, ready=False)
+    (ws.art / 'docs.json').write_text(json.dumps({'revisions': [first]}))
+    assert docs_write(ws, [first, entry(ws, rev=2, ready=False)]).code == 0
+
+
+@pytest.mark.parametrize('change', ['remove', 'alter', 'reorder'])
+def test_an_existing_entry_cannot_be_changed_removed_or_reordered(ws, change):
+    build_state(ws, 'signed')
+    a, b = entry(ws, ready=False), entry(ws, rev=2, ready=False)
+    (ws.art / 'docs.json').write_text(json.dumps({'revisions': [a, b]}))
+    new = {'remove': [b], 'alter': [dict(a, url='https://elsewhere'), b], 'reorder': [b, a]}[change]
+    r = docs_write(ws, new)
+    assert (r.code, 'FLOW-6' in r.err) == (2, True)
+
+
+def test_an_edit_that_flips_a_recorded_flag_is_blocked_even_on_a_signed_final(ws):
+    build_state(ws, 'signed')
+    (ws.art / 'docs.json').write_text(json.dumps({'revisions': [entry(ws, ready=False)]}))
+    assert docs_edit(ws, '"publish_ready": false', '"publish_ready": true').code == 2
+
+
+@pytest.mark.parametrize('content', ['{not json', '{}', '{"revisions": {}}', '{"revisions": [1]}', '[]'],
+                         ids=['not-json', 'no-revisions', 'revisions-not-list', 'entry-not-object', 'top-level-list'])
+def test_a_docs_json_that_is_not_a_revision_list_is_blocked(ws, content):
+    assert guard(ws.root, write_payload(ws.rel('docs.json'), content)).code == 2
+
+
+@pytest.mark.parametrize('command', ['echo x > articles/demo/docs.json', 'cp /tmp/x articles/demo/docs.json'],
+                         ids=['redirect', 'cp'])
+def test_bash_cannot_write_docs_json(ws, command):
+    assert guard(ws.root, bash_payload(command)).code == 2
+
+
+@pytest.mark.parametrize('state,title,code', [
+    ('final-unsigned', 'demo · final · r2 · publish-ready', 2),
+    ('signed', 'demo · final · r2 · publish-ready', 0),
+    ('signed', 'publish-ready copy', 2),
+    ('signed', 'other · final · r1 · publish-ready', 2),
+    ('final-unsigned', 'demo · final · r2', 0),
+    ('final-unsigned', 'demo · outline · r1 · ungated', 0),
+], ids=['unsigned', 'signed', 'no-slug', 'other-article', 'no-label', 'outline'])
+def test_a_doc_titled_publish_ready_is_created_only_for_a_publish_ready_final(ws, state, title, code):
+    build_state(ws, state)
+    assert drive_create(ws, title).code == code
+
+
+def test_a_marker_blocks_the_publish_ready_doc_even_when_signed_by_hand(ws):
+    signed_with_marker(ws)
+    r = drive_create(ws, 'demo · final · r2 · publish-ready')
+    assert (r.code, 'FLOW-6' in r.err) == (2, True)
+
+
+def test_hooks_json_runs_the_guard_on_the_drive_create_tool_the_spike_recorded():
+    hooks = json.loads((PLUGIN / 'hooks' / 'hooks.json').read_text())['hooks']['PreToolUse']
+    matcher = next(g['matcher'] for g in hooks if any('guard-stage-order' in h['command'] for h in g['hooks']))
+    assert set(matcher.split('|')) == {'Edit', 'Write', 'Bash', DRIVE_CREATE, 'mcp__claude_ai_Google_Drive__update_file'}
+
+
+# ---------------- Phase 7b review: the label is checked on the text, in every spelling, and never fails open ----------------
+READY_TITLE = 'demo · final · r2 · publish-ready'
+
+
+def drive_create_with(ws, title, **content):
+    ti = dict({'title': title, 'contentMimeType': 'text/markdown'}, **content)
+    return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE, 'tool_input': ti})
+
+
+def test_a_publish_ready_doc_must_carry_exactly_the_final_as_doc_copy_prints_it(ws):
+    build_state(ws, 'signed')
+    text = json.loads(doc_copy(ws.root, ws.slug, 'final').out)['text']
+    assert drive_create_with(ws, READY_TITLE, textContent=text).code == 0
+
+
+@pytest.mark.parametrize('content', [
+    {'textContent': '# Older draft\n\nSomething else.\n'},
+    {'textContent': f'# T\n\nBody {MARKER}\n\nSigned-off-by: Test Human\n'},
+    {'base64Content': 'IyBUCg=='},
+    {},
+], ids=['other-text', 'text-with-marker', 'base64', 'no-content'])
+def test_a_publish_ready_doc_with_any_other_content_is_blocked(ws, content):
+    build_state(ws, 'signed')
+    r = drive_create_with(ws, READY_TITLE, **content)
+    assert (r.code, 'FLOW-6' in r.err) == (2, True)
+
+
+@pytest.mark.parametrize('title', [
+    'demo · final · r2 · Publish-Ready', 'demo · final · r2 · publish ready', 'demo · final · r2 · PUBLISH_READY',
+    'demo · final · r2 · publish‑ready', 'demo · final · r2 ·  publish-ready ', 'publishready',
+], ids=['case', 'space', 'underscore', 'nb-hyphen', 'padded', 'joined'])
+def test_every_spelling_of_the_label_is_checked_on_an_unsigned_final(ws, title):
+    build_state(ws, 'final-unsigned')
+    assert drive_create(ws, title).code == 2
+
+
+def test_a_final_that_cannot_be_read_is_not_publish_ready_for_the_guard(ws):
+    build_state(ws, 'signed')
+    (ws.art / 'final.md').write_bytes(b'# T\n\n\xff\xfe broken\n\nSigned-off-by: Test Human\n')
+    r_doc, r_rec = drive_create(ws, READY_TITLE), docs_write(ws, [entry(ws, sha='0' * 64)])
+    assert (r_doc.code, r_rec.code, 'unexpected error' in r_doc.err) == (2, 2, False)
+
+
+@pytest.mark.parametrize('bad', [{'publish_ready': 1}, {'publish_ready': 'true'}, {'publish_ready': None}],
+                         ids=['int', 'string', 'null'])
+def test_a_new_entry_says_publish_ready_as_a_boolean(ws, bad):
+    build_state(ws, 'final-unsigned')
+    assert docs_write(ws, [dict(entry(ws, ready=False), **bad)]).code == 2
+
+
+def test_a_new_entry_cannot_carry_the_label_in_its_title_while_saying_false(ws):
+    build_state(ws, 'final-unsigned')
+    e = dict(entry(ws, ready=False), title='demo · final · r1 · publish-ready')
+    assert docs_write(ws, [e]).code == 2
+
+
+def test_a_docs_json_with_a_duplicate_key_is_blocked(ws):
+    build_state(ws, 'final-unsigned')
+    body = json.dumps({'revisions': [entry(ws, ready=False)]}).replace('"publish_ready": false', '"publish_ready": true, "publish_ready": false')
+    assert guard(ws.root, write_payload(ws.rel('docs.json'), body)).code == 2
+
+
+def test_a_duplicate_key_makes_the_recorded_history_unreadable(ws):
+    (ws.art / 'docs.json').write_text('{"revisions": [], "revisions": []}')
+    with pytest.raises(ValueError, match='duplicate'):
+        writer.docs_index(str(ws.root), ws.slug)
+
+
+# ---------------- Phase 7b live run: front matter reads as a list in the Doc, and the skip rule follows the uploaded text ----------------
+# The live run showed Google turning `---` into a rule and `title: …` into a heading, so the Doc opened with a stray heading.
+FRONT = '---\ntitle: HTTP caching\nmeta_description: How caching works.\nslug: http-caching\n---\n# HTTP caching\n\nBody [F1].\n'
+
+
+def test_front_matter_becomes_a_list_reviewers_can_read():
+    assert writer.doc_text(FRONT) == ('- **Title:** HTTP caching\n- **Meta description:** How caching works.\n- **Slug:** http-caching\n'
+                                      '\n# HTTP caching\n\nBody.\n')
+
+
+@pytest.mark.parametrize('text', ['# T\n\n---\n\nA rule mid-text.\n', 'No front matter [F2].\n', '---\nnot closed\n'],
+                         ids=['rule-later', 'none', 'unclosed'])
+def test_only_a_leading_closed_front_matter_block_is_rendered(text):
+    assert writer.doc_text(text) == writer.strip_fact_ids(text)
+
+
+def test_an_entry_from_before_the_text_hash_never_causes_a_skip(ws):
+    build_state(ws, 'unapproved')
+    first = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    old = dict(stage='outline', rev=1, id='d1', url='u', at='t', sha256=first['sha256'], title=first['title'], publish_ready=False)
+    record_doc(ws, [old])
+    assert json.loads(doc_copy(ws.root, ws.slug, 'outline').out)['skip'] is False
+
+
+def test_a_change_in_what_reviewers_see_makes_a_new_doc_even_when_the_file_is_unchanged(ws):
+    build_state(ws, 'unapproved')
+    first = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    record_doc(ws, [dict(entry_from(first, 1, 'u'), stage='outline', text_sha256='0' * 64)])
+    again = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    assert (again['sha256'] == first['sha256'], again['skip']) == (True, False)
+
+
+def test_a_publish_ready_doc_with_raw_front_matter_is_blocked(ws):
+    build_state(ws, 'signed')
+    (ws.art / 'final.md').write_text(FRONT + '\nSigned-off-by: Test Human\n')
+    writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')
+    raw = writer.strip_fact_ids((ws.art / 'final.md').read_text())
+    assert (drive_create_with(ws, READY_TITLE, textContent=raw).code, drive_create(ws, READY_TITLE).code) == (2, 0)
+
+
+# ---------------- Phase 7b: no rename onto the label (update_file can retitle an existing Doc; the copy skill never renames) ----------------
+DRIVE_UPDATE = 'mcp__claude_ai_Google_Drive__update_file'
+
+
+def drive_update(ws, **ti):
+    return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_UPDATE, 'tool_input': dict({'fileId': 'd1'}, **ti)})
+
+
+@pytest.mark.parametrize('state', ['signed', 'final-unsigned'])
+@pytest.mark.parametrize('title', ['demo · final · r1 · publish-ready', 'demo · final · r1 · Publish Ready'], ids=['exact', 'variant'])
+def test_a_doc_is_never_renamed_onto_the_publish_ready_label(ws, state, title):
+    """A rename cannot be checked against the Doc's content, so even a final that qualifies gets its labelled Doc by a new upload."""
+    build_state(ws, state)
+    r = drive_update(ws, title=title)
+    assert (r.code, 'FLOW-6' in r.err) == (2, True)
+
+
+@pytest.mark.parametrize('ti', [{'title': 'demo · final · r1'}, {'starred': True}, {'readOnly': True}],
+                         ids=['plain-title', 'star', 'lock'])
+def test_other_doc_updates_are_allowed(ws, ti):
+    build_state(ws, 'final-unsigned')
+    assert drive_update(ws, **ti).code == 0
+
+
+# ---------------- Phase 7b: Doc copies go into articles/<workspace folder>/<slug>/ in Drive (approver's request on PR #13) ----------------
+def test_a_folder_recorded_before_the_articles_level_is_not_reused(ws):
+    build_state(ws, 'unapproved')
+    path = f'{os.path.basename(os.path.realpath(ws.root))}/demo'
+    (ws.art / 'docs.json').write_text(json.dumps({'folder': {'id': 'F1', 'path': path}, 'revisions': []}))
+    assert json.loads(doc_copy(ws.root, ws.slug, 'outline').out)['folder_id'] is None
+
+
+def test_the_copy_names_the_drive_folder_after_the_workspace_and_the_slug(ws):
+    build_state(ws, 'unapproved')
+    out = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    assert (out['folder_path'], out['folder_id']) == (['articles', os.path.basename(os.path.realpath(ws.root)), 'demo'], None)
+
+
+def test_a_recorded_folder_for_the_same_path_is_reused(ws):
+    build_state(ws, 'unapproved')
+    path = f'articles/{os.path.basename(os.path.realpath(ws.root))}/demo'
+    (ws.art / 'docs.json').write_text(json.dumps({'folder': {'id': 'F1', 'path': path}, 'revisions': []}))
+    assert json.loads(doc_copy(ws.root, ws.slug, 'outline').out)['folder_id'] == 'F1'
+
+
+def test_a_folder_recorded_for_another_path_is_not_reused(ws):
+    """A renamed workspace folder means the Drive folder name no longer matches: look it up again."""
+    build_state(ws, 'unapproved')
+    (ws.art / 'docs.json').write_text(json.dumps({'folder': {'id': 'F1', 'path': 'articles/old-name/demo'}, 'revisions': []}))
+    assert json.loads(doc_copy(ws.root, ws.slug, 'outline').out)['folder_id'] is None
+
+
+def test_recording_the_folder_beside_an_appended_entry_is_allowed(ws):
+    build_state(ws, 'final-unsigned')
+    body = {'folder': {'id': 'F1', 'path': 'ws/demo'}, 'revisions': [entry(ws, ready=False)]}
+    assert guard(ws.root, write_payload(ws.rel('docs.json'), json.dumps(body))).code == 0
+
+
+def test_a_drive_folder_create_is_not_a_labelled_doc(ws):
+    build_state(ws, 'final-unsigned')
+    r = guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE,
+                        'tool_input': {'title': 'demo', 'contentMimeType': 'application/vnd.google-apps.folder', 'parentId': 'F0'}})
+    assert r.code == 0
