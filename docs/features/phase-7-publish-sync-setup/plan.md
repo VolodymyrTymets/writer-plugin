@@ -166,6 +166,18 @@ and Phase 6 R0 (a throwaway probe before any code) for both spikes. `claude plug
 - `claude plugin eval init --bare probe` in the scratchpad: confirm the `case.yaml` fields, how a case seeds files, which graders exist
   (exact text, `tool_used`, llm) and how WebFetch is granted. Record it here. If a case cannot seed a workspace without `--scaffold`,
   the cases use `scaffold_script` and the run command gains `--scaffold`; I wrote these scripts, so that flag is safe here.
+- **Result (2026-11-14):** docs at code.claude.com/docs/en/plugin-evals.md, plus one probe case run in a scratch copy of the plugin
+  (`--trust-plugin` approved by the approver for this session; $0.06):
+  - **Case format:** `case.yaml` (`execution`, `context.scaffold_script`, `graders`) beside a `prompt.md`.
+  - **Grader types:** `regex` (target `last_message`, `trace` or a workspace file; flags `i` only), `tool_used`, `tool_order`,
+    `file_exists`, `llm` and `baseline`. There are no script graders.
+  - **Tool grants:** a case can grant only read-only tools; Write, Edit, WebFetch and WebSearch come from `--allow-tools`.
+  - **Seeding:** `context.scaffold_script` (needs `--scaffold`) runs in the empty workspace and reaches files beside it with `$(dirname "$0")`.
+  - **Gates:** a slash prompt `/writer-plugin:check-brief demo` is expanded and **forks into `writer-plugin:gate`**. The Skill tool
+    is not called, so gate cases check the fork with a `trace` regex on `subagent_type`, not with `tool_used: Skill`.
+  - **Hooks:** plugin hooks run (the SessionStart briefing printed).
+  - **Output:** the verdict is the run's last message, line 1 first.
+  - **Seeding detail:** the gate wants `brief.source.md` beside `brief.md` and the folder named after the slug, so the cases seed both.
 #### R11 — Synthetic briefs and gate cases (M)
 - files: `evals/briefs/` (three public-topic briefs, e.g. HTTP caching, SQLite WAL mode, CSS container queries), `evals/<case>/` per case:
   G0 PASS ×3 (one per brief) and G0 BLOCK (no reader, BRF-1); G1 PASS and G1 BLOCK (the row's verbatim quote matches the page and only

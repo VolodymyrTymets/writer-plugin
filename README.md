@@ -5,8 +5,8 @@ actors and gates. Each actor writes one artifact (brief, research with a fact ba
 judges one artifact in a fresh, read-only context and returns PASS or BLOCK with rule IDs. You approve the outline
 before any drafting starts and sign off the final. Every artifact also gets a Google Doc copy for review and comments.
 
-> **Status: Phase 7 of 7 in progress — all five stages, their gates, the orchestrator, workspace setup, Doc copies and comment
-> sync are built** (brief, research, outline, draft, edit, `/article`, `/setup`, `/publish`, `/sync`). Evals are planned. The first three stages ran on a real brief; draft, edit and the
+> **Status: Phase 7 of 7 built — all five stages, their gates, the orchestrator, workspace setup, Doc copies, comment sync and
+> an eval suite** (brief, research, outline, draft, edit, `/article`, `/setup`, `/publish`, `/sync`; `evals/`, see CONTRIBUTING). The first three stages ran on a real brief; draft, edit and the
 > orchestrator have run only on scratch articles. Design and
 > build plan: [docs/DESIGN.md](docs/DESIGN.md).
 

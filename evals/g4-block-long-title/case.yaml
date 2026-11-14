@@ -1,0 +1,26 @@
+schema_version: "1.1"
+name: g4-block-long-title
+description: "The title is 74 characters (SEO-2 allows 60) and the recorded lint says so, so G4 blocks"
+tags: [gate, g4, block]
+runs: 1
+execution:
+  prompt: "/writer-plugin:check-final http-caching"
+  max_turns: 30
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: verdict-line
+    type: regex
+    pattern: "^## G4 final gate: BLOCK \\([1-9]"
+  - name: forked-write-free
+    type: regex
+    target: "trace"
+    pattern: "\"subagent_type\"\\s*:\\s*\"writer-plugin:fact-gate\""
+  - name: rule-id
+    type: regex
+    pattern: "\\[SEO-2\\]"
+  - name: names-the-defect
+    type: llm
+    criteria: "The verdict blocks because the title is longer than 60 characters (74), citing the recorded lint line."
