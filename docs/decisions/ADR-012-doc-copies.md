@@ -30,8 +30,8 @@ One spike Doc through the claude.ai Google Drive connector in an interactive Cla
   (`'root'` for My Drive).
 
 ## Decision
-1. **A revision is a new Doc in the folder `<workspace folder name>/<slug>/` in My Drive** (the approver's choice on PR #13, with no
-   `articles` level). The copy skill finds or creates both folders by exact name under their parent once, and records the slug
+1. **A revision is a new Doc in the folder `articles/<workspace folder name>/<slug>/` in My Drive** (the approver's choice on PR #13:
+   one `articles` folder holds every workspace). The copy skill finds or creates each of the three folders by exact name under their parent once, and records the slug
    folder's id and path in `docs.json` (`"folder"`); a renamed workspace changes the path, so the folders are looked up again. Each
    Doc is titled `<slug> · <stage> · r<k>`, plus ` · publish-ready` for a final that qualifies or ` · ungated`
    when the stage has no current PASS. Earlier Docs stay as the record of what reviewers commented on.

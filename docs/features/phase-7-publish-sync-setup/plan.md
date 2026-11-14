@@ -98,8 +98,8 @@ and Phase 6 R0 (a throwaway probe before any code) for both spikes. `claude plug
     `modifiedTime`}, `replies[]` and `status`. Anchors are inline in `fileContent` as `<comment_start id=X>anchor<comment_end id=X>`.
     An instruction-shaped comment arrives as ordinary `content`. Sync writes it as quoted data.
   - **Folder:** `create_file` takes `parentId`. A configurable folder stays a follow-up (Assumptions).
-- **Added 2026-11-14 at the approver's request (review of PR #13):** Docs go into `<workspace folder name>/<slug>/` in My Drive
-  (no `articles` level), and titles stay full. Spike, same session:
+- **Added 2026-11-14 at the approver's request (review of PR #13):** Docs go into `articles/<workspace folder name>/<slug>/` in My
+  Drive (an `articles` top folder keeps every workspace in one place; the approver's second remark), and titles stay full. Spike, same session:
   - `create_file(title, contentMimeType: application/vnd.google-apps.folder, parentId?)` makes a folder, and folders nest.
   - A Doc created with `parentId` lands in that folder.
   - `search_files` with `title = '<name>' and mimeType = 'application/vnd.google-apps.folder' and parentId = '<id or root>' and

@@ -38,9 +38,9 @@ guard checks the record against the same rules. Use its fields and copy them unc
 
 ## Step 4 — Find the article's Drive folder
 
-Every copy of an article goes into the folder `<folder_path[0]>/<folder_path[1]>` in My Drive: the workspace folder's name, then the
-slug. If `folder_id` is set, use it and go to Step 5. Otherwise resolve the two folders in order, each by name under its parent
-(`'root'` for the first, then the first folder's id), with `mcp__claude_ai_Google_Drive__search_files`:
+Every copy of an article goes into the folder `folder_path` names in My Drive, top first: `articles`, then the workspace folder's
+name, then the slug. If `folder_id` is set, use it and go to Step 5. Otherwise resolve the folders of `folder_path` in order, each by
+name under its parent (`'root'` for the first, then the id of the folder before it), with `mcp__claude_ai_Google_Drive__search_files`:
 
 `title = '<name>' and mimeType = 'application/vnd.google-apps.folder' and parentId = '<parent>' and trashed = false`
 

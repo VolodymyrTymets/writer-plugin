@@ -522,9 +522,12 @@ def docs_index(root: str, slug: str) -> List[Dict[str, object]]:
         raise ValueError(f'articles/{slug}/docs.json cannot be read ({exc})') from exc
 
 
+DRIVE_TOP_FOLDER = 'articles'  # one place in My Drive for every workspace's copies
+
+
 def drive_folder_path(root: str, slug: str) -> List[str]:
-    """Where an article's Doc copies live in My Drive: `<workspace folder name>/<slug>/` (approver's choice on PR #13)."""
-    return [os.path.basename(os.path.realpath(root)) or 'workspace', slug]
+    """Where an article's Doc copies live in My Drive: `articles/<workspace folder name>/<slug>/` (approver's choice on PR #13)."""
+    return [DRIVE_TOP_FOLDER, os.path.basename(os.path.realpath(root)) or 'workspace', slug]
 
 
 def recorded_folder_id(root: str, slug: str) -> Optional[str]:

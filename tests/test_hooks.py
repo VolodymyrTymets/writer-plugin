@@ -1010,7 +1010,7 @@ def test_the_doc_copy_of_a_final_strips_ids_and_hashes_the_file_on_disk(ws):
     uploaded = '# T\n\nBody.\n\nSigned-off-by: Test Human\n'
     assert out == {'text': uploaded, 'sha256': writer.text_hash(body), 'text_sha256': writer.text_hash(uploaded), 'rev': 1,
                    'publish_ready': True, 'title': 'demo · final · r1 · publish-ready', 'skip': False, 'existing_url': None,
-                   'folder_path': [os.path.basename(os.path.realpath(ws.root)), 'demo'], 'folder_id': None}
+                   'folder_path': ['articles', os.path.basename(os.path.realpath(ws.root)), 'demo'], 'folder_id': None}
 
 
 def test_an_ungated_stage_is_labelled_ungated(ws):
@@ -1335,16 +1335,23 @@ def test_other_doc_updates_are_allowed(ws, ti):
     assert drive_update(ws, **ti).code == 0
 
 
-# ---------------- Phase 7b: Doc copies go into <workspace folder>/<slug>/ in Drive (approver's request on PR #13) ----------------
+# ---------------- Phase 7b: Doc copies go into articles/<workspace folder>/<slug>/ in Drive (approver's request on PR #13) ----------------
+def test_a_folder_recorded_before_the_articles_level_is_not_reused(ws):
+    build_state(ws, 'unapproved')
+    path = f'{os.path.basename(os.path.realpath(ws.root))}/demo'
+    (ws.art / 'docs.json').write_text(json.dumps({'folder': {'id': 'F1', 'path': path}, 'revisions': []}))
+    assert json.loads(doc_copy(ws.root, ws.slug, 'outline').out)['folder_id'] is None
+
+
 def test_the_copy_names_the_drive_folder_after_the_workspace_and_the_slug(ws):
     build_state(ws, 'unapproved')
     out = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
-    assert (out['folder_path'], out['folder_id']) == ([os.path.basename(os.path.realpath(ws.root)), 'demo'], None)
+    assert (out['folder_path'], out['folder_id']) == (['articles', os.path.basename(os.path.realpath(ws.root)), 'demo'], None)
 
 
 def test_a_recorded_folder_for_the_same_path_is_reused(ws):
     build_state(ws, 'unapproved')
-    path = f'{os.path.basename(os.path.realpath(ws.root))}/demo'
+    path = f'articles/{os.path.basename(os.path.realpath(ws.root))}/demo'
     (ws.art / 'docs.json').write_text(json.dumps({'folder': {'id': 'F1', 'path': path}, 'revisions': []}))
     assert json.loads(doc_copy(ws.root, ws.slug, 'outline').out)['folder_id'] == 'F1'
 
@@ -1352,7 +1359,7 @@ def test_a_recorded_folder_for_the_same_path_is_reused(ws):
 def test_a_folder_recorded_for_another_path_is_not_reused(ws):
     """A renamed workspace folder means the Drive folder name no longer matches: look it up again."""
     build_state(ws, 'unapproved')
-    (ws.art / 'docs.json').write_text(json.dumps({'folder': {'id': 'F1', 'path': 'old-name/demo'}, 'revisions': []}))
+    (ws.art / 'docs.json').write_text(json.dumps({'folder': {'id': 'F1', 'path': 'articles/old-name/demo'}, 'revisions': []}))
     assert json.loads(doc_copy(ws.root, ws.slug, 'outline').out)['folder_id'] is None
 
 

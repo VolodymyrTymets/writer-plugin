@@ -30,7 +30,7 @@ Built: every command below.
 | `/draft` | The article, section by section, every claim tagged with its fact ID |
 | `/edit` | Revise into `final.md` from the gate verdict and reviewer comments; title, meta, slug |
 | `/check-brief`, `/check-research`, `/check-outline`, `/check-draft`, `/check-final` | Gates G0–G4 |
-| `/publish` | Copy an artifact to a new Google Doc revision in the Drive folder `<your workspace folder>/<slug>/` (each stage does this after its gate passes). After you sign off, run `/publish <slug> final` for the copy labelled publish-ready |
+| `/publish` | Copy an artifact to a new Google Doc revision in the Drive folder `articles/<your workspace folder>/<slug>/` (each stage does this after its gate passes). After you sign off, run `/publish <slug> final` for the copy labelled publish-ready |
 | `/sync` | Pull a Doc's comments back, quoted verbatim, as `comments/<stage>.r<k>.md`; the edit stage reads them |
 
 ## Install (once the repository is on GitHub)
