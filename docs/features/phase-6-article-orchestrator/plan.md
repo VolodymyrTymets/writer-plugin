@@ -88,6 +88,13 @@ No skill dispatches other skills yet: that is the new pattern ADR-011 records.
 - risk: the refactor changes briefing output; the step-1 exact-string cases catch it.
 
 ### R2 — The `article` skill (M)
+- **Done note (2026-11-14):** executed headless on a synthetic public-topic brief (HTTP Cache-Control, MDN and RFC sources) across four
+  runs: brief, research, outline, then `stopped` (FLOW-3, see below); after a test-human archive, outline again, then `approve`; after
+  a test-human `Approved-by:`, draft and edit, then `sign-off`; after a test-human sign-off, `done` with nothing called. Seeded
+  `stopped`, `stale` and `done` articles each stopped after one status call. **Found, not fixed (actor, out of scope):** after a BLOCK
+  the outline actor fixed `outline.md` with Edit, which its `allowed-tools` does not pre-approve; headless denied it and the actor
+  re-gated the unchanged file, spending its second BLOCK. Interactive sessions get a prompt instead. Follow-up: add `Edit` to the
+  actors' `allowed-tools`, or tell them to rewrite with Write. Runs 2 and 3 used `--allowedTools Edit` to stand in for that prompt.
 - files: `skills/article/SKILL.md` (new), `tests/test_structure.py` (move `article`), `tests/test_skills.py` (new `ORCHESTRATOR`
   contract tests)
 - layer: skill
