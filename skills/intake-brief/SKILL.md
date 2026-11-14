@@ -2,7 +2,7 @@
 name: brief
 description: Stage 0 actor. Use to turn whatever the user supplied (pasted text, a file, a Google Doc) into a normalised brief.md for a blog post, then run the brief gate. Asks at most two batched rounds of questions.
 argument-hint: "[article slug, or a path to the supplied brief]"
-allowed-tools: Read, Write, Glob, Grep, Skill, AskUserQuestion
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill, AskUserQuestion
 ---
 
 # Brief stage
@@ -52,7 +52,7 @@ Write the result to `articles/<slug>/brief.md`.
 ## Step 5 — On BLOCK
 
 Fix only what the findings name, in `brief.md`; ask the user for any information you lack (it counts against the two
-question rounds). Then repeat Step 4. After the second BLOCK on disk, stop as in Step 2.
+question rounds). Before you repeat Step 4, read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4. After the second BLOCK on disk, stop as in Step 2.
 
 ## Step 6 — On PASS
 

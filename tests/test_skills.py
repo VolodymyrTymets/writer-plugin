@@ -521,3 +521,24 @@ def test_orchestrator_never_guesses_a_slug_or_runs_the_brief_over_an_existing_ar
 
 def test_orchestrator_takes_a_stale_stage_from_the_verdict_named_in_reason():
     assert 'taking the stage from the verdict file named in `reason`' in flat(ORCHESTRATOR)
+
+
+# ---------------- an actor's in-place fix after a BLOCK is pre-approved and confirmed before the re-gate ----------------
+# A headless run (Phase 6 e2e) showed the outline actor fixing a BLOCK with Edit, which its allowed-tools did not pre-approve:
+# four denied edits, then a re-gate of the unchanged file that spent the second BLOCK (FLOW-3).
+def allowed_tools(d: str) -> set:
+    front = skill_text(d).split('\n---\n', 1)[0]
+    line = next(l for l in front.split('\n') if l.startswith('allowed-tools:'))
+    return {t.strip() for t in line[len('allowed-tools:'):].split(',')}
+
+
+@pytest.mark.parametrize('d', ACTORS)
+def test_actor_pre_approves_the_edit_its_block_step_asks_for(d):
+    assert {'Write', 'Edit'} <= allowed_tools(d)
+
+
+@pytest.mark.parametrize('d', ACTORS)
+def test_actor_confirms_its_fix_landed_before_it_gates_again(d):
+    text = flat(d)
+    assert 'read the file back and check that every fix is in it' in text
+    assert 'If a fix cannot be made, stop and report it instead of running the gate again' in text

@@ -2,7 +2,7 @@
 name: outline
 description: Stage 2 actor. Use after the research gate has passed, to write outline.md - thesis, title options, intro hook, the H2 and H3 plan with purpose, fact IDs and word budget per section, the keyword map and the CTA - then run the outline gate. It never approves the outline.
 argument-hint: "[article slug, defaults to the most recently changed research]"
-allowed-tools: Read, Write, Glob, Grep, Skill
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill
 ---
 
 # Outline stage
@@ -67,7 +67,7 @@ Write the result to `articles/<slug>/outline.md`.
 
 ## Step 5 — On BLOCK
 
-Fix only what the findings name, in `outline.md`. Then repeat Step 4. After the second BLOCK on disk, stop as in Step 2.
+Fix only what the findings name, in `outline.md`. Before you repeat Step 4, read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4. After the second BLOCK on disk, stop as in Step 2.
 
 ## Step 6 — On PASS
 

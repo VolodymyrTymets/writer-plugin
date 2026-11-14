@@ -8,6 +8,9 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- The five stage actors pre-approve `Edit` as well as `Write`, and after a BLOCK they read the file back to check every fix
+  landed before running the gate again; a fix that cannot be made stops the stage instead. A headless run had spent an
+  actor's second BLOCK re-gating a file whose edits had been refused.
 - Where research cannot find or prove something, the stages leave a marker `<Can't be verified. Reason: reason sentence here>`
   instead of stopping the flow (ADR-008). The outline gate treats a marker as not a claim, blocks an inexact one or a
   claim beside it, and prints `Markers: <n>` on line 3. FLOW-6: no final is publish-ready while a marker remains.

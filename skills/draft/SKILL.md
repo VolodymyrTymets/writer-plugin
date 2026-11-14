@@ -2,7 +2,7 @@
 name: draft
 description: Stage 3 actor. Use after a human has approved the outline, to write draft.md section by section from it, every factual claim tagged with its fact ID and every unverified marker carried through unchanged, then run the draft gate. It never edits the outline or the research.
 argument-hint: "[article slug, defaults to the most recently changed outline]"
-allowed-tools: Read, Write, Glob, Grep, Skill, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py *)
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py *)
 ---
 
 # Draft stage
@@ -62,7 +62,7 @@ hand-edited draft must not be lost. Then write the result to `articles/<slug>/dr
 
 ## Step 5 — On BLOCK
 
-Fix only what the findings name, in `draft.md`. Then repeat Step 4. After the second BLOCK on disk, stop as in Step 2.
+Fix only what the findings name, in `draft.md`. Before you repeat Step 4, read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4. After the second BLOCK on disk, stop as in Step 2.
 
 ## Step 6 — On PASS
 
