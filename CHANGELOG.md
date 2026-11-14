@@ -28,6 +28,9 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - G1 prints `Coverage: <a> answered, <o> open (of <m>)` on line 3 of its verdict.
 
 ### Added
+- Phase 7c (ADR-013): `evals/`, a `claude plugin eval` suite of 16 cases on three synthetic public-topic briefs and one sourced
+  article: a PASS and a seeded BLOCK per gate G0–G4, G0 on each brief, and the brief stage on each brief. `tests/test_evals.py`
+  pins its shape and the PLG-1 domain allowlist. Local only, never in CI.
 - Phase 7b (ADR-012):
   - The copy skill (`/publish`) uploads an artifact as a new Markdown Google Doc revision and appends it to `docs.json`.
     `bin/doc-copy.py` computes the text (fact IDs stripped), the hash, the revision and the title with its label.

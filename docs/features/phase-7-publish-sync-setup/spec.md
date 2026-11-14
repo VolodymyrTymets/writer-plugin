@@ -52,7 +52,7 @@ checks off. D1 holds throughout: the local Markdown is canonical, and a Doc is a
 - [ ] AC10 `claude plugin eval ./ --runs 1 --no-publish` runs every case and writes a report. Each gate case asserts the verdict line and
       the rule ID: at least one PASS case and one BLOCK case per gate G0–G4, including a seeded wrong fact for G1 and G4.
 - [ ] AC11 The three synthetic briefs pass G0, and the brief actor turns each one into `brief.md` without asking a question.
-- [ ] AC12 `pytest` and `claude plugin validate ./` pass after each PR.
+- [x] AC12 `pytest` and `claude plugin validate ./` pass after each PR.
 
 ## Edge cases
 | Case | Expected behaviour | Decided by |

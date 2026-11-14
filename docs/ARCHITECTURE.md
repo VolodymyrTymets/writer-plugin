@@ -11,7 +11,8 @@
 | `agents/` | write-free gate agents `gate` and `fact-gate` | yes |
 | `hooks/hooks.json`, `bin/` | `guard-stage-order`, `record-verdict`, `verify-final`, `session-context` (hooks), `prose-lint.py`, `article-status.py` and `doc-copy.py` (scripts), with a shared `bin/lib/writer.py`; stdlib-only Python 3.9+ | yes |
 | `rules/core/`, `templates/` | `rules/core/CLAUDE.template.md` (editorial constitution) is an inert library the setup skill copies into a content workspace (with `templates/style.md` as `.claude/rules/style.md`). `templates/` (brief, research, outline, style) is read at run time by the stage skills via `${CLAUDE_PLUGIN_ROOT}` (ADR-005) | no (not auto-loaded); read by skills |
-| `tests/` | pytest structure guard (`test_structure.py`), shape guard for the library (`test_templates.py`), skill and verdict contracts (`test_skills.py`), `conftest.py` | no |
+| `tests/` | pytest structure guard (`test_structure.py`), shape guard for the library (`test_templates.py`), skill and verdict contracts (`test_skills.py`), hook behaviour (`test_hooks.py`, `test_prose_lint.py`), the eval suite's shape (`test_evals.py`), `conftest.py` | no |
+| `evals/` | `claude plugin eval` cases: a PASS and a seeded BLOCK per gate, the brief stage per brief; synthetic briefs (`briefs/`) and one fixture article (`fixtures/`); run locally, never in CI (ADR-013) | no |
 | `docs/` | `DESIGN.md`, this file, glossary, business model, `decisions/` | no |
 | `.claude/` | this repo's own agent config (settings, rules). Not part of the plugin | no |
 

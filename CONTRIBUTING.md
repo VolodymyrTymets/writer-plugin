@@ -13,7 +13,8 @@ approach and the build plan — is in [docs/DESIGN.md](docs/DESIGN.md).
 | `hooks/hooks.json` + `bin/` | the hooks, `prose-lint.py`, `article-status.py` and the shared `bin/lib/writer.py`, stdlib-only Python 3.9+; every hook has a pytest case in `tests/test_hooks.py` | yes |
 | `rules/core/` | the editorial constitution template with rule IDs | no — copied into a workspace by the setup skill |
 | `templates/` | brief, research dossier, outline, style guide templates | no — read at run time by the stage skills (ADR-005) |
-| `tests/` | pytest: structure guard, library shape, skill and verdict contracts; hook behaviour later | no |
+| `tests/` | pytest: structure guard, library shape, skill and verdict contracts, hook behaviour, the eval suite's shape | no |
+| `evals/` | `claude plugin eval` cases for the gates and the brief stage, with synthetic briefs and a fixture article (ADR-013) | no |
 | `docs/` | design | no |
 
 ### Command names
@@ -38,6 +39,29 @@ claude plugin validate ./ --strict
 
 A hook change without a test case is not accepted: a false block wastes a writer's turn, and a missed block means the
 rule quietly stopped existing.
+
+### Evals (ADR-013)
+
+`evals/` holds `claude plugin eval` cases for the gates and the brief stage. They are built on three synthetic, public-topic
+briefs (`evals/briefs/`) and one sourced article that goes through every stage (`evals/fixtures/http-caching/`). Each gate has a
+PASS case and a BLOCK case that seeds one defect. Every run is a real `claude` session on your credential, so evals are local
+and never run in CI. `tests/test_evals.py` checks the suite's shape for free.
+
+```bash
+# gate cases: the two source domains are the only web access G1 and G4 get
+claude plugin eval ./ --tag gate --runs 1 --ablation none --scaffold --no-publish --max-cost-usd 10 \
+  --allow-tools "WebFetch(domain:www.rfc-editor.org)" "WebFetch(domain:developer.mozilla.org)" \
+  --output-dir /tmp/writer-evals --report /tmp/writer-evals/report.html
+# brief-stage cases: the actor writes files and saves a verdict
+claude plugin eval ./ --tag actor --runs 1 --ablation none --scaffold --no-publish --max-cost-usd 5 --allow-tools Write Edit
+```
+
+- `--ablation none`: a no-plugin baseline means nothing for a gate verdict and would double the cost.
+- `--scaffold` runs each case's `scaffold.sh`, a shared script that only copies files from `evals/` into the empty workspace.
+- The first run in a directory asks you to trust the plugin; answer it yourself.
+- **A gate or checklist change reruns that gate's cases**, PASS and BLOCK, before the PR. A case below 1.0 is reported, never
+  retried until it turns green.
+- New material stays synthetic and public: the allowlist in `tests/test_evals.py` holds the only domains an eval file may name (PLG-1).
 
 ## Adding to this plugin
 
