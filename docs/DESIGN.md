@@ -61,8 +61,8 @@ articles/<slug>/
 
 ## Actors
 
-Each actor reads its inputs from disk, writes exactly one artifact, publishes its Google Doc copy (from Phase 7), then invokes its
-gate. An actor never edits an earlier stage's artifact; if it finds a problem upstream it stops and says so.
+Each actor reads its inputs from disk, writes exactly one artifact, invokes its gate, and after a PASS makes its Google Doc copy
+through the `publish` skill (ADR-012). An actor never edits an earlier stage's artifact; if it finds a problem upstream it stops and says so.
 
 - **`/brief`** — turns whatever the user supplied (paste, file, Google Doc) into `brief.md` using the brief template.
   Asks at most two batched rounds of questions, only for gaps that change the article (`rln-agent` rule F1).
@@ -113,26 +113,32 @@ Prefer a script or a hook over a prompt rule.
 
 | Hook / script | When | Enforces |
 |---------------|------|----------|
-| `guard-stage-order` | PreToolUse on `Edit|Write|Bash` | FLOW-1: writing `articles/<slug>/<stage>.md` needs the previous gate's latest verdict to be a PASS on what is on disk, walking up the chain (a rebuilt upstream or a hand edit makes a verdict stale, through the sidecar). FLOW-2: `draft.md` also needs a non-empty `Approved-by:`. FLOW-3: a stage whose gate has two BLOCK verdicts is stopped. FLOW-4: verdicts are immutable, created only by Write with a valid line 1 and the next number; Bash cannot touch `gates/`; a G4 verdict is saved only against a lint record that matches `final.md`; only `prose-lint.py` writes `.prose-lint.json`. FLOW-6: a non-empty `Signed-off-by:` is written only against a current G4 PASS on the resulting content and never beside a marker (tool writes only). Path-based; needs no branch or ticket (ADR-009, ADR-010) |
+| `guard-stage-order` | PreToolUse on `Edit|Write|Bash` and the Drive `create_file` tool | FLOW-1: writing `articles/<slug>/<stage>.md` needs the previous gate's latest verdict to be a PASS on what is on disk, walking up the chain (a rebuilt upstream or a hand edit makes a verdict stale, through the sidecar). FLOW-2: `draft.md` also needs a non-empty `Approved-by:`. FLOW-3: a stage whose gate has two BLOCK verdicts is stopped. FLOW-4: verdicts are immutable, created only by Write with a valid line 1 and the next number; Bash cannot touch `gates/`; a G4 verdict is saved only against a lint record that matches `final.md`; only `prose-lint.py` writes `.prose-lint.json`. FLOW-6: a non-empty `Signed-off-by:` is written only against a current G4 PASS on the resulting content and never beside a marker (tool writes only). FLOW-6 on Doc copies: `docs.json` is append-only valid JSON that Bash cannot write, an entry is `publish_ready` only for a publish-ready final on its exact hash, and no Doc is created with a `publish-ready` title unless the final qualifies (ADR-012). Path-based; needs no branch or ticket (ADR-009, ADR-010) |
 | `record-verdict` | PostToolUse on `Write` | Writes the sidecar beside a saved verdict: the hash of the artifact it judged (approval lines ignored) and the upstream verdict it relied on |
 | `prose-lint.py` | A script, not a hook: called by `/draft` (without `--record`) and `/edit` (without, then with `--record` last); a gate never runs it; also usable alone | STR-4 headings, STR-6 length vs the brief, FACT-1 numbers with no `[F#]` (heuristic), and for a final SEO-1/2/3, VOI-2/3 from `style.md`, and any marker left in the text (FLOW-6, loose pattern). `--record` writes `.prose-lint.json` with the finding lines. Stdlib only |
 | `verify-final` | Stop | `final.md` written this session but no matching prose-lint run recorded → block once per article, quoting the command with the script's absolute path |
 | `session-context` | SessionStart | At most 30 lines: where each article is and what it waits for (from `article_state()`, ADR-011); records the session start once. Silent outside a workspace |
 | `article-status.py` | A script, not a hook: called by `/article` before and after every actor; also usable alone | One JSON object per article: `next` (a stage, `approve`, `sign-off`, `stopped`, `stale`, `done`, `unknown`), `reason`, `markers`. Same rules as the guard (FLOW-1 to FLOW-3, stale, FLOW-6), read-only. Stdlib only (ADR-011) |
+| `doc-copy.py` | A script, not a hook: called by `/publish` before every upload; also usable alone | One JSON object: the Markdown to upload (fact IDs stripped), the artifact's hash, the next revision, the title with its label, `publish_ready` (done and no marker), and whether an identical copy already exists. Read-only. Stdlib only (ADR-012) |
 
 ## Google Docs copies
 
-What the connected Google Drive tools can do today (checked 2026-11-12):
+What the claude.ai Google Drive connector can do (spike, 2026-11-14; ADR-012):
 
-- `create_file` with `textContent` uploads text and **converts it to a Google Doc** by default.
+- The tools exist as `mcp__claude_ai_Google_Drive__*` only in an **interactive** session after a `/mcp` sign-in; a headless
+  `claude -p` session has none.
+- `create_file` with `textContent` and `contentMimeType: text/markdown` **converts it to a Google Doc** that keeps headings, lists,
+  bold and links (inline code loses its monospace).
 - `update_file` changes **metadata only**, never content. So a revision is a **new Doc** (`<slug> · draft · r2`),
   recorded in `docs.json`; the previous revision stays as the record of what reviewers commented on.
-- `read_file_content(includeComments: true)` returns the text with comments inlined → `/sync` writes them to
-  `comments/<stage>.r<k>.md`, which the next actor reads as input.
-- Replying to or resolving comments is not available in the connector right now; `/sync` only reads.
+- `read_file_content(includeComments: true)` returns comment threads and inline anchors → `/sync` writes them, quoted verbatim, to
+  `comments/<stage>.r<k>.md`, which the edit stage reads as reviewer input.
+- Replying to or resolving comments is not available in the connector; `/sync` only reads.
 
-Publishing is an **adapter step**, not a dependency: `/publish` looks for a Drive create tool; if none is connected it
-says so once and the workflow continues — the local files are canonical (D1). Fact IDs are stripped from the Doc copy.
+Publishing is an **adapter step**, not a dependency: `/publish` looks for the Drive create tool; if none is connected it
+says so once and the workflow continues — the local files are canonical (D1). `bin/doc-copy.py` computes the copy (text with fact IDs
+stripped, hash, revision, title, publish-ready label), so the skill never does; the guard refuses a `docs.json` entry or a Doc title
+that claims publish-ready for a final that is not (FLOW-6).
 
 ## Agents
 
@@ -143,10 +149,10 @@ says so once and the workflow continues — the local files are canonical (D1). 
 
 ## Open questions
 
-1. **Markdown fidelity in the Doc copy.** Does an upload with `text/markdown` become headings and lists, or flat text?
-   If flat, convert locally to `.docx` and upload that with conversion. Spike in Phase 7.
-2. **Drive tools inside Claude Code.** The claude.ai connectors may not be present in every Claude Code session; the
-   adapter design above tolerates that, but it decides whether `/publish` is useful out of the box.
+1. ~~Markdown fidelity in the Doc copy.~~ Resolved in Phase 7b (ADR-012): a `text/markdown` upload keeps headings, lists, bold and
+   links; no conversion step.
+2. ~~Drive tools inside Claude Code.~~ Resolved in Phase 7b (ADR-012): present in an interactive session after a `/mcp` sign-in, absent
+   in headless `claude -p`; `/publish` and `/sync` say so once and the workflow goes on.
 3. ~~G4 in parallel.~~ Resolved in Phase 5 (ADR-010): G4 is one forked gate on `fact-gate`, sequential; ten sources fit its turn budget.
 4. **Keyword data.** There is no SERP or volume tool; the brief supplies the keyword and `/research` reads the current
    top results via WebSearch.
@@ -164,4 +170,4 @@ says so once and the workflow continues — the local files are canonical (D1). 
 | 4 | `guard-stage-order`, `record-verdict`, `prose-lint.py`, `verify-final`, `session-context` + hook tests (ADR-009) | built · run in real sessions; draft, edit and final-gate stages are Phase 5 |
 | 5 | `/draft`, `/edit`, `/check-draft`, `/check-final` (open question 3 resolved, ADR-010). They carry markers through and the guard refuses sign-off while one remains (FLOW-6, ADR-008) | built · each stage and gate run in a scratch workspace; a real brief not yet run through them |
 | 6 | `/article` orchestrator with the two human checkpoints (ADR-011) | built · ran end to end on a scratch article from brief to sign-off, with both checkpoints; a real brief not yet run through it |
-| 7 | `/publish`, `/sync` (resolve open questions 1–2), `/setup`, evals on the test briefs | 7a built · `/setup` ran headless in a scratch workspace (constitution written, rerun left it unchanged, refused in the plugin repo); the `.claude/` write needs an interactive approval. 7b publish/sync and 7c evals: `docs/features/phase-7-publish-sync-setup/plan.md` |
+| 7 | `/publish`, `/sync` (resolve open questions 1–2), `/setup`, evals on the test briefs | 7a built · `/setup` ran headless in a scratch workspace (constitution written, rerun left it unchanged, refused in the plugin repo); the `.claude/` write needs an interactive approval. 7b built · open questions 1–2 resolved by a Drive spike (ADR-012); the guard's FLOW-6 rules ran on real payloads; the Drive tools exist only in interactive sessions, so the live `/publish` and `/sync` runs need one (headless, both took the no-connection path). 7c evals: `docs/features/phase-7-publish-sync-setup/plan.md` |

@@ -73,7 +73,7 @@ Fix only what the findings name, in `final.md`. Before you repeat Step 4, read t
 Report in a few lines: the final path, the verdict path, the gate's advisory findings, and the markers (each, and the count). Then say
 plainly: **the final is not signed off.** A human reads it and writes a name after `Signed-off-by:` in `final.md`. While a
 marker remains the sign-off is refused (FLOW-6): a human supplies the fact or removes the claim first, which means rerunning this
-stage and its gate. Say once: "Doc copy: not yet available". Do not write the sign-off yourself. If the human changes `final.md` by hand, the verdict no longer covers it: run `prose-lint.py --record` on the edited file, then ask for the final gate to be rerun and its verdict saved with the Write tool as the next verdict. A re-gate saves its verdict whether PASS or BLOCK, and a BLOCK counts toward FLOW-3.
+stage and its gate. Then invoke `writer-plugin:publish <slug> final` through the Skill tool for the review copy, and report the Doc URL it gives, or its one line saying there is no Google Drive connection; this copy is not the publish-ready one, which needs the sign-off first. Do not write the sign-off yourself. If the human changes `final.md` by hand, the verdict no longer covers it: run `prose-lint.py --record` on the edited file, then ask for the final gate to be rerun and its verdict saved with the Write tool as the next verdict. A re-gate saves its verdict whether PASS or BLOCK, and a BLOCK counts toward FLOW-3.
 
 ## After the gate
 

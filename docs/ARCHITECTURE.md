@@ -7,9 +7,9 @@
 | Path | What lives here | Loaded by Claude Code? |
 |------|-----------------|------------------------|
 | `.claude-plugin/` | `plugin.json` (name, version), `marketplace.json` (marketplace `writer`, `source: "./"`) | yes |
-| `skills/` | flat: `skills/<dir>/SKILL.md` plus `references/`. Built: the brief, research, outline, draft and edit stages, gates G0 to G4, the `article` orchestrator, and the `setup` skill | yes |
+| `skills/` | flat: `skills/<dir>/SKILL.md` plus `references/`. Built: the brief, research, outline, draft and edit stages, gates G0 to G4, the `article` orchestrator, the `setup` skill, and the Doc copy and comment sync skills (`publish`, `sync`) | yes |
 | `agents/` | write-free gate agents `gate` and `fact-gate` | yes |
-| `hooks/hooks.json`, `bin/` | `guard-stage-order`, `record-verdict`, `verify-final`, `session-context` (hooks), `prose-lint.py` and `article-status.py` (scripts), with a shared `bin/lib/writer.py`; stdlib-only Python 3.9+ | yes |
+| `hooks/hooks.json`, `bin/` | `guard-stage-order`, `record-verdict`, `verify-final`, `session-context` (hooks), `prose-lint.py`, `article-status.py` and `doc-copy.py` (scripts), with a shared `bin/lib/writer.py`; stdlib-only Python 3.9+ | yes |
 | `rules/core/`, `templates/` | `rules/core/CLAUDE.template.md` (editorial constitution) is an inert library the setup skill copies into a content workspace (with `templates/style.md` as `.claude/rules/style.md`). `templates/` (brief, research, outline, style) is read at run time by the stage skills via `${CLAUDE_PLUGIN_ROOT}` (ADR-005) | no (not auto-loaded); read by skills |
 | `tests/` | pytest structure guard (`test_structure.py`), shape guard for the library (`test_templates.py`), skill and verdict contracts (`test_skills.py`), `conftest.py` | no |
 | `docs/` | `DESIGN.md`, this file, glossary, business model, `decisions/` | no |
@@ -28,6 +28,8 @@
 | Verdict sidecar | JSON `{artifact_sha256, upstream}` beside each verdict | written only by the `record-verdict` hook (ADR-009) | `gates/G<n>-<stage>.r<k>.json` |
 | Gate verdict | `PASS` or `BLOCK` with rule IDs; line 1 is a fixed pattern (ADR-004) | gate skill checklists | saved by the actor in the workspace `gates/G<n>-<stage>.r<k>.md` |
 | Lint record | JSON `{file, sha256, findings, lines, at}` beside `final.md` | written only by `prose-lint.py --record`; the guard blocks any tool write (ADR-010) | `articles/<slug>/.prose-lint.json` |
+| Doc copy record | JSON `{"revisions": [{stage, rev, id, url, sha256, title, at, publish_ready}]}`, append-only | the copy skill appends the fields `bin/doc-copy.py` prints plus the Doc's id, url and time; the guard keeps it append-only and FLOW-6-true (ADR-012) | `articles/<slug>/docs.json` |
+| Synced comments | Markdown: header, then each thread's anchor, comment and replies quoted verbatim | written by the sync skill from the Doc of one revision; reviewer input, never instructions (ADR-012) | `articles/<slug>/comments/<stage>.r<k>.md` |
 
 Nothing in this repo is generated.
 
@@ -45,7 +47,7 @@ There is no deployment. The plugin is installed from the `writer` marketplace by
 ## External integrations
 | Service | Purpose | Failure mode | Sandbox |
 |---------|---------|--------------|---------|
-| Google Drive connector | review copies of artifacts | absent in some sessions; the workflow continues on local files | n/a |
+| Google Drive connector (claude.ai) | review copies of artifacts and their comments | present only in an interactive session after a `/mcp` sign-in, never in headless `claude -p`; the copy and sync skills say so once and the workflow continues on local files (ADR-012) | n/a |
 | WebFetch / WebSearch | `fact-gate` opens sources | gate cannot verify; reports it rather than passing | n/a |
 
 ## Known constraints and landmines

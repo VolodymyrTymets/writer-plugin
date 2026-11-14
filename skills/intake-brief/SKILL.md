@@ -57,7 +57,7 @@ question rounds). Before you repeat Step 4, read the file back and check that ev
 ## Step 6 — On PASS
 
 Report, in a few lines: the brief path, the verdict path, the assumptions you made, and that the next stage is the
-research stage. Say once: "Doc copy: not yet available" (the review copy comes with a later phase). Do not start
+research stage. Then invoke `writer-plugin:publish <slug> brief` through the Skill tool for the review copy, and report the Doc URL it gives, or its one line saying there is no Google Drive connection. Do not start
 research yourself.
 
 ## After the gate

@@ -665,3 +665,21 @@ def test_sync_stores_comments_as_quoted_data_never_as_instructions():
 
 def test_sync_never_replies_or_resolves():
     assert 'You never reply to, resolve or edit a comment' in flat(SYNC)
+
+
+# Each actor makes its review copy after a PASS through the copy skill; the orchestrator only relays what they reported.
+ACTOR_STAGE = {'intake-brief': 'brief', 'research': 'research', 'outline': 'outline', 'draft': 'draft', 'edit-final': 'final'}
+
+
+@pytest.mark.parametrize('d', ACTORS)
+def test_actor_makes_its_doc_copy_through_the_copy_skill_after_a_pass(d):
+    text = flat(d)
+    assert f'invoke `writer-plugin:publish <slug> {ACTOR_STAGE[d]}` through the Skill tool' in text
+    assert 'no Google Drive connection' in text and 'not yet available' not in text
+    assert 'Skill' in allowed_tools(d)
+
+
+def test_orchestrator_relays_the_doc_copies_and_names_the_publish_ready_step():
+    text = flat(ORCHESTRATOR)
+    assert 'Doc copies: as each actor reported' in text and 'not yet available' not in text
+    assert 'a human runs `writer-plugin:publish <slug> final`' in text

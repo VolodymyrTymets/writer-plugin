@@ -69,7 +69,7 @@ BLOCK on disk, stop as in Step 2.
 
 Report in a few lines: the research path, the verdict path, the gate's `Coverage:` line as it printed it (a PASS does
 not mean the brief is answered), how many facts and sources, the open gaps, and that the
-next stage is the outline stage. Say once: "Doc copy: not yet available". Do not start the outline yourself.
+next stage is the outline stage. Then invoke `writer-plugin:publish <slug> research` through the Skill tool for the review copy, and report the Doc URL it gives, or its one line saying there is no Google Drive connection. Do not start the outline yourself.
 
 ## After the gate
 

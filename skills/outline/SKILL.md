@@ -74,7 +74,7 @@ Fix only what the findings name, in `outline.md`. Before you repeat Step 4, read
 Report in a few lines: the outline path, the verdict path, the STR-3 arithmetic, the title options, and any open
 questions for the human. Then say plainly: **the outline is not approved.** The human reads it, changes direction if
 needed, and writes a name after `Approved-by:` in `outline.md`; until that value is non-empty, the draft stage must not
-start. Say once: "Doc copy: not yet available". Do not write the approval yourself. If the human changes the outline by hand, the verdict no longer covers it and the draft stage is blocked: ask for the outline gate to be rerun on the edited file and its verdict saved with the Write tool as the next verdict (a hook records what it judged). A re-gate saves its verdict whether PASS or BLOCK, and a BLOCK counts toward FLOW-3.
+start. Then invoke `writer-plugin:publish <slug> outline` through the Skill tool for the review copy, and report the Doc URL it gives, or its one line saying there is no Google Drive connection. Do not write the approval yourself. If the human changes the outline by hand, the verdict no longer covers it and the draft stage is blocked: ask for the outline gate to be rerun on the edited file and its verdict saved with the Write tool as the next verdict (a hook records what it judged). A re-gate saves its verdict whether PASS or BLOCK, and a BLOCK counts toward FLOW-3.
 
 ## After the gate
 

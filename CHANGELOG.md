@@ -8,6 +8,8 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- Each stage actor makes its Google Doc copy after its gate passes, through the copy skill, instead of saying "Doc copy: not yet
+  available". The guard also runs on the Drive create call (ADR-012).
 - `prose-lint.py` reads a style-guide `**Phrases:**` or `**Tells:**` value of exactly `none` as an empty list. Before, it banned the
   word "none" itself, so a workspace with no banned phrases would have had G4 block on noise.
 - The five stage actors pre-approve `Edit` as well as `Write`, and after a BLOCK they read the file back to check every fix
@@ -26,6 +28,13 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - G1 prints `Coverage: <a> answered, <o> open (of <m>)` on line 3 of its verdict.
 
 ### Added
+- Phase 7b (ADR-012):
+  - The copy skill (`/publish`) uploads an artifact as a new Markdown Google Doc revision and appends it to `docs.json`.
+    `bin/doc-copy.py` computes the text (fact IDs stripped), the hash, the revision and the title with its label.
+  - The sync skill (`/sync`) writes a Doc's comments, quoted verbatim with their anchors, to `comments/<stage>.r<k>.md`.
+  - The guard enforces FLOW-6 on the copies. `docs.json` is append-only and FLOW-6-true, and no Doc is titled publish-ready unless
+    the final is signed off on a current G4 PASS with no marker.
+  - Open questions 1–2 are resolved by a Drive spike.
 - Phase 7a: the setup skill (`/setup`) writes a content workspace's `CLAUDE.md` from `rules/core/CLAUDE.template.md` and its
   `.claude/rules/style.md` from `templates/style.md`, asking at most two rounds of questions. It never overwrites an existing file,
   writes only a missing one, and refuses in the plugin's own repository.
