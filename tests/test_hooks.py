@@ -946,3 +946,127 @@ def test_bad_arguments_still_print_json_unknown(tmp_path, args):
     r = status(tmp_path, *args)
     out = json.loads(r.out)
     assert r.code == 0 and out['next'] == 'unknown' and out['reason']
+
+
+# ---------------- Phase 7b (R5): the Doc copy is computed by a read-only script, never by the model ----------------
+def doc_copy(root, *args):
+    r = subprocess.run([sys.executable, str(BIN / 'doc-copy.py'), *args], capture_output=True, text=True, cwd=str(root))
+    return Result(r.returncode, r.stdout, r.stderr)
+
+
+def record_doc(ws, entries):
+    (ws.art / 'docs.json').write_text(json.dumps({'revisions': entries}))
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('A claim [F7].', 'A claim.'),
+    ('Two facts [F7, F9] here.', 'Two facts here.'),
+    ('Spaced [F7,F12] and [F3]: done', 'Spaced and: done'),
+    ('[F1] at the start', ' at the start'),
+    ('A quote ("x") [F12], then more.', 'A quote ("x"), then more.'),
+    ('Not a tag [Figure 2] or [F] or [f7].', 'Not a tag [Figure 2] or [F] or [f7].'),
+], ids=['one', 'two', 'spacing', 'line-start', 'before-comma', 'look-alikes'])
+def test_fact_ids_are_stripped_and_the_punctuation_stays(text, expected):
+    assert writer.strip_fact_ids(text) == expected
+
+
+def test_fact_ids_inside_a_code_fence_are_left_alone():
+    text = 'Claim [F1].\n\n```\nlist[F1] = 0\n```\nAfter [F2].\n'
+    assert writer.strip_fact_ids(text) == 'Claim.\n\n```\nlist[F1] = 0\n```\nAfter.\n'
+
+
+def test_the_next_revision_is_per_stage_and_one_past_the_highest(ws):
+    assert writer.next_rev(str(ws.root), ws.slug, 'outline') == 1
+    record_doc(ws, [{'stage': 'outline', 'rev': 1}, {'stage': 'outline', 'rev': 3}, {'stage': 'final', 'rev': 7}])
+    assert (writer.next_rev(str(ws.root), ws.slug, 'outline'), writer.next_rev(str(ws.root), ws.slug, 'draft')) == (4, 1)
+
+
+@pytest.mark.parametrize('state,ready', [
+    ('signed', True), ('final-unsigned', False), ('marker-final', False), ('malformed-marker-final', False),
+    ('fenced-sign-off', False), ('stale', False),
+])
+def test_publish_ready_needs_done_and_no_marker_in_the_final(ws, state, ready):
+    build_state(ws, state)
+    assert writer.publish_ready(str(ws.root), ws.slug) is ready
+
+
+def test_a_hand_signed_final_with_a_marker_is_not_publish_ready(ws):
+    """G4 may PASS a final that holds a marker (ADR-008) and a hand sign-off skips the guard: `done` alone is not enough."""
+    build_state(ws, 'signed')
+    (ws.art / 'final.md').write_text(f'# T\n\nBody {MARKER}\n\nSigned-off-by: Test Human\n')
+    writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')  # the gate judged this text, so the state is `done`
+    assert (writer.article_state(str(ws.root), ws.slug)['next'], writer.publish_ready(str(ws.root), ws.slug)) == ('done', False)
+
+
+def test_the_doc_copy_of_a_final_strips_ids_and_hashes_the_file_on_disk(ws):
+    build_state(ws, 'signed')
+    body = '# T\n\nBody [F1].\n\nSigned-off-by: Test Human\n'
+    (ws.art / 'final.md').write_text(body)
+    writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')
+    r = doc_copy(ws.root, ws.slug, 'final')
+    out = json.loads(r.out)
+    assert r.code == 0
+    assert out == {'text': '# T\n\nBody.\n\nSigned-off-by: Test Human\n', 'sha256': writer.text_hash(body), 'rev': 1,
+                   'publish_ready': True, 'title': 'demo · final · r1 · publish-ready', 'skip': False, 'existing_url': None}
+
+
+def test_an_ungated_stage_is_labelled_ungated(ws):
+    build_state(ws, 'one-block')
+    assert json.loads(doc_copy(ws.root, ws.slug, 'outline').out)['title'] == 'demo · outline · r1 · ungated'
+
+
+def test_an_unchanged_copy_is_skipped_and_names_the_existing_doc(ws):
+    build_state(ws, 'unapproved')
+    first = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    record_doc(ws, [dict(stage='outline', rev=1, id='d1', url='https://docs.example/d1', at='t', sha256=first['sha256'],
+                         title=first['title'], publish_ready=False)])
+    again = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    assert (again['skip'], again['existing_url'], again['rev']) == (True, 'https://docs.example/d1', 2)
+
+
+def entry_from(out, rev, url):
+    return dict(stage='final', rev=rev, id=f'd{rev}', url=url, at='t', sha256=out['sha256'], title=out['title'],
+                publish_ready=out['publish_ready'])
+
+
+def test_a_sign_off_on_unchanged_text_still_makes_a_new_doc(ws):
+    """The hash ignores approval lines, so only the label tells the signed copy from the unsigned one."""
+    build_state(ws, 'final-unsigned')
+    before = json.loads(doc_copy(ws.root, ws.slug, 'final').out)
+    record_doc(ws, [entry_from(before, 1, 'https://docs.example/d1')])
+    (ws.art / 'final.md').write_text('# T\n\nBody.\n\nSigned-off-by: Test Human\n')
+    after = json.loads(doc_copy(ws.root, ws.slug, 'final').out)
+    assert (before['sha256'] == after['sha256'], after['skip'], after['title']) == (True, False, 'demo · final · r2 · publish-ready')
+
+
+def test_an_ungated_copy_that_later_passes_makes_a_new_doc(ws):
+    build_state(ws, 'unapproved')
+    (ws.art / 'gates' / 'G2-outline.r1.md').unlink()
+    (ws.art / 'gates' / 'G2-outline.r1.json').unlink()
+    ungated = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    record_doc(ws, [dict(entry_from(ungated, 1, 'u'), stage='outline')])
+    ws.verdict('outline', 1, PASS['outline'], sidecar=True)
+    gated = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    assert (ungated['title'], gated['skip'], gated['title']) == ('demo · outline · r1 · ungated', False, 'demo · outline · r2')
+
+
+@pytest.mark.parametrize('args,why', [
+    (['demo', 'summary'], 'not a stage'), (['demo'], 'usage'), (['../x', 'final'], 'slug'), (['demo', 'research'], 'research.md'),
+], ids=['bad-stage', 'no-stage', 'bad-slug', 'missing-artifact'])
+def test_a_bad_request_prints_an_error_and_exits_1(ws, args, why):
+    (ws.art / 'research.md').unlink()
+    r = doc_copy(ws.root, *args)
+    assert (r.code, why in json.loads(r.out)['error']) == (1, True)
+
+
+def test_an_unreadable_docs_json_is_an_error_not_an_empty_history(ws):
+    (ws.art / 'docs.json').write_text('{not json')
+    r = doc_copy(ws.root, ws.slug, 'outline')
+    assert (r.code, 'docs.json' in json.loads(r.out)['error']) == (1, True)
+
+
+def test_the_doc_copy_script_writes_nothing(ws):
+    build_state(ws, 'signed')
+    before = sorted(p.relative_to(ws.root) for p in ws.root.rglob('*'))
+    doc_copy(ws.root, ws.slug, 'final')
+    assert sorted(p.relative_to(ws.root) for p in ws.root.rglob('*')) == before

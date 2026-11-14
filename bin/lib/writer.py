@@ -449,3 +449,77 @@ def describe_article(root: str, slug: str) -> str:
     if n:
         parts.append(f'{n} marker{"s" if n != 1 else ""} to resolve')
     return ' · '.join(parts)
+
+
+# ---------------- Doc copies (Phase 7b, ADR-012) ----------------
+# A fact tag as the draft stage writes it: `[F7]` or `[F7, F9]`, with the one space before it, so "claim [F7]." becomes "claim.".
+FACT_TAG = re.compile(r'[ \t]?\[F\d+(?:[ \t]*,[ \t]*F\d+)*\]')
+_REV_IN_TITLE = re.compile(r' · r\d+')
+
+
+def strip_fact_ids(text: str) -> str:
+    """The text a reviewer sees: fact tags removed outside code fences, everything else unchanged."""
+    out, fenced = [], False
+    for line in text.split('\n'):
+        if _FENCE.match(line):
+            fenced = not fenced
+            out.append(line)
+        else:
+            out.append(line if fenced else FACT_TAG.sub('', line))
+    return '\n'.join(out)
+
+
+def docs_path(root: str, slug: str) -> str:
+    return os.path.join(article_dir(root, slug), 'docs.json')
+
+
+def docs_index(root: str, slug: str) -> List[Dict[str, object]]:
+    """The recorded Doc revisions, oldest first. A missing file is no history; an unreadable one raises ValueError, because
+    reading it as empty would restart the numbering and hide which revision reviewers commented on."""
+    path = docs_path(root, slug)
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, encoding='utf-8') as fh:
+            data = json.load(fh)
+    except (OSError, ValueError) as exc:
+        raise ValueError(f'articles/{slug}/docs.json cannot be read ({exc})') from exc
+    revs = data.get('revisions') if isinstance(data, dict) else None
+    if not isinstance(revs, list) or not all(isinstance(e, dict) for e in revs):
+        raise ValueError(f'articles/{slug}/docs.json is not {{"revisions": [...]}}')
+    return revs
+
+
+def next_rev(root: str, slug: str, stage: str) -> int:
+    revs = [e.get('rev') for e in docs_index(root, slug) if e.get('stage') == stage]
+    return 1 + max((r for r in revs if isinstance(r, int)), default=0)
+
+
+def publish_ready(root: str, slug: str) -> bool:
+    """FLOW-6, defined once for the copy script and the guard: the final is signed off on a current G4 PASS (`done`) and holds
+    no marker. `done` alone is not enough: G4 may pass a marker (ADR-008) and a sign-off typed by hand skips the guard."""
+    if article_state(root, slug)['next'] != 'done':
+        return False
+    return not MARKER_LOOSE.search(read_text(os.path.join(article_dir(root, slug), 'final.md')))
+
+
+def doc_title(slug: str, stage: str, rev: int, ready: bool, gated: bool) -> str:
+    label = ' · publish-ready' if ready else ('' if gated else ' · ungated')
+    return f'{slug} · {stage} · r{rev}{label}'
+
+
+def doc_copy(root: str, slug: str, stage: str) -> Dict[str, object]:
+    """Everything the copy skill uploads and records, so the model never computes a hash, a revision or a label.
+
+    `skip` is true when the stage's last recorded copy has the same hash and the same label: the hash ignores approval
+    lines, so a sign-off or a later PASS on unchanged text still gives a new Doc."""
+    text = read_text(os.path.join(article_dir(root, slug), f'{stage}.md'))
+    rev = next_rev(root, slug, stage)
+    ready = stage == 'final' and publish_ready(root, slug)
+    title = doc_title(slug, stage, rev, ready, check_gate(root, slug, stage) is None)
+    sha = text_hash(text)
+    last = next((e for e in reversed(docs_index(root, slug)) if e.get('stage') == stage), None)
+    skip = bool(last) and last.get('sha256') == sha and \
+        _REV_IN_TITLE.sub('', str(last.get('title', ''))) == _REV_IN_TITLE.sub('', title)
+    return {'text': strip_fact_ids(text), 'sha256': sha, 'rev': rev, 'publish_ready': ready, 'title': title,
+            'skip': skip, 'existing_url': last.get('url') if skip else None}
