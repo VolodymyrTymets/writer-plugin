@@ -511,3 +511,13 @@ def test_orchestrator_says_how_each_checkpoint_resumes():
     assert 'writes a name after `Approved-by:` in `articles/<slug>/outline.md`' in text
     assert 'writes a name after `Signed-off-by:` in `articles/<slug>/final.md`' in text
     assert 'FLOW-6' in text and 'run `writer-plugin:article <slug>` again' in text
+
+
+def test_orchestrator_never_guesses_a_slug_or_runs_the_brief_over_an_existing_article():
+    text = flat(ORCHESTRATOR)
+    assert 'take the slug from the path it reports' in text and 'never guess it from the newest folder' in text
+    assert '**`brief` with no brief supplied in this call:** stop and ask for the brief' in text
+
+
+def test_orchestrator_takes_a_stale_stage_from_the_verdict_named_in_reason():
+    assert 'taking the stage from the verdict file named in `reason`' in flat(ORCHESTRATOR)

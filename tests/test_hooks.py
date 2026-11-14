@@ -901,3 +901,48 @@ def test_the_briefing_and_the_status_script_agree(ws, tmp_path, state):
     line = session(ws.root, tmp_path / 'state').out
     assert f'**{ws.slug}**: {BRIEFING[state]}' in line
     assert nxt == EXPECTED_STATE[state][0]
+
+
+# ---------------- Phase 6 review: guard agreement, root, slug and argument edges ----------------
+# state -> (the artifact the probe writes, the guard's exit code). A stage the orchestrator would run must be allowed (0); at
+# a stop, the artifact it would otherwise move on to must be refused (2). sign-off and done write no artifact, so they have no row.
+GUARD_PROBE = {
+    'nothing': ('brief.md', 0), 'brief-only': ('brief.md', 0), 'brief-passed': ('research.md', 0), 'one-block': ('outline.md', 0),
+    'approved': ('draft.md', 0), 'approved-no-draft': ('draft.md', 0),
+    'two-blocks': ('outline.md', 2), 'two-blocks-then-pass': ('outline.md', 2),
+    'unapproved': ('draft.md', 2), 'markers-outline': ('draft.md', 2),
+    'stale': ('outline.md', 2), 'stale-unapproved': ('draft.md', 2), 'stale-next-missing': ('outline.md', 2),
+}
+
+
+@pytest.mark.parametrize('state', sorted(GUARD_PROBE))
+def test_the_orchestrators_next_step_is_one_the_guard_allows(ws, state):
+    """ADR-011 says the orchestrator and the guard agree. A new guard rule that breaks this turns this red."""
+    build_state(ws, state)
+    artifact, code = GUARD_PROBE[state]
+    assert guard(ws.root, write_payload(ws.rel(artifact))).code == code
+
+
+def test_every_state_that_runs_a_stage_probes_that_stage():
+    runs = {s: EXPECTED_STATE[s][0] for s in R1_STATES if EXPECTED_STATE[s][0] in STAGES}
+    assert {s: GUARD_PROBE[s] for s in runs} == {s: (f'{n}.md', 0) for s, n in runs.items()}
+
+
+def test_a_missing_articles_folder_names_the_root_it_looked_under(tmp_path):
+    out = json.loads(status(tmp_path, 'demo').out)
+    assert out['next'] == 'brief' and str(tmp_path) in out['reason']
+
+
+@pytest.mark.parametrize('slug,ok', [('demo\n', False), ('.hidden', False), ('My Draft', True), ('demo', True)],
+                         ids=['trailing-newline', 'dot-folder', 'space-in-name', 'kebab'])
+def test_a_slug_is_one_visible_folder_name(tmp_path, slug, ok):
+    (tmp_path / 'articles').mkdir()
+    assert (writer.article_state(str(tmp_path), slug)['next'] != 'unknown') is ok
+
+
+@pytest.mark.parametrize('args', [['demo', '--root'], ['a', 'b']], ids=['root-without-value', 'two-slugs'])
+def test_bad_arguments_still_print_json_unknown(tmp_path, args):
+    (tmp_path / 'articles').mkdir()
+    r = status(tmp_path, *args)
+    out = json.loads(r.out)
+    assert r.code == 0 and out['next'] == 'unknown' and out['reason']

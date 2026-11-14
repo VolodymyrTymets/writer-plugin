@@ -18,14 +18,15 @@ and report the hook's message; never work around it.
 
 `$ARGUMENTS` is `<slug>`, `<slug> <path to brief>`, `<path to brief>`, or empty; the brief may also be pasted in the message.
 - A slug is one folder name under `articles/` (letters, digits, `.`, `_`, `-`). Name what you settled on.
-- No slug, but a brief supplied: the brief stage picks the slug from the working title. After it returns, the slug is the folder
-  of the most recently modified `articles/*/brief.md`.
+- No slug, but a brief supplied: the brief stage picks the slug from the working title. After it returns, take the slug from the
+  path it reports (`articles/<slug>/brief.md`). If its report names no such path, stop and ask the user for the slug: never guess
+  it from the newest folder, which may be another article.
 - No slug and no brief: the most recently modified folder under `articles/`. If there is none, ask the user for the brief.
 
 ## Step 2 — Read the state
 
-Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py <slug>` (no slug yet, because the brief stage will pick it: skip to the
-brief row below). It prints one JSON object: `slug`, `stage`, `next`, `reason`, `markers` (a list), `stale`. Decide only from
+Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py <slug>` from the workspace root (no slug yet, because the brief stage will
+pick it: skip to the brief row below). It prints one JSON object: `slug`, `stage`, `next`, `reason`, `markers` (a list), `stale`. Decide only from
 `next`, never from your own reading of the verdict files: the script applies the same rules as the hooks.
 
 ## Step 3 — Act on `next`
@@ -46,6 +47,8 @@ repeat any of that. When it returns, go back to Step 2.
 - **Never invoke the same actor twice in a row.** If Step 2 gives the same stage as the actor you just ran, stop: report what
   the actor said and the script's `reason`. A rerun is the human's call.
 - At most five actor calls in one run, one per stage. If you reach that, stop and report the state.
+- **`brief` with no brief supplied in this call:** stop and ask for the brief. Quote `reason`: it names the folder the script looked
+  under, and a wrong folder makes an existing article look new. Never run the brief stage over an article you were asked to continue.
 - Let the brief stage ask its questions (it uses AskUserQuestion); pass the user's answers back by letting it run, never answer for them.
 
 **Stop** — on every other value, stop and report:
@@ -55,7 +58,7 @@ repeat any of that. When it returns, go back to Step 2.
 | `approve` | The outline passed G2. A human reads `articles/<slug>/outline.md`, then writes a name after `Approved-by:` in `articles/<slug>/outline.md`. This is the cheap moment to change direction. List every entry of `markers` and the count: approval is allowed with markers, but each one is a claim that will not appear in the article until a human supplies a fact. Then run `writer-plugin:article <slug>` again to continue with the draft. |
 | `sign-off` | The final passed G4 and **is not signed off**. A human reads `articles/<slug>/final.md`, then writes a name after `Signed-off-by:` in `articles/<slug>/final.md`. List every entry of `markers` and the count; while one remains the sign-off is refused (FLOW-6): a human supplies the fact or drops the claim, and the article goes back through the stage that holds it. Then run `writer-plugin:article <slug>` again to confirm it is done. |
 | `stopped` | Quote `reason` (it names both BLOCK verdicts and how a human archives them). Two BLOCKs hand the article to the human (FLOW-3). |
-| `stale` | Quote `reason`. A verdict no longer covers what is on disk: the artifact it names was changed or its upstream was re-gated. Rebuilding or re-gating it is the human's decision; say which stage's command reruns it. |
+| `stale` | Quote `reason`. A verdict no longer covers what is on disk: the artifact it names was changed or its upstream was re-gated. Rebuilding or re-gating it is the human's decision; say which stage's command reruns it, taking the stage from the verdict file named in `reason` (`G<n>-<stage>.r<k>.md`), not from `stage`, which is where the chain stopped. |
 | `unknown` | Quote `reason`. Do not guess a stage. |
 | `done` | The final passed G4 and is signed off. Nothing to run. |
 

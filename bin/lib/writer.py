@@ -367,8 +367,9 @@ def read_text(path: str) -> str:
 
 # The whole marker as the guard sees it: built from the guard's own loose pattern, never a second one (ADR-011).
 MARKER_TEXT = re.compile(MARKER_LOOSE.pattern + r'[^>\n]*>?')
-# A slug is one path segment; anything else could point the status script outside articles/.
-SLUG = re.compile(r'^[A-Za-z0-9][A-Za-z0-9._-]*$')
+# A slug is one visible folder name under articles/: no separator, no leading dot (so no `..`), no line break. Anything else could
+# point the status script outside articles/. Spaces are allowed: the guard treats any such folder as an article too.
+SLUG = re.compile(r'(?!\.)[^/\\\x00\r\n]+\Z')
 STATE_KEYS = ('slug', 'stage', 'next', 'reason', 'markers', 'stale')
 
 
@@ -384,19 +385,21 @@ def article_state(root: str, slug: str) -> Dict[str, object]:
     wins: unknown, then stopped (a gate with two BLOCKs, the guard's FLOW-3 rule whatever its latest verdict), then stale (a
     verdict no longer covers what is on disk), then the walk down the chain. `summary` and `stale_reason` feed the briefing
     line; the orchestrator reads the rest."""
-    if not SLUG.match(slug or ''):
+    if not SLUG.match(slug or ''):  # the pattern ends in \Z, so match() is a full match
         return unknown_state(slug, f'"{slug}" is not an article slug (one folder name under articles/)')
     articles = os.path.join(root, 'articles')
     if os.path.exists(articles) and not os.path.isdir(articles):
         return unknown_state(slug, f'{articles} is not a folder, so the workspace cannot be read')
     art = article_dir(root, slug)
-    stage, nxt, summary, last_pass = None, None, None, None
+    stage, nxt, summary, last_pass, reason_override = None, None, None, None, None
     for s in STAGES:
         gate = gate_name(s)
         stage = s
         if not os.path.exists(os.path.join(art, f'{s}.md')):
             nxt = s
             summary = 'no brief.md yet: start with the brief stage' if s == 'brief' else f'{last_pass} passed; next: the {s} stage'
+            if s == 'brief':        # a wrong root reads as a new article: name where we looked, so the orchestrator can tell
+                reason_override = f'no articles/{slug}/brief.md under {root}: start with the brief stage'
             break
         name = latest(root, slug, s)
         if not name:
@@ -420,7 +423,7 @@ def article_state(root: str, slug: str) -> Dict[str, object]:
     marked = next((f'{s}.md' for s in reversed(STAGES[STAGES.index('outline'):upto + 1])
                    if os.path.exists(os.path.join(art, f'{s}.md'))), 'outline.md')
     markers = MARKER_TEXT.findall(read_text(os.path.join(art, marked)))
-    reason = summary
+    reason = reason_override or summary
     stopped = next((s for s in STAGES if block_count(root, slug, s) >= 2), None)
     if stopped:
         gate = gate_name(stopped)

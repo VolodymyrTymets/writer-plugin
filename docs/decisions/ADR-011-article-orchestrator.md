@@ -40,7 +40,9 @@ A throwaway probe plugin in a headless session (`claude -p --plugin-dir`, defaul
    not count.
 6. **It never invokes the same actor twice in a row**, and calls at most five actors per run. A BLOCK loop stays inside the actor;
    if the status does not move past the stage just run, the orchestrator stops and reports. On `stopped`, `stale` and `unknown` it
-   quotes `reason` and stops: rebuilding, re-gating or archiving is the human's call.
+   quotes `reason` and stops: rebuilding, re-gating or archiving is the human's call. On `brief` with no brief supplied it stops and asks: a
+   wrong working folder makes an existing article look new, so `reason` names the folder the script looked under. With no slug, the
+   slug comes from the path the brief actor reports, never from the newest folder.
 7. **Three deliberate changes to the briefing line**, each pinned by an exact-string case with a `WHY:` comment: markers are counted
    in the final once the article is there; a commit trailer quoted in a code fence is not a sign-off; a gate with two BLOCKs reads as
    STOPPED even when its latest verdict is a PASS.
