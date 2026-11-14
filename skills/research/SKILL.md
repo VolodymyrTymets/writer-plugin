@@ -2,7 +2,7 @@
 name: research
 description: Stage 1 actor. Use after the brief gate has passed, to research the brief's questions on the web and write research.md - sources, a fact bank with verbatim quotes, competitor coverage and the gap - then run the research gate.
 argument-hint: "[article slug, defaults to the most recently changed brief]"
-allowed-tools: Read, Write, Glob, Grep, Skill, WebSearch, WebFetch
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill, WebSearch, WebFetch
 ---
 
 # Research stage
@@ -62,7 +62,7 @@ Write the result to `articles/<slug>/research.md`.
 ## Step 5 — On BLOCK
 
 Fix only what the findings name, in `research.md`: re-fetch and correct the quote, replace a dead source, or drop the
-row. A row you cannot repair is removed, and its question moves to Open gaps with the marker. Then repeat Step 4. After the second
+row. A row you cannot repair is removed, and its question moves to Open gaps with the marker. Before you repeat Step 4, read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4. After the second
 BLOCK on disk, stop as in Step 2.
 
 ## Step 6 — On PASS

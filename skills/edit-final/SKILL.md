@@ -2,7 +2,7 @@
 name: edit
 description: Stage 4 actor. Use after the draft gate has passed, to line-edit draft.md into final.md - voice, filler, banned phrases, title, meta description and slug in front matter - keeping every fact ID and every unverified marker, then record the prose-lint run and run the final gate. It never signs the final off.
 argument-hint: "[article slug, defaults to the most recently changed draft]"
-allowed-tools: Read, Write, Glob, Grep, Skill, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py *)
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py *)
 ---
 
 # Edit stage
@@ -66,7 +66,7 @@ report that the sign-off was cleared, so the replaced final needs a new sign-off
 
 ## Step 5 — On BLOCK
 
-Fix only what the findings name, in `final.md`. Then repeat Step 4 from the start (lint, then record last, then the gate). After the second BLOCK on disk, stop as in Step 2.
+Fix only what the findings name, in `final.md`. Before you repeat Step 4, read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4 from the start (lint, then record last, then the gate). After the second BLOCK on disk, stop as in Step 2.
 
 ## Step 6 — On PASS
 
