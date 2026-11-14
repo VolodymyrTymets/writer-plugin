@@ -606,8 +606,18 @@ DRIVE_CREATE = 'mcp__claude_ai_Google_Drive__create_file'   # recorded by the R4
 DOC_COPY_RUN = 'python3 ${CLAUDE_PLUGIN_ROOT}/bin/doc-copy.py'
 
 
-def test_publish_pre_approves_only_the_script_the_write_and_the_drive_create_tool():
-    assert allowed_tools(PUBLISH) == {'Read', 'Write', f'Bash({DOC_COPY_RUN} *)', DRIVE_CREATE}
+def test_publish_pre_approves_only_the_script_the_write_and_the_drive_create_and_search_tools():
+    assert allowed_tools(PUBLISH) == {'Read', 'Write', f'Bash({DOC_COPY_RUN} *)', DRIVE_CREATE,
+                                      'mcp__claude_ai_Google_Drive__search_files'}
+
+
+def test_publish_files_each_copy_in_the_workspace_and_slug_folder_and_records_it():
+    """Approver's request on PR #13: <workspace folder>/<slug>/ in My Drive, no `articles` level; queries as the spike ran them."""
+    text = flat(PUBLISH)
+    assert "title = '<name>' and mimeType = 'application/vnd.google-apps.folder' and parentId = '<parent>' and trashed = false" in text
+    assert '`parentId`: the slug folder\'s id from Step 4' in text
+    assert 'set its `folder` to `{"id": "<the slug folder\'s id>", "path": "<folder_path joined with />"}`' in text
+    assert 'If `folder_id` is set, use it' in text
 
 
 def test_publish_takes_every_field_from_the_script_and_computes_none_itself():

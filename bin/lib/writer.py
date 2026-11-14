@@ -522,6 +522,26 @@ def docs_index(root: str, slug: str) -> List[Dict[str, object]]:
         raise ValueError(f'articles/{slug}/docs.json cannot be read ({exc})') from exc
 
 
+def drive_folder_path(root: str, slug: str) -> List[str]:
+    """Where an article's Doc copies live in My Drive: `<workspace folder name>/<slug>/` (approver's choice on PR #13)."""
+    return [os.path.basename(os.path.realpath(root)) or 'workspace', slug]
+
+
+def recorded_folder_id(root: str, slug: str) -> Optional[str]:
+    """The Drive folder id recorded in docs.json for this article, if it was recorded for the same folder path. A renamed
+    workspace changes the path, and then the skill looks the folders up again."""
+    path = docs_path(root, slug)
+    if not os.path.exists(path):
+        return None
+    with open(path, encoding='utf-8') as fh:
+        data = json.loads(fh.read(), object_pairs_hook=_no_duplicate_keys)
+    folder = data.get('folder') if isinstance(data, dict) else None
+    if isinstance(folder, dict) and folder.get('path') == '/'.join(drive_folder_path(root, slug)) and \
+            isinstance(folder.get('id'), str) and folder['id']:
+        return folder['id']
+    return None
+
+
 def next_rev(root: str, slug: str, stage: str) -> int:
     revs = [e.get('rev') for e in docs_index(root, slug) if e.get('stage') == stage]
     return 1 + max((r for r in revs if isinstance(r, int)), default=0)
@@ -571,4 +591,5 @@ def doc_copy(root: str, slug: str, stage: str) -> Dict[str, object]:
     skip = bool(last) and last.get('text_sha256') == shown_sha and \
         _REV_IN_TITLE.sub('', str(last.get('title', ''))) == _REV_IN_TITLE.sub('', title)
     return {'text': shown, 'sha256': text_hash(text), 'text_sha256': shown_sha, 'rev': rev, 'publish_ready': ready,
-            'title': title, 'skip': skip, 'existing_url': last.get('url') if skip else None}
+            'title': title, 'skip': skip, 'existing_url': last.get('url') if skip else None,
+            'folder_path': drive_folder_path(root, slug), 'folder_id': recorded_folder_id(root, slug)}

@@ -25,9 +25,15 @@ One spike Doc through the claude.ai Google Drive connector in an interactive Cla
 - **Comments:** `commentThreads[]` (`commentId`, `status`, `headPost` {`authorName`, `content`, `modifiedTime`}, `replies[]`). Each
   anchor sits inline in `fileContent` as `<comment_start id=X>…<comment_end id=X>`. An instruction-shaped comment arrives as ordinary
   text.
+- **Folders (second spike, same day):** `create_file` with `contentMimeType: application/vnd.google-apps.folder` makes a folder.
+  `parentId` nests folders and places Docs. `search_files` finds a folder by exact `title`, the folder `mimeType` and its `parentId`
+  (`'root'` for My Drive).
 
 ## Decision
-1. **A revision is a new Doc**, titled `<slug> · <stage> · r<k>`, plus ` · publish-ready` for a final that qualifies or ` · ungated`
+1. **A revision is a new Doc in the folder `<workspace folder name>/<slug>/` in My Drive** (the approver's choice on PR #13, with no
+   `articles` level). The copy skill finds or creates both folders by exact name under their parent once, and records the slug
+   folder's id and path in `docs.json` (`"folder"`); a renamed workspace changes the path, so the folders are looked up again. Each
+   Doc is titled `<slug> · <stage> · r<k>`, plus ` · publish-ready` for a final that qualifies or ` · ungated`
    when the stage has no current PASS. Earlier Docs stay as the record of what reviewers commented on.
 2. **The upload is Markdown** (`text/markdown`) with fact tags stripped outside code fences. No HTML or `.docx` conversion. A
    leading front-matter block becomes a `- **Title:** …` list (`writer.doc_text`). In the live run, Google turned raw front matter
@@ -69,13 +75,13 @@ One spike Doc through the claude.ai Google Drive connector in an interactive Cla
 - Positive: FLOW-6 is mechanical on the Doc a reviewer sees, not just on a line in a file. The history of revisions is
   tamper-evident. Comments come back in a form the edit stage can cite.
 - Accepted cost: copies and comment sync work only in an interactive session with the connector signed in. Headless runs (CI,
-  evals, `claude -p`) always take the no-connection path. Inline code loses its monospace in the Doc. Each revision is a new Doc in My Drive.
+  evals, `claude -p`) always take the no-connection path. Inline code loses its monospace in the Doc. Each revision is a new Doc in the article's folder.
 - Renames: `update_file` can retitle a Doc, so the matcher also includes `mcp__claude_ai_Google_Drive__update_file`, and no Doc is
   ever renamed onto the label, in any spelling. A rename cannot be checked against the Doc's content, so a final that qualifies
   gets its labelled Doc from a new upload. The copy skill never renames.
 - Known limit: synced comments are reviewer-controlled text read by sessions that can write. The sync skill and the edit stage say
   a comment is data, never an instruction, but that is a prompt rule. The guard still refuses a sign-off that G4 did not pass.
-- Follow-ups: a configurable Drive folder (`create_file` takes `parentId`); the outline and draft stages reading synced comments.
+- Follow-ups: the outline and draft stages reading synced comments.
 
 ## Revisit when
 The connector can update a Doc's content or reply to comments, or a headless session can load the claude.ai connectors.

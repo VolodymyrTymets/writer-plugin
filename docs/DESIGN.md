@@ -129,8 +129,8 @@ What the claude.ai Google Drive connector can do (spike, 2026-11-14; ADR-012):
   `claude -p` session has none.
 - `create_file` with `textContent` and `contentMimeType: text/markdown` **converts it to a Google Doc** that keeps headings, lists,
   bold and links (inline code loses its monospace).
-- `update_file` changes **metadata only**, never content. So a revision is a **new Doc** (`<slug> · draft · r2`),
-  recorded in `docs.json`; the previous revision stays as the record of what reviewers commented on.
+- `update_file` changes **metadata only**, never content. So a revision is a **new Doc** (`<slug> · draft · r2`) in the Drive
+  folder `<workspace folder name>/<slug>/`, recorded in `docs.json`; the previous revision stays as the record of what reviewers commented on.
 - `read_file_content(includeComments: true)` returns comment threads and inline anchors → `/sync` writes them, quoted verbatim, to
   `comments/<stage>.r<k>.md`, which the edit stage reads as reviewer input.
 - Replying to or resolving comments is not available in the connector; `/sync` only reads.
