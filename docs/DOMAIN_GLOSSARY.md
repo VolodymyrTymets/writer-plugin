@@ -5,6 +5,8 @@
 | Term | Means exactly | Not to be confused with |
 |------|---------------|-------------------------|
 | Actor | A skill that writes exactly one artifact and then invokes its gate | A gate: actors write, gates never do |
+| Orchestrator | The `article` skill: runs the actors in order from the status script's `next` and stops at the two human checkpoints; writes nothing (ADR-011) | An actor: it writes no artifact and runs no gate itself |
+| Status script | `bin/article-status.py <slug>`: prints an article's `next` step, `reason` and `markers` as JSON from the files and verdicts; read-only (ADR-011) | The session briefing, which prints the same state as one line |
 | Gate (G0–G4) | A forked, read-only skill that judges one artifact and returns `PASS` or `BLOCK` with rule IDs | A hook: a hook enforces mechanically, a gate judges |
 | Artifact | One stage's output file: `brief.md`, `research.md`, `outline.md`, `draft.md`, `final.md` | The Google Doc copy, which is a review copy only |
 | Fact bank | Rows `F# \| claim \| source URL \| publisher \| published \| accessed \| verbatim quote` in `research.md` | A source list: each row is one usable fact |

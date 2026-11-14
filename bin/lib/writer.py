@@ -365,36 +365,87 @@ def read_text(path: str) -> str:
         return ''
 
 
-def describe_article(root: str, slug: str) -> str:
-    """One line: where an article is and what it waits for. Read from the files and the verdicts, never from memory."""
+# The whole marker as the guard sees it: built from the guard's own loose pattern, never a second one (ADR-011).
+MARKER_TEXT = re.compile(MARKER_LOOSE.pattern + r'[^>\n]*>?')
+# A slug is one visible folder name under articles/: no separator, no leading dot (so no `..`), no line break. Anything else could
+# point the status script outside articles/. Spaces are allowed: the guard treats any such folder as an article too.
+SLUG = re.compile(r'(?!\.)[^/\\\x00\r\n]+\Z')
+STATE_KEYS = ('slug', 'stage', 'next', 'reason', 'markers', 'stale')
+
+
+def unknown_state(slug: str, reason: str) -> Dict[str, object]:
+    return {'slug': slug, 'stage': None, 'next': 'unknown', 'reason': reason, 'markers': [], 'stale': False,
+            'summary': f'unknown: {reason}', 'stale_reason': None}
+
+
+def article_state(root: str, slug: str) -> Dict[str, object]:
+    """Where an article is and the one next step, read from the files and the verdicts (ADR-011).
+
+    `next` is a stage to run (`brief` .. `final`), `approve`, `sign-off`, `stopped`, `stale`, `done` or `unknown`. First match
+    wins: unknown, then stopped (a gate with two BLOCKs, the guard's FLOW-3 rule whatever its latest verdict), then stale (a
+    verdict no longer covers what is on disk), then the walk down the chain. `summary` and `stale_reason` feed the briefing
+    line; the orchestrator reads the rest."""
+    if not SLUG.match(slug or ''):  # the pattern ends in \Z, so match() is a full match
+        return unknown_state(slug, f'"{slug}" is not an article slug (one folder name under articles/)')
+    articles = os.path.join(root, 'articles')
+    if os.path.exists(articles) and not os.path.isdir(articles):
+        return unknown_state(slug, f'{articles} is not a folder, so the workspace cannot be read')
     art = article_dir(root, slug)
-    current, last_pass = None, None
-    for stage in STAGES:
-        gate = gate_name(stage)
-        if not os.path.exists(os.path.join(art, f'{stage}.md')):
-            current = 'no brief.md yet: start with the brief stage' if stage == 'brief' else f'{last_pass} passed; next: the {stage} stage'
+    stage, nxt, summary, last_pass, reason_override = None, None, None, None, None
+    for s in STAGES:
+        gate = gate_name(s)
+        stage = s
+        if not os.path.exists(os.path.join(art, f'{s}.md')):
+            nxt = s
+            summary = 'no brief.md yet: start with the brief stage' if s == 'brief' else f'{last_pass} passed; next: the {s} stage'
+            if s == 'brief':        # a wrong root reads as a new article: name where we looked, so the orchestrator can tell
+                reason_override = f'no articles/{slug}/brief.md under {root}: start with the brief stage'
             break
-        name = latest(root, slug, stage)
+        name = latest(root, slug, s)
         if not name:
-            current = f'{stage}.md written, {gate} not run'
+            nxt, summary = s, f'{s}.md written, {gate} not run'
             break
         if not is_pass(os.path.join(art, 'gates', name)):
-            current = (f'{gate} STOPPED (FLOW-3): two BLOCK verdicts, a human archives them to resume' if block_count(root, slug, stage) >= 2
-                       else f'{gate} BLOCK ({name}): the {stage} stage fixes it and reruns')
+            nxt, summary = s, f'{gate} BLOCK ({name}): the {s} stage fixes it and reruns'
             break
-        last_pass = stage
-        if stage == 'outline' and not APPROVED.search(read_text(os.path.join(art, 'outline.md'))):
-            current = "outline passed G2, waiting for a human's Approved-by"
+        last_pass = s
+        if s == 'outline' and not APPROVED.search(read_text(os.path.join(art, 'outline.md'))):
+            nxt, summary = 'approve', "outline passed G2, waiting for a human's Approved-by"
             break
-        if stage == 'final':
-            signed = re.search(r'^[^\S\n]*Signed-off-by:[^\S\n]*\S+', read_text(os.path.join(art, 'final.md')), re.M)
-            current = 'final passed G4 and is signed off' if signed else "final passed G4, waiting for a human's Signed-off-by"
-    parts = [current or 'done']
-    if last_pass:
-        why = check_gate(root, slug, last_pass)
-        if why:
-            parts.append(f'STALE: {why}'[:130])
-    n = len(MARKER_LOOSE.findall(read_text(os.path.join(art, 'outline.md'))))
+        if s == 'final':
+            if is_signed(read_text(os.path.join(art, 'final.md'))):
+                nxt, summary = 'done', 'final passed G4 and is signed off'
+            else:
+                nxt, summary = 'sign-off', "final passed G4, waiting for a human's Signed-off-by"
+    stale_reason = check_gate(root, slug, last_pass) if last_pass else None
+    # Markers of the artifact the article is at, so a final left over from an earlier run cannot speak for a rebuilt outline.
+    upto = STAGES.index(stage) if stage in ('draft', 'final') else STAGES.index('outline')
+    marked = next((f'{s}.md' for s in reversed(STAGES[STAGES.index('outline'):upto + 1])
+                   if os.path.exists(os.path.join(art, f'{s}.md'))), 'outline.md')
+    markers = MARKER_TEXT.findall(read_text(os.path.join(art, marked)))
+    reason = reason_override or summary
+    stopped = next((s for s in STAGES if block_count(root, slug, s) >= 2), None)
+    if stopped:
+        gate = gate_name(stopped)
+        blocks = [n for _, n in verdicts(root, slug, stopped) if is_block(os.path.join(art, 'gates', n))]
+        stage, nxt = stopped, 'stopped'
+        summary = f'{gate} STOPPED (FLOW-3): two BLOCK verdicts, a human archives them to resume'
+        reason = (f'{gate} STOPPED (FLOW-3): {", ".join(blocks)} are BLOCK verdicts. A human resumes the article by moving every '
+                  f'{gate}.r*.md verdict, PASS ones too, into articles/{slug}/gates/archive/')
+    elif stale_reason:
+        nxt, reason = 'stale', stale_reason
+    return {'slug': slug, 'stage': stage, 'next': nxt, 'reason': reason, 'markers': markers, 'stale': nxt == 'stale',
+            'summary': summary, 'stale_reason': stale_reason}
+
+
+def describe_article(root: str, slug: str) -> str:
+    """One line: where an article is and what it waits for. Built on article_state, so the session briefing and the
+    orchestrator can never disagree."""
+    s = article_state(root, slug)
+    parts = [s['summary']]
+    if s['stale_reason']:
+        parts.append(f'STALE: {s["stale_reason"]}'[:130])
+    n = len(s['markers'])
     if n:
         parts.append(f'{n} marker{"s" if n != 1 else ""} to resolve')
     return ' · '.join(parts)

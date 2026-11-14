@@ -10,7 +10,7 @@ approach and the build plan — is in [docs/DESIGN.md](docs/DESIGN.md).
 | `.claude-plugin/` | `plugin.json` (name, version), `marketplace.json` | yes |
 | `skills/` | **flat**: one directory per skill, `SKILL.md` plus `references/` | yes |
 | `agents/` | write-free gate agents (`gate`, `fact-gate`) | yes |
-| `hooks/hooks.json` + `bin/` | the hooks, `prose-lint.py` and the shared `bin/lib/writer.py`, stdlib-only Python 3.9+; every hook has a pytest case in `tests/test_hooks.py` | yes |
+| `hooks/hooks.json` + `bin/` | the hooks, `prose-lint.py`, `article-status.py` and the shared `bin/lib/writer.py`, stdlib-only Python 3.9+; every hook has a pytest case in `tests/test_hooks.py` | yes |
 | `rules/core/` | the editorial constitution template with rule IDs | no — copied into a workspace by the setup skill |
 | `templates/` | brief, research dossier, outline, style guide templates | no — read at run time by the stage skills (ADR-005) |
 | `tests/` | pytest: structure guard, library shape, skill and verdict contracts; hook behaviour later | no |
@@ -43,5 +43,6 @@ rule quietly stopped existing.
 
 1. Client-specific knowledge never enters this repo (PLG-1). Generalise it, or put it in a workspace's `style.md`.
 2. A new skill: add it to `COMMANDS` (and to `GATE_SKILLS` if it judges an artifact), remove it from `PLANNED`.
-3. Prefer a script or a hook over a prompt rule.
+3. Prefer a script or a hook over a prompt rule. The orchestrator follows this: it decides from `bin/article-status.py`, not from
+   its own reading of the verdicts (ADR-011). A skill that dispatches other skills writes nothing itself.
 4. Both checks above before opening a PR. `CHANGELOG.md` leads with what was deleted.
