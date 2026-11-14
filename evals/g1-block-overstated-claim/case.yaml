@@ -1,0 +1,26 @@
+schema_version: "1.1"
+name: g1-block-overstated-claim
+description: "F1's claim says more than its verbatim quote, so G1 blocks on FACT-5"
+tags: [gate, g1, block]
+runs: 1
+execution:
+  prompt: "/writer-plugin:check-research http-caching"
+  max_turns: 30
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: verdict-line
+    type: regex
+    pattern: "^## G1 research gate: BLOCK \\([1-9]"
+  - name: forked-write-free
+    type: regex
+    target: "trace"
+    pattern: "\"subagent_type\"\\s*:\\s*\"writer-plugin:fact-gate\""
+  - name: rule-id
+    type: regex
+    pattern: "\\[FACT-5\\]"
+  - name: names-the-defect
+    type: llm
+    criteria: "The verdict blocks fact F1 because its claim (every cache refetches the moment the age passes) is stronger than the quote, which only says the response is considered stale."

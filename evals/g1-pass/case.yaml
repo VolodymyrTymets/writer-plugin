@@ -1,0 +1,20 @@
+schema_version: "1.1"
+name: g1-pass
+description: "Every fact row matches its source and covers the brief, so G1 passes"
+tags: [gate, g1, pass]
+runs: 1
+execution:
+  prompt: "/writer-plugin:check-research http-caching"
+  max_turns: 30
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: verdict-line
+    type: regex
+    pattern: "^## G1 research gate: PASS \\(0 blocking"
+  - name: forked-write-free
+    type: regex
+    target: "trace"
+    pattern: "\"subagent_type\"\\s*:\\s*\"writer-plugin:fact-gate\""

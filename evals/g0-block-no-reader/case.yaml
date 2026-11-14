@@ -1,0 +1,26 @@
+schema_version: "1.1"
+name: g0-block-no-reader
+description: "The reader is \"everyone\" with nothing they know or must do, so G0 blocks on BRF-1"
+tags: [gate, g0, block]
+runs: 1
+execution:
+  prompt: "/writer-plugin:check-brief http-caching"
+  max_turns: 30
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: verdict-line
+    type: regex
+    pattern: "^## G0 brief gate: BLOCK \\([1-9]"
+  - name: forked-write-free
+    type: regex
+    target: "trace"
+    pattern: "\"subagent_type\"\\s*:\\s*\"writer-plugin:gate\""
+  - name: rule-id
+    type: regex
+    pattern: "\\[BRF-1\\]"
+  - name: names-the-defect
+    type: llm
+    criteria: "The verdict blocks because the brief names no specific reader: \"Who\" is \"everyone\" and the two fields after it are empty."
