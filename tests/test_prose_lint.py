@@ -170,6 +170,23 @@ def test_a_placeholder_style_value_is_skipped_not_matched(ws, tmp_path):
     assert 'VOI-2' not in rules(lint(ws / 'final.md'))
 
 
+# The setup skill writes "none" for an empty list; read as a phrase it would ban the word itself and G4 would block on noise.
+@pytest.mark.parametrize('value', ['none', 'None', 'NONE', ' none '], ids=['lower', 'title', 'upper', 'spaced'])
+def test_a_none_style_value_is_an_empty_list_not_a_banned_word(ws, tmp_path, value):
+    (tmp_path / '.claude' / 'rules' / 'style.md').write_text(
+        f'## Banned phrases (VOI-2)\n- **Phrases:** {value}\n\n## AI tells to flag (VOI-3)\n- **Tells:** {value}\n')
+    (ws / 'final.md').write_text(final_text(extra='There is none left to measure.'))
+    r = lint(ws / 'final.md')
+    assert (rules(r), [l for l in r.out.split('\n') if 'no filled style guide' in l]) == ([], [])
+
+
+def test_none_inside_a_longer_list_is_still_a_phrase(ws, tmp_path):
+    (tmp_path / '.claude' / 'rules' / 'style.md').write_text('## Banned phrases (VOI-2)\n- **Phrases:** none, game changer\n')
+    (ws / 'final.md').write_text(final_text(extra='There is none left, a game changer.'))
+    assert [l.split(' ', 2)[2] for l in findings(lint(ws / 'final.md')) if l.startswith('VOI-2')] == \
+        ['banned phrase "none"', 'banned phrase "game changer"']
+
+
 # ---------------- the run record ----------------
 def test_without_record_nothing_is_written(ws):
     (ws / 'final.md').write_text(final_text())
