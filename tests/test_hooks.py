@@ -695,3 +695,92 @@ def test_an_edit_that_cannot_be_resolved_is_allowed_and_says_so(ws):
 def test_a_shell_write_to_final_is_allowed_by_the_sign_off_rule_a_stated_gap(ws):
     final_ready(ws)
     assert guard(ws.root, bash_payload("sed -i '' 's/Signed-off-by:/Signed-off-by: X/' articles/demo/final.md")).code == 0
+
+
+# ---------------- Phase 6 (ADR-011): one article state for the briefing and the orchestrator ----------------
+CURLY_MARKER = '<Can’t be verified. Reason: a curly apostrophe the guard still catches.>'
+
+
+def build_state(ws, state):
+    """Leave the workspace the way a real flow would at `state`. Neutral synthetic files only (PLG-1)."""
+    art = ws.art
+
+    def drop(*stages):
+        for s in stages:
+            (art / f'{s}.md').unlink()
+
+    if state == 'nothing':
+        drop(*STAGES)
+    elif state == 'brief-only':
+        drop('research', 'outline', 'draft', 'final')
+    elif state == 'brief-passed':
+        drop('research', 'outline', 'draft', 'final')
+        ws.chain('research')
+    elif state in ('one-block', 'two-blocks'):
+        ws.chain('outline')
+        ws.verdict('outline', 1, BLOCK['outline'])
+        if state == 'two-blocks':
+            ws.verdict('outline', 2, BLOCK['outline'])
+    elif state == 'stale':
+        ws.chain('outline')
+        ws.verdict('brief', 2, PASS['brief'], sidecar=True)
+    elif state in ('unapproved', 'approved', 'approved-no-draft', 'stale-unapproved', 'markers-outline'):
+        ws.chain('outline')
+        if state == 'markers-outline':
+            (art / 'outline.md').write_text(OUTLINE.format(approval='') + f"{MARKER}\n<Can't be verified. Reason: b.>\n")
+        ws.verdict('outline', 1, PASS['outline'], sidecar=True)
+        if state in ('approved', 'approved-no-draft'):
+            ws.approve()
+        if state == 'approved-no-draft':
+            drop('draft', 'final')
+        if state == 'stale-unapproved':
+            ws.verdict('brief', 2, PASS['brief'], sidecar=True)
+    elif state == 'stale-next-missing':
+        ws.chain('outline')
+        drop('outline', 'draft', 'final')
+        ws.verdict('brief', 2, PASS['brief'], sidecar=True)
+    elif state in ('final-unsigned', 'signed', 'marker-final', 'malformed-marker-final', 'fenced-sign-off'):
+        body = {'final-unsigned': '# T\n\nBody.\n\nSigned-off-by:\n',
+                'signed': '# T\n\nBody.\n\nSigned-off-by: Test Human\n',
+                'marker-final': f'# T\n\nBody {MARKER}\n\nSigned-off-by:\n',
+                'malformed-marker-final': f'# T\n\nBody {CURLY_MARKER}\n\nSigned-off-by:\n',
+                'fenced-sign-off': '# T\n\n```\ngit commit -s\nSigned-off-by: A Committer\n```\n\nSigned-off-by:\n'}[state]
+        ws.approve()
+        ws.chain('final')
+        (art / 'final.md').write_text(body)
+        ws.verdict('final', 1, PASS['final'], sidecar=True)
+    else:
+        raise AssertionError(f'unknown state {state}')
+
+
+R1_STATES = ['nothing', 'brief-only', 'brief-passed', 'one-block', 'two-blocks', 'stale', 'unapproved', 'approved',
+             'approved-no-draft', 'stale-unapproved', 'stale-next-missing', 'markers-outline', 'final-unsigned', 'signed',
+             'marker-final', 'malformed-marker-final', 'fenced-sign-off']
+_STALE = 'STALE: G1-research.r1.md is stale: it relied on G0-brief.r1.md but the latest G0-brief verdict is G0-brief.r2.md'
+# The briefing line per state, exactly as session-context prints it. Pinned before article_state() replaced the logic behind
+# it, so the refactor cannot change what a writer reads by accident.
+BRIEFING = {
+    'nothing': 'no brief.md yet: start with the brief stage',
+    'brief-only': 'brief.md written, G0-brief not run',
+    'brief-passed': 'brief passed; next: the research stage',
+    'one-block': 'G2-outline BLOCK (G2-outline.r1.md): the outline stage fixes it and reruns',
+    'two-blocks': 'G2-outline STOPPED (FLOW-3): two BLOCK verdicts, a human archives them to resume',
+    'stale': f'outline.md written, G2-outline not run · {_STALE}',
+    'unapproved': "outline passed G2, waiting for a human's Approved-by",
+    'approved': 'draft.md written, G3-draft not run',
+    'approved-no-draft': 'outline passed; next: the draft stage',
+    'stale-unapproved': f"outline passed G2, waiting for a human's Approved-by · {_STALE}",
+    'stale-next-missing': f'research passed; next: the outline stage · {_STALE}',
+    'markers-outline': "outline passed G2, waiting for a human's Approved-by · 2 markers to resolve",
+    'final-unsigned': "final passed G4, waiting for a human's Signed-off-by",
+    'signed': 'final passed G4 and is signed off',
+    'marker-final': "final passed G4, waiting for a human's Signed-off-by",
+    'malformed-marker-final': "final passed G4, waiting for a human's Signed-off-by",
+    'fenced-sign-off': 'final passed G4 and is signed off',
+}
+
+
+@pytest.mark.parametrize('state', R1_STATES)
+def test_the_briefing_line_for_each_state_is_exact(ws, state):
+    build_state(ws, state)
+    assert writer.describe_article(str(ws.root), ws.slug) == BRIEFING[state]
