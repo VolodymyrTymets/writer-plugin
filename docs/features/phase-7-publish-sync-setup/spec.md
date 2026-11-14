@@ -28,11 +28,10 @@ checks off. D1 holds throughout: the local Markdown is canonical, and a Doc is a
 
 ## Acceptance criteria
 7a
-- [ ] AC1 (partly verified 2026-11-14: `CLAUDE.md` written headless, 0 placeholders, 35/35 rule IDs equal, byte-equal to the template
-      with two placeholders filled; the `.claude/rules/style.md` write needs an interactive approval, see the PR) Given an empty workspace, when the setup skill runs with every answer supplied, then `CLAUDE.md` and `.claude/rules/style.md` exist,
+- [x] AC1 (verified 2026-11-14: `CLAUDE.md` written headless; `.claude/rules/style.md` written in an interactive session after the
+      human approved the `.claude/` write, which Claude Code requires) Given an empty workspace, when the setup skill runs with every answer supplied, then `CLAUDE.md` and `.claude/rules/style.md` exist,
       neither contains `{{`, and every rule ID from the template is in `CLAUDE.md` unchanged.
-- [ ] AC2 (format verified: prose-lint flags VOI-2/VOI-3 against the style guide text the skill produced; the skill's own write is
-      pending the interactive run) Given that workspace, when `prose-lint.py` runs on a sample final that contains a banned phrase from the answers, then it reports VOI-2
+- [x] AC2 Given that workspace, when `prose-lint.py` runs on a sample final that contains a banned phrase from the answers, then it reports VOI-2
       and no longer says "no filled style guide".
 - [x] AC3 Given a workspace where `CLAUDE.md` or `style.md` already exists, when setup runs, then it never overwrites an existing file, names it,
       and writes only the one that is missing (if both exist, it writes nothing).
