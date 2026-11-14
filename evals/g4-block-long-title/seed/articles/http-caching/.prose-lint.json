@@ -1,1 +1,1 @@
-{"file": "final.md", "sha256": "816629d99b3f75cf08ffff9fff864f1a2e27020abf0bcbbc6ff89ceb2cf56c5e", "findings": 1, "lines": ["SEO-2 articles/http-caching/final.md:5 title is 74 characters, the limit is 60"], "at": "2026-11-14T21:15:06+00:00"}
+{"file": "final.md", "sha256": "4973e19134bc2fb25d497fa781f47be33bc6210e86dc4817aff268ac47067fe7", "findings": 1, "lines": ["SEO-2 articles/http-caching/final.md:5 title is 74 characters, the limit is 60"], "at": "2026-11-14T21:23:54+00:00"}

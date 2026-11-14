@@ -8,7 +8,7 @@ Brief: `brief.md` · Research: `research.md`
 Approved-by: Test Human 2026-11-14
 
 ## Thesis
-Two policies cover most sites: cache fingerprinted assets for a long time and mark them immutable, and make HTML pages revalidate with no-cache.
+Two policies cover the common cases: cache fingerprinted assets for a long time and mark them immutable, and make HTML pages revalidate with no-cache.
 
 ## Title options
 1. The Cache-Control header, from max-age to immutable
@@ -26,8 +26,8 @@ Word budgets sum to the brief's target length, plus or minus 10% (STR-3).
 | What the cache-control header does | H2 | Gives the reader the standard the directives come from, so the policy has a basis | RFC 9111 defines HTTP caches and the header fields that control them; it replaced RFC 7234 | F5, F6 | 80 |
 | max-age: how long a response stays fresh | H2 | Explains the one number every policy sets | Over 70% of sites set max-age on static assets; a response is stale once its age is greater than max-age seconds | F1 | 90 |
 | no-cache vs no-store | H2 | Separates the two directives readers confuse, which the brief must include | no-cache allows storing but requires validation before reuse; no-store forbids storing at all | F2, F3 | 100 |
-| A fingerprinted asset with immutable | H2 | The worked example the brief must include: the long-lived asset policy | A file name that changes with its content; max-age of one year plus immutable; immutable means no update while fresh | F4 | 90 |
-| Your two policies | H2 | Lets the reader apply the goal: one policy per kind of response, and the CTA | Assets: long max-age plus immutable; HTML: no-cache; download the example config | — | 50 |
+| A fingerprinted asset with immutable | H2 | The worked example the brief must include: the long-lived asset policy | A file name that changes with its content; a long max-age plus immutable; immutable means no update while fresh | F4 | 90 |
+| Your two policies | H2 | Lets the reader apply the goal: one policy per kind of response, and the CTA | Assets: long max-age plus immutable; HTML: no-cache, so each reuse is validated first; download the example config | F2 | 50 |
 
 Arithmetic: target 450 → 405 to 495; sum 50+80+90+100+90+50 = 460.
 

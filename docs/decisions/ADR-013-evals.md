@@ -60,9 +60,23 @@ From the docs (code.claude.com/docs/en/plugin-evals.md) and a probe case run onc
 ## Consequences
 - Positive: a gate's judgement is now checked on known-good and known-bad input, so a checklist edit that makes a gate pass a wrong
   fact or block a clean article shows up as a failing case.
-- Accepted cost: G1 and G4 cases depend on two live pages. If MDN rewords its sentence, `g1-pass` and `g4-pass` fail until the
-  fixture's quote is re-extracted. LLM-judged graders can vary between runs.
-- Follow-ups: a case per remaining BLOCK rule, as gates change; more runs per case once costs are known.
+- Accepted cost:
+  - G1 and G4 cases depend on two live pages. If MDN rewords its sentence, `g1-pass` and `g4-pass` fail until the fixture's quote
+    is re-extracted.
+  - RFC 9111 is a long page, and WebFetch may stop before the cited §5.2.2 sentences. A PASS case failing on FACT-3 or FACT-2
+    there is the first thing to check.
+  - LLM-judged graders can vary between runs.
+- Ground truth: the fixture prose makes no checkable claim without a fact ID, and no sentence says more than its bank row. A
+  self-review found and removed sentences that broke this, including one close to the `g1-block` overclaim. `tests/test_evals.py`
+  pins the citations both ways.
+- Narrow coverage: the brief-actor cases start from briefs already in template form. They check that the stage asks nothing,
+  writes `brief.md` and saves a G0 PASS, not that it can normalise a messy brief.
+- Not yet run: at merge, only `g0-pass-http-caching` has run (score 1.00, $0.05). The approver chose not to run the full suite yet.
+- Follow-ups:
+  - run the full suite once;
+  - one brief-actor case from a raw, unstructured brief;
+  - a case per remaining BLOCK rule, as gates change;
+  - more runs per case once costs are known.
 
 ## Revisit when
 `claude plugin eval` gains script graders or file fixtures, or a gate is found passing something these cases do not cover.
