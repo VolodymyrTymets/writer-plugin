@@ -38,13 +38,14 @@ checks off. D1 holds throughout: the local Markdown is canonical, and a Doc is a
 - [x] AC4 Given the plugin source repo (`.claude-plugin/plugin.json` named `writer-plugin`), when setup runs, then it refuses and writes nothing.
 
 7b
-- [ ] AC5 Open questions 1–2 are answered from a live spike, and the answers are recorded in DESIGN.md and ADR-012.
-- [ ] AC6 Given a gated artifact and a connected Drive, when publish runs, then a new Doc `<slug> · <stage> · r<k>` exists with no `[F#]` tag,
+- [x] AC5 Open questions 1–2 are answered from a live spike, and the answers are recorded in DESIGN.md and ADR-012.
+- [x] AC6 Given a gated artifact and a connected Drive, when publish runs, then a new Doc `<slug> · <stage> · r<k>` exists with no `[F#]` tag,
       and `docs.json` gains an entry `{stage, rev, id, url, sha256, at, publish_ready}`; an earlier revision is never changed.
-- [ ] AC7 Given no Drive create tool, when publish runs, then it says so once, writes nothing and exits without error; the actor's run goes on.
-- [ ] AC8 Given a final that is not signed off or still holds a marker, when anything writes a `docs.json` entry with `publish_ready: true`,
+- [x] AC7 Given no Drive create tool, when publish runs, then it says so once, writes nothing and exits without error; the actor's run goes on.
+- [x] AC8 Given a final that is not signed off or still holds a marker, when anything writes a `docs.json` entry with `publish_ready: true`,
       then the guard blocks it (FLOW-6); for a signed final with a current G4 PASS and no marker, the write is allowed.
-- [ ] AC9 Given a published revision with comments, when sync runs, then `comments/<stage>.r<k>.md` holds each comment with its quoted
+- [ ] AC9 (partly verified 2026-11-14: sync wrote `comments/final.r2.md` live with anchors and quoted comments; the edit stage
+      citing them was not run live, and no instruction-shaped comment was synced live) Given a published revision with comments, when sync runs, then `comments/<stage>.r<k>.md` holds each comment with its quoted
       anchor text, and the edit stage reads it as reviewer input.
 
 7c
