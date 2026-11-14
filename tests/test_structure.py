@@ -28,10 +28,10 @@ COMMANDS = {
     'article': 'article',
     'setup-workspace': 'setup',
     'publish': 'publish',
+    'sync-comments': 'sync',
 }
 # Built next, in the order of docs/DESIGN.md. Move an entry from PLANNED to COMMANDS in the commit that adds the skill.
 PLANNED = {
-    'sync-comments': 'sync',
 }
 # Planned commands may be named only where a roadmap lives.
 PLANNED_OK_IN = ['README.md', 'CHANGELOG.md', 'docs/DESIGN.md']
