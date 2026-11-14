@@ -558,7 +558,7 @@ def test_setup_reads_both_library_files_through_the_plugin_root():
 def test_setup_writes_the_style_guide_where_prose_lint_and_the_stages_look_for_it():
     lint_src = (ROOT / 'bin' / 'prose-lint.py').read_text(encoding='utf-8')
     assert "os.path.join(d, '.claude', 'rules', 'style.md')" in lint_src
-    assert 'Write `.claude/rules/style.md`' in flat(SETUP)
+    assert '`.claude/rules/style.md`' in flat(SETUP)
 
 
 def test_setup_never_overwrites_and_writes_only_a_missing_file():
@@ -575,7 +575,13 @@ def test_setup_refuses_in_the_plugin_source_repo():
 
 
 def test_setup_pre_approves_only_what_it_needs():
-    assert allowed_tools(SETUP) == {'Read', 'Write', 'Glob', 'AskUserQuestion'}
+    assert allowed_tools(SETUP) == {'Read', 'Write', 'AskUserQuestion'}
+
+
+def test_setup_checks_each_file_by_its_exact_path_and_reports_a_refused_write():
+    text = flat(SETUP)
+    assert 'with Read on that exact path' in text  # a file search may skip .claude/, and then "never overwrite" would rest on luck
+    assert 'report that file as not written, do not retry it' in text
 
 
 def test_setup_keeps_the_labels_prose_lint_parses_and_never_invents_a_voice():

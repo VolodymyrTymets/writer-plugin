@@ -2,7 +2,7 @@
 name: setup
 description: Once per content workspace. Use to create the editorial constitution (CLAUDE.md) and the client style guide (.claude/rules/style.md) from the plugin's library, asking for voice, audience, banned phrases, reading level and links. Never overwrites an existing file.
 argument-hint: "[project name and style answers pasted, or a path to a file that holds them]"
-allowed-tools: Read, Write, Glob, AskUserQuestion
+allowed-tools: Read, Write, AskUserQuestion
 ---
 
 # Workspace setup
@@ -20,7 +20,8 @@ repository, not a content workspace: stop and write nothing. Say so, and tell th
 
 ## Step 2 — See what already exists
 
-Check for `CLAUDE.md` and `.claude/rules/style.md` with Glob.
+Check each of `CLAUDE.md` and `.claude/rules/style.md` with Read on that exact path: a not-found error means the file is absent.
+(Do not search for them; a file search may skip hidden folders such as `.claude/`.)
 - If both exist, write nothing. Name both files and stop: the workspace is already set up.
 - If one exists, name it and say it stays as it is. Go on for the missing file only; Steps 3 to 5 then apply to that file alone.
   If `CLAUDE.md` exists but was not written by this plugin (it lacks the line `Managed by the \`writer-plugin\` plugin`), say that
@@ -31,6 +32,8 @@ Check for `CLAUDE.md` and `.claude/rules/style.md` with Glob.
 
 Read `${CLAUDE_PLUGIN_ROOT}/rules/core/CLAUDE.template.md` and `${CLAUDE_PLUGIN_ROOT}/templates/style.md`. The answers come from
 `$ARGUMENTS` (pasted values, or a path you Read) and the user's message. You need:
+
+`CLAUDE.md` needs only the project name. Every other field is for the style guide; when only `CLAUDE.md` is missing, ask for nothing else.
 
 | Field | Goes into | Required |
 |-------|-----------|----------|
@@ -52,7 +55,10 @@ These are one client's values. They belong in this workspace only, never in the 
 
 ## Step 4 — Write the files
 
-**`CLAUDE.md`** — from the constitution template: replace `{{PROJECT_NAME}}` with the name and every `{{STYLE_GUIDE_PATH}}` with
+If a write is refused (Claude Code asks before writing under `.claude/`, and the user may decline), report that file as not
+written, do not retry it, and go on with the other file.
+
+**Write `CLAUDE.md`** — from the constitution template: replace `{{PROJECT_NAME}}` with the name and every `{{STYLE_GUIDE_PATH}}` with
 `.claude/rules/style.md`. Change nothing else in the constitution: every rule ID and its wording stays verbatim, because the gates
 cite them. Write it with the Write tool.
 
