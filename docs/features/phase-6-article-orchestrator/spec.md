@@ -21,20 +21,21 @@ the files on disk, with a tested script, and never writes an artifact, a verdict
   FLOW-3; running several articles in one call; parallel stages; a version bump.
 
 ## Acceptance criteria
-- [ ] AC1 Given the plugin, when `claude plugin validate ./` and the full pytest run, then both pass.
-- [ ] AC2 Given a workspace with no `articles/<slug>/`, when the orchestrator runs with a slug and a brief (path or pasted text), then it
+- [x] AC1 Given the plugin, when `claude plugin validate ./` and the full pytest run, then both pass.
+- [x] AC2 Given a workspace with no `articles/<slug>/`, when the orchestrator runs with a slug and a brief (path or pasted text), then it
       runs the brief, research and outline stages in order, each through its own actor (which runs its own gate), and stops after
       the G2 PASS saying a human writes a name after `Approved-by:` in `outline.md`. It writes nothing itself.
-- [ ] AC3 Given an approved outline, when the orchestrator runs again with the slug, then it starts at the draft stage (no earlier stage is
+- [x] AC3 Given an approved outline, when the orchestrator runs again with the slug, then it starts at the draft stage (no earlier stage is
       rerun), runs draft and edit, and stops after the G4 PASS saying the final is not signed off, listing each marker (the `markers` list).
-- [ ] AC4 Given two BLOCK verdicts on any gate (FLOW-3), when the orchestrator runs, then it stops before calling any actor, names both
+- [x] AC4 Given two BLOCK verdicts on any gate (FLOW-3), when the orchestrator runs, then it stops before calling any actor, names both
       files and says how a human resumes (archive every verdict of that gate).
-- [ ] AC5 Given a stale verdict (an artifact changed after its PASS, or an upstream re-gated), when the orchestrator runs, then it stops
+- [x] AC5 Given a stale verdict (an artifact changed after its PASS, or an upstream re-gated), when the orchestrator runs, then it stops
       and quotes the reason the status script gives; it does not rebuild anything by itself.
-- [ ] AC6 Given an actor that ends without a new PASS (one BLOCK fixed and re-gated is the actor's own loop), when control returns, then
+- [ ] AC6 (partly verified: the rule is pinned by a contract test and the orchestrator re-read the status after every actor in
+      every run, but no run returned from an actor with its stage unchanged, so the stop itself has not executed) Given an actor that ends without a new PASS (one BLOCK fixed and re-gated is the actor's own loop), when control returns, then
       the orchestrator reads the status again and continues only if the script says the next stage is unblocked.
-- [ ] AC7 Given a signed-off final, when the orchestrator runs, then it reports the article as done and calls nothing.
-- [ ] AC8 Given any state, `bin/article-status.py <slug>` prints one JSON object with `slug`, `next`, `stage`, `reason`, `markers`
+- [x] AC7 Given a signed-off final, when the orchestrator runs, then it reports the article as done and calls nothing.
+- [x] AC8 Given any state, `bin/article-status.py <slug>` prints one JSON object with `slug`, `next`, `stage`, `reason`, `markers`
       and the session briefing line for that article says the same thing (one function decides both).
 
 ## Edge cases

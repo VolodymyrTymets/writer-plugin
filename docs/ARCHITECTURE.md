@@ -7,9 +7,9 @@
 | Path | What lives here | Loaded by Claude Code? |
 |------|-----------------|------------------------|
 | `.claude-plugin/` | `plugin.json` (name, version), `marketplace.json` (marketplace `writer`, `source: "./"`) | yes |
-| `skills/` | flat: `skills/<dir>/SKILL.md` plus `references/`. Built: the brief, research, outline, draft and edit stages and gates G0 to G4 | yes |
+| `skills/` | flat: `skills/<dir>/SKILL.md` plus `references/`. Built: the brief, research, outline, draft and edit stages, gates G0 to G4, and the `article` orchestrator | yes |
 | `agents/` | write-free gate agents `gate` and `fact-gate` | yes |
-| `hooks/hooks.json`, `bin/` | `guard-stage-order`, `record-verdict`, `verify-final`, `session-context` (hooks) and `prose-lint.py` (a script), with a shared `bin/lib/writer.py`; stdlib-only Python 3.9+ | yes |
+| `hooks/hooks.json`, `bin/` | `guard-stage-order`, `record-verdict`, `verify-final`, `session-context` (hooks), `prose-lint.py` and `article-status.py` (scripts), with a shared `bin/lib/writer.py`; stdlib-only Python 3.9+ | yes |
 | `rules/core/`, `templates/` | `rules/core/CLAUDE.template.md` (editorial constitution) is an inert library the setup skill will copy into a content workspace. `templates/` (brief, research, outline, style) is read at run time by the stage skills via `${CLAUDE_PLUGIN_ROOT}` (ADR-005) | no (not auto-loaded); read by skills |
 | `tests/` | pytest structure guard (`test_structure.py`), shape guard for the library (`test_templates.py`), skill and verdict contracts (`test_skills.py`), `conftest.py` | no |
 | `docs/` | `DESIGN.md`, this file, glossary, business model, `decisions/` | no |
@@ -38,7 +38,9 @@ There is no deployment. The plugin is installed from the `writer` marketplace by
 1. **Article chain:** brief → research → outline → human approval → draft → final → human sign-off, each actor followed by its gate.
    Detail: `DESIGN.md`.
 2. **Gate:** a forked, write-free agent reads artifacts from disk and returns a verdict; the caller writes it to disk.
-3. **Hook:** a stdlib-only script reads the hook event and blocks mechanically (stage order, prose-lint run). Every hook has a pytest case.
+3. **Orchestrator:** the `article` skill asks `article-status.py` for the next step, calls that actor inline through the Skill tool,
+   asks again, and stops at a human checkpoint or a problem. It writes nothing (ADR-011).
+4. **Hook:** a stdlib-only script reads the hook event and blocks mechanically (stage order, prose-lint run). Every hook has a pytest case.
 
 ## External integrations
 | Service | Purpose | Failure mode | Sandbox |

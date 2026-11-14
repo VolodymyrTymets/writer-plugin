@@ -21,6 +21,10 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - G1 prints `Coverage: <a> answered, <o> open (of <m>)` on line 3 of its verdict.
 
 ### Added
+- Phase 6 (ADR-011): the orchestrator (`/article`) runs the chain, calling each stage's actor in order and stopping at the outline
+  approval and the final sign-off, on two BLOCKs, on a stale verdict, or when done; it writes nothing. `bin/article-status.py` prints an
+  article's next step as JSON; the session briefing is built on the same `article_state()` and now counts markers in the final, ignores a
+  `Signed-off-by:` quoted in a code fence, and reads a gate with two BLOCKs as stopped.
 - Phase 5 (ADR-010): the draft stage (`/draft`), the edit stage (`/edit`), gate G3 (`/check-draft`, developmental) and gate G4
   (`/check-final`, one forked gate that opens the sources and reads the recorded lint). `prose-lint.py --record` keeps the finding
   lines. The guard gains four rules: a G4 verdict needs a matching lint record, only the script writes `.prose-lint.json`, and a
