@@ -724,6 +724,11 @@ def build_state(ws, state):
     elif state == 'stale':
         ws.chain('outline')
         ws.verdict('brief', 2, PASS['brief'], sidecar=True)
+    elif state == 'two-blocks-then-pass':
+        ws.chain('outline')
+        ws.verdict('outline', 1, BLOCK['outline'])
+        ws.verdict('outline', 2, BLOCK['outline'])
+        ws.verdict('outline', 3, PASS['outline'], sidecar=True)
     elif state in ('unapproved', 'approved', 'approved-no-draft', 'stale-unapproved', 'markers-outline'):
         ws.chain('outline')
         if state == 'markers-outline':
@@ -753,7 +758,7 @@ def build_state(ws, state):
         raise AssertionError(f'unknown state {state}')
 
 
-R1_STATES = ['nothing', 'brief-only', 'brief-passed', 'one-block', 'two-blocks', 'stale', 'unapproved', 'approved',
+R1_STATES = ['nothing', 'brief-only', 'brief-passed', 'one-block', 'two-blocks', 'two-blocks-then-pass', 'stale', 'unapproved', 'approved',
              'approved-no-draft', 'stale-unapproved', 'stale-next-missing', 'markers-outline', 'final-unsigned', 'signed',
              'marker-final', 'malformed-marker-final', 'fenced-sign-off']
 _STALE = 'STALE: G1-research.r1.md is stale: it relied on G0-brief.r1.md but the latest G0-brief verdict is G0-brief.r2.md'
@@ -774,9 +779,16 @@ BRIEFING = {
     'markers-outline': "outline passed G2, waiting for a human's Approved-by · 2 markers to resolve",
     'final-unsigned': "final passed G4, waiting for a human's Signed-off-by",
     'signed': 'final passed G4 and is signed off',
-    'marker-final': "final passed G4, waiting for a human's Signed-off-by",
-    'malformed-marker-final': "final passed G4, waiting for a human's Signed-off-by",
-    'fenced-sign-off': 'final passed G4 and is signed off',
+    # WHY: once a final exists its markers are what blocks the sign-off (FLOW-6), so they are counted there, with the guard's
+    # own loose pattern, not in the outline (ADR-011). This line said nothing about the marker before.
+    'marker-final': "final passed G4, waiting for a human's Signed-off-by · 1 marker to resolve",
+    'malformed-marker-final': "final passed G4, waiting for a human's Signed-off-by · 1 marker to resolve",
+    # WHY: sign-off is read with the guard's fence-aware is_signed; a commit trailer quoted in a code block is not a sign-off
+    # (ADR-011). This line called the article signed off before.
+    'fenced-sign-off': "final passed G4, waiting for a human's Signed-off-by",
+    # WHY: the guard stops a stage whose gate has two BLOCKs whatever its latest verdict (FLOW-3); the briefing now says the same
+    # (ADR-011). New state, no earlier string.
+    'two-blocks-then-pass': 'G2-outline STOPPED (FLOW-3): two BLOCK verdicts, a human archives them to resume',
 }
 
 
@@ -784,3 +796,108 @@ BRIEFING = {
 def test_the_briefing_line_for_each_state_is_exact(ws, state):
     build_state(ws, state)
     assert writer.describe_article(str(ws.root), ws.slug) == BRIEFING[state]
+
+
+MARKER_B = "<Can't be verified. Reason: b.>"
+# state -> (next, stage, markers)
+EXPECTED_STATE = {
+    'nothing': ('brief', 'brief', []),
+    'brief-only': ('brief', 'brief', []),
+    'brief-passed': ('research', 'research', []),
+    'one-block': ('outline', 'outline', []),
+    'two-blocks': ('stopped', 'outline', []),
+    'two-blocks-then-pass': ('stopped', 'outline', []),
+    'stale': ('stale', 'outline', []),
+    'unapproved': ('approve', 'outline', []),
+    'approved': ('draft', 'draft', []),
+    'approved-no-draft': ('draft', 'draft', []),
+    'stale-unapproved': ('stale', 'outline', []),
+    'stale-next-missing': ('stale', 'outline', []),
+    'markers-outline': ('approve', 'outline', [MARKER, MARKER_B]),
+    'final-unsigned': ('sign-off', 'final', []),
+    'signed': ('done', 'final', []),
+    'marker-final': ('sign-off', 'final', [MARKER]),
+    'malformed-marker-final': ('sign-off', 'final', [CURLY_MARKER]),
+    'fenced-sign-off': ('sign-off', 'final', []),
+}
+
+
+@pytest.mark.parametrize('state', R1_STATES)
+def test_article_state_gives_the_next_step_the_stage_and_the_markers(ws, state):
+    build_state(ws, state)
+    s = writer.article_state(str(ws.root), ws.slug)
+    assert (s['next'], s['stage'], s['markers']) == EXPECTED_STATE[state]
+    assert s['stale'] is (s['next'] == 'stale')
+
+
+@pytest.mark.parametrize('state', ['two-blocks', 'two-blocks-then-pass'])
+def test_a_stopped_article_names_both_block_verdicts_and_how_to_resume(ws, state):
+    build_state(ws, state)
+    reason = writer.article_state(str(ws.root), ws.slug)['reason']
+    assert 'G2-outline.r1.md' in reason and 'G2-outline.r2.md' in reason and 'archive' in reason
+
+
+@pytest.mark.parametrize('state', ['stale', 'stale-unapproved', 'stale-next-missing'])
+def test_a_stale_article_quotes_what_check_gate_says(ws, state):
+    build_state(ws, state)
+    s = writer.article_state(str(ws.root), ws.slug)
+    assert s['reason'] == writer.check_gate(str(ws.root), ws.slug, 'research')
+
+
+def status(root, *args, cwd=None):
+    r = subprocess.run([sys.executable, str(BIN / 'article-status.py'), *args], capture_output=True, text=True,
+                       cwd=str(cwd or root))
+    return Result(r.returncode, r.stdout, r.stderr)
+
+
+def tree(root):
+    return sorted(str(p.relative_to(root)) for p in Path(root).rglob('*'))
+
+
+@pytest.mark.parametrize('state', ['nothing', 'unapproved', 'two-blocks', 'stale', 'final-unsigned', 'signed'])
+def test_the_status_script_prints_the_state_as_json_and_writes_nothing(ws, state):
+    build_state(ws, state)
+    before = tree(ws.root)
+    r = status(ws.root, ws.slug)
+    assert r.code == 0
+    out = json.loads(r.out)
+    assert set(out) == {'slug', 'stage', 'next', 'reason', 'markers', 'stale'}
+    assert out['slug'] == ws.slug and out['next'] == EXPECTED_STATE[state][0]
+    assert tree(ws.root) == before
+
+
+def test_the_status_script_takes_a_root_from_anywhere(ws, tmp_path):
+    build_state(ws, 'unapproved')
+    elsewhere = tmp_path / 'elsewhere'
+    elsewhere.mkdir()
+    assert json.loads(status(ws.root, '--root', str(ws.root), ws.slug, cwd=elsewhere).out)['next'] == 'approve'
+
+
+def test_a_slug_with_no_folder_starts_at_the_brief(tmp_path):
+    (tmp_path / 'articles').mkdir()
+    assert json.loads(status(tmp_path, 'new-article').out)['next'] == 'brief'
+
+
+@pytest.mark.parametrize('args', [[], ['../escape'], ['a/b']], ids=['no-slug', 'dot-dot', 'slash'])
+def test_the_status_script_refuses_a_missing_or_unsafe_slug_as_unknown(tmp_path, args):
+    (tmp_path / 'articles').mkdir()
+    r = status(tmp_path, *args)
+    out = json.loads(r.out)
+    assert r.code == 0 and out['next'] == 'unknown' and out['reason']
+
+
+def test_the_status_script_says_unknown_when_the_workspace_cannot_be_read(tmp_path):
+    (tmp_path / 'articles').write_text('a file where the folder should be')
+    r = status(tmp_path, 'demo')
+    out = json.loads(r.out)
+    assert r.code == 0 and out['next'] == 'unknown' and 'articles' in out['reason']
+
+
+@pytest.mark.parametrize('state', R1_STATES)
+def test_the_briefing_and_the_status_script_agree(ws, tmp_path, state):
+    """One function decides both (AC8): the line a writer reads at session start names what the orchestrator will do."""
+    build_state(ws, state)
+    nxt = json.loads(status(ws.root, ws.slug).out)['next']
+    line = session(ws.root, tmp_path / 'state').out
+    assert f'**{ws.slug}**: {BRIEFING[state]}' in line
+    assert nxt == EXPECTED_STATE[state][0]

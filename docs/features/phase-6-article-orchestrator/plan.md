@@ -29,7 +29,8 @@ No skill dispatches other skills yet: that is the new pattern ADR-011 records.
   `Signed-off-by:`), `stopped` (FLOW-3), `stale` (a verdict no longer covers its artifact), `done`, `unknown` (the script failed;
   `reason` says why). `stale` is a boolean that is true exactly when `next` is `stale`. `markers` is the **list** of markers found with
   the guard's own loose pattern `w.MARKER_LOOSE` (each entry matched by `re.compile(MARKER_LOOSE.pattern + r'[^>\n]*>?')`, built from the guard's pattern, never a second one, so a
-  malformed marker the guard would refuse is listed too), from `final.md` once it exists, else `outline.md`; empty list when none.
+  malformed marker the guard would refuse is listed too), from the artifact at the article's current stage, falling back final → draft → outline (refined in R1: a rule of
+  "`final.md` once it exists" let a leftover final speak for a rebuilt outline); empty list when none.
   The briefing count is `len(markers)`.
   Read-only: it writes no file, so the guard needs no rule for it.
 - **Precedence of `next`, first match wins:** (1) `unknown` (the script failed); (2) `stopped` (any gate with two BLOCKs);
@@ -65,6 +66,10 @@ No skill dispatches other skills yet: that is the new pattern ADR-011 records.
   changes the plan. Record the result here, as Phase 5 did.
 
 ### R1 — `article_state()` and the status script (M)
+- **Done note (2026-11-14):** a third deliberate briefing change, found while writing the tests: a gate with two BLOCKs is
+  `stopped` whatever its latest verdict, as the guard's FLOW-3 rule already does (`bin/guard-stage-order.py:85`); before, the
+  briefing only said STOPPED when the latest verdict was a BLOCK. Pinned as state `two-blocks-then-pass` with a `WHY:` line.
+  Slugs that are not one folder name (`..`, `/`) give `unknown`: the slug becomes a path.
 - files: `bin/lib/writer.py` (change: `article_state`, `describe_article` built on it), `bin/article-status.py` (new),
   `tests/test_hooks.py` (new cases)
 - layer: hook library + stdlib script
