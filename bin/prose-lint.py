@@ -94,6 +94,9 @@ def style_list(style_text: str, label: str) -> Optional[List[str]]:
     m = re.search(r'\*\*' + label + r':\*\*\s*(.+)', style_text)
     if not m or '{{' in m.group(1):
         return None
+    # "none" is how the style guide says the list is empty; matched as a phrase it would ban the word itself.
+    if m.group(1).strip().lower() == 'none':
+        return []
     return [p.strip() for p in m.group(1).split(',') if p.strip()]
 
 
