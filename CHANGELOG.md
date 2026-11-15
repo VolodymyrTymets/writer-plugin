@@ -8,6 +8,8 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- `docs/DESIGN.md` records a field test on one real brief (FT-1 to FT-13, all open) and updates the Phase 5 and 6 rows.
+  No plugin behaviour changed.
 - Each stage actor makes its Google Doc copy after its gate passes, through the copy skill, instead of saying "Doc copy: not yet
   available". The guard also runs on the Drive create call (ADR-012).
 - `prose-lint.py` reads a style-guide `**Phrases:**` or `**Tells:**` value of exactly `none` as an empty list. Before, it banned the
