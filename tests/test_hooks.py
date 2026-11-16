@@ -875,7 +875,8 @@ def test_the_status_script_prints_the_state_as_json_and_writes_nothing(ws, state
     r = status(ws.root, ws.slug)
     assert r.code == 0
     out = json.loads(r.out)
-    assert set(out) == {'slug', 'stage', 'next', 'reason', 'markers', 'stale'}
+    # WHY: `comments` joins the contract, always [] in PR 1 (ADR-016, R4); no key was removed or loosened
+    assert set(out) == {'slug', 'stage', 'next', 'reason', 'markers', 'stale', 'comments'}
     assert out['slug'] == ws.slug and out['next'] == EXPECTED_STATE[state][0]
     assert tree(ws.root) == before
 
@@ -1997,3 +1998,60 @@ def test_each_fail_closed_rule_blocks_when_it_hits_an_unexpected_error(ws, name,
     ws.chain('final')
     r = call(ws)
     assert r.code == 2 and 'could not be checked' in r.err and 'RuntimeError' in r.err
+
+
+# ---------------- ADR-016 (R4): every stage waits for its approval, and the status carries `comments` ----------------
+NEXT_AFTER = {'brief': 'research', 'research': 'outline', 'outline': 'draft', 'draft': 'final'}
+
+
+def unapprove(ws, stage):
+    (ws.art / f'{stage}.md').write_text(OUTLINE.format(approval='') if stage == 'outline' else f'# {stage}\n\ntext\n\nApproved-by:\n')
+
+
+@pytest.mark.parametrize('stage', list(NEXT_AFTER))
+def test_a_passed_stage_without_its_approval_is_waiting_for_a_human(ws, stage):
+    ws.approve()  # the outline defaults to unapproved; only `stage` is left without its approval
+    unapprove(ws, stage)
+    ws.chain(NEXT_AFTER[stage])
+    s = writer.article_state(str(ws.root), ws.slug)
+    assert (s['next'], s['stage']) == ('approve', stage)
+    assert s['summary'] == f"{stage} passed {GATE[stage]}, waiting for a human's Approved-by"
+    assert writer.describe_article(str(ws.root), ws.slug).startswith(s['summary'])
+
+
+@pytest.mark.parametrize('stage', list(NEXT_AFTER))
+def test_an_approved_stage_hands_over_to_the_next(ws, stage):
+    ws.chain(NEXT_AFTER[stage])
+    if stage == 'outline':
+        ws.approve()
+    s = writer.article_state(str(ws.root), ws.slug)
+    assert s['next'] != 'approve' or s['stage'] != stage
+
+
+def test_an_unapproved_earlier_stage_holds_the_chain_even_when_later_files_exist(ws):
+    unapprove(ws, 'research')
+    ws.chain('final')
+    s = writer.article_state(str(ws.root), ws.slug)
+    assert (s['next'], s['stage']) == ('approve', 'research')
+
+
+def test_a_stale_verdict_still_outranks_a_missing_approval(ws):
+    unapprove(ws, 'research')
+    ws.chain('outline')
+    (ws.art / 'research.md').write_text('# research\n\nchanged text\n\nApproved-by:\n')
+    assert writer.article_state(str(ws.root), ws.slug)['next'] == 'stale'
+
+
+@pytest.mark.parametrize('state', ['nothing', 'brief-passed', 'unapproved', 'two-blocks', 'stale', 'final-unsigned', 'signed'])
+def test_the_status_json_carries_an_empty_comments_list_in_every_state(ws, state):
+    build_state(ws, state)
+    out = json.loads(subprocess.run([sys.executable, str(BIN / 'article-status.py'), '--root', str(ws.root), ws.slug],
+                                    capture_output=True, text=True).stdout)
+    assert out['comments'] == [] and 'next' in out
+
+
+@pytest.mark.parametrize('slug', ['', '../x', 'bad\nslug'], ids=['none', 'dotdot', 'newline'])
+def test_an_invalid_slug_still_prints_unknown_with_an_empty_comments_list(ws, slug):
+    args = [slug] if slug else []
+    out = json.loads(subprocess.run([sys.executable, str(BIN / 'article-status.py'), '--root', str(ws.root), *args], capture_output=True, text=True).stdout)
+    assert (out['next'], out['comments']) == ('unknown', [])

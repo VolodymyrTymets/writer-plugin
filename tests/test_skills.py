@@ -557,6 +557,20 @@ def test_orchestrator_decides_from_the_status_script_and_handles_every_value():
         assert f'`{value}`' in text, f'the skill must say what it does on next = {value}'
 
 
+def test_orchestrator_tells_the_human_how_to_approve_every_stage_in_the_doc_or_the_file():
+    text = flat(ORCHESTRATOR)
+    approve = text.split('| `approve` |', 1)[1].split('| `sign-off` |', 1)[0]
+    assert 'the script\'s `stage` names' in approve and 'in the Doc' in approve and 'writer-plugin:sync' in approve
+    assert 'writes a name after `Approved-by:` in `articles/<slug>/<stage>.md`' in approve
+    assert 'writes a name after `Approved-by:` in `articles/<slug>/outline.md`' in text, 'the outline wording stays: it is the cheap moment to change direction'
+    sign = text.split('| `sign-off` |', 1)[1].split('| `stopped` |', 1)[0]
+    assert 'in the Doc' in sign and 'writer-plugin:sync' in sign and 'writes a name after `Signed-off-by:` in `articles/<slug>/final.md`' in sign
+
+
+def test_orchestrator_reads_the_stage_to_approve_from_the_status_not_from_its_own_guess():
+    assert "the script's `stage` names" in flat(ORCHESTRATOR) and 'never from your own reading' in flat(ORCHESTRATOR)
+
+
 def test_orchestrator_has_no_write_tool_and_never_writes_a_human_line():
     tools = next(l for l in orchestrator_front().split('\n') if l.startswith('allowed-tools:'))
     assert not re.search(r'\b(Write|Edit|NotebookEdit)\b', tools)

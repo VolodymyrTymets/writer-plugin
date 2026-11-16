@@ -381,18 +381,18 @@ MARKER_TEXT = re.compile(MARKER_LOOSE.pattern + r'[^>\n]*>?')
 # A slug is one visible folder name under articles/: no separator, no leading dot (so no `..`), no line break. Anything else could
 # point the status script outside articles/. Spaces are allowed: the guard treats any such folder as an article too.
 SLUG = re.compile(r'(?!\.)[^/\\\x00\r\n]+\Z')
-STATE_KEYS = ('slug', 'stage', 'next', 'reason', 'markers', 'stale')
+STATE_KEYS = ('slug', 'stage', 'next', 'reason', 'markers', 'stale', 'comments')
 
 
 def unknown_state(slug: str, reason: str) -> Dict[str, object]:
     return {'slug': slug, 'stage': None, 'next': 'unknown', 'reason': reason, 'markers': [], 'stale': False,
-            'summary': f'unknown: {reason}', 'stale_reason': None}
+            'summary': f'unknown: {reason}', 'stale_reason': None, 'comments': []}
 
 
 def article_state(root: str, slug: str) -> Dict[str, object]:
     """Where an article is and the one next step, read from the files and the verdicts (ADR-011).
 
-    `next` is a stage to run (`brief` .. `final`), `approve`, `sign-off`, `stopped`, `stale`, `done` or `unknown`. First match
+    `next` is a stage to run (`brief` .. `final`), `approve` (the stage it names passed its gate and waits for its approval), `sign-off`, `stopped`, `stale`, `done` or `unknown`. First match
     wins: unknown, then stopped (a gate with two BLOCKs, the guard's FLOW-3 rule whatever its latest verdict), then stale (a
     verdict no longer covers what is on disk), then the walk down the chain. `summary` and `stale_reason` feed the briefing
     line; the orchestrator reads the rest."""
@@ -420,8 +420,8 @@ def article_state(root: str, slug: str) -> Dict[str, object]:
             nxt, summary = s, f'{gate} BLOCK ({name}): the {s} stage fixes it and reruns'
             break
         last_pass = s
-        if s == 'outline' and not APPROVED.search(read_text(os.path.join(art, 'outline.md'))):
-            nxt, summary = 'approve', "outline passed G2, waiting for a human's Approved-by"
+        if s != 'final' and not approved(root, slug, s):  # FLOW-2 for every stage (ADR-016): the stage is not finished until it is approved
+            nxt, summary = 'approve', f"{s} passed {GATE_ID[s]}, waiting for a human's Approved-by"
             break
         if s == 'final':
             if is_signed(read_text(os.path.join(art, 'final.md'))):
@@ -446,7 +446,7 @@ def article_state(root: str, slug: str) -> Dict[str, object]:
     elif stale_reason:
         nxt, reason = 'stale', stale_reason
     return {'slug': slug, 'stage': stage, 'next': nxt, 'reason': reason, 'markers': markers, 'stale': nxt == 'stale',
-            'summary': summary, 'stale_reason': stale_reason}
+            'summary': summary, 'stale_reason': stale_reason, 'comments': []}
 
 
 def describe_article(root: str, slug: str) -> str:
