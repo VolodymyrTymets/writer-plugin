@@ -645,17 +645,42 @@ def normalize_text(text: str) -> str:
     return re.sub(r'\s+', ' ', text).strip()
 
 
-def quote_present(page_text: str, quote: str) -> bool:
-    """True when every segment of the quote (split at an ellipsis) is on the page, in order. `page_text` is already normalised."""
+MAX_ELISION = 300  # characters of page text an ellipsis may stand for; further apart than this the pieces are not one quote
+
+
+def _bounded_hits(page: str, seg: str, start: int):
+    """Every place `seg` occurs in `page` from `start` that is not the middle of a longer word or number."""
+    i = page.find(seg, start)
+    while i >= 0:
+        j = i + len(seg)
+        left = page[i - 1] if i else ''
+        right = page[j] if j < len(page) else ''
+        inside_word = (seg[0].isalnum() and left.isalnum()) or (seg[-1].isalnum() and right.isalnum())
+        inside_number = seg[-1].isdigit() and right in ('.', ',') and j + 1 < len(page) and page[j + 1].isdigit()
+        if not (inside_word or inside_number):
+            yield i, j
+        i = page.find(seg, i + 1)
+
+
+def _match(page: str, segments: List[str], pos: int, prev_end: Optional[int]) -> bool:
+    if not segments:
+        return True
+    for i, j in _bounded_hits(page, segments[0], pos):
+        if prev_end is not None and i - prev_end > MAX_ELISION:
+            return False  # hits only get further away
+        if _match(page, segments[1:], j, j):
+            return True
+    return False
+
+
+def quote_status(page_text: str, quote: str) -> str:
+    """`found` (one piece, on the page), `found-elided` (several pieces, close together and in order: what the ellipsis hid still needs
+    reading) or `not-found`. `page_text` is already normalised. Closing marks on the last piece are ignored (ADR-015)."""
     segments = [normalize_text(seg) for seg in _ELLIPSIS.split(quote)]
     segments = [seg for seg in segments if seg]
-    if segments:  # a quote cut mid-sentence may close with a mark the page does not have there (ADR-015); inner marks still count
+    if segments:  # a quote cut mid-sentence may close with a mark the page does not have there; inner marks still count
         segments[-1] = segments[-1].rstrip(' .,;:')
     segments = [seg for seg in segments if seg]
-    pos = 0
-    for seg in segments:
-        i = page_text.find(seg, pos)
-        if i < 0:
-            return False
-        pos = i + len(seg)
-    return bool(segments)
+    if not segments or not _match(page_text, segments, 0, None):
+        return 'not-found'
+    return 'found' if len(segments) == 1 else 'found-elided'

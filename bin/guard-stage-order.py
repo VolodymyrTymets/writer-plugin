@@ -83,9 +83,9 @@ def check_gates(root, slug, sub, tool, tool_input):
 
 
 def _says_no_artifact(content: str) -> bool:
-    """G1's verdict for a missing research.md (`Artifact: none`): there is nothing to check quotes in."""
+    """G1's BLOCK for a missing research.md (`Artifact: none`): there is nothing to check quotes in. A PASS never qualifies."""
     lines = content.split('\n')
-    return len(lines) > 1 and lines[1].strip() == 'Artifact: none'
+    return len(lines) > 1 and lines[0].startswith('## G1 research gate: BLOCK') and lines[1].strip() == 'Artifact: none'
 
 
 def check_signoff(root, slug, text):

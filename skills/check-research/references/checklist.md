@@ -22,6 +22,7 @@ quote word for word (ADR-015). It settles the verbatim question; you still open 
 | Status in `rows` | What it settles | Finding |
 |------------------|-----------------|---------|
 | `found` | The quote is on the page. Do not compare it again | none for FACT-3; still judge FACT-5 (claim vs quote) and the attribution |
+| `found-elided` | The pieces around each `...` are on the page, close together and in order; the hidden text was not checked | open the page and read what the `...` hides: if it changes the meaning (a dropped "not", a condition), blocking FACT-5 for that row; otherwise as `found` |
 | `not-found` | The page was read, it has real text and the quote is not in it | blocking FACT-3 for that row, citing the record; fix: copy the page's real words or drop the row. Do not overrule it from a fetch summary |
 | `unreachable`, `unreadable` | Nothing about the quote: the page could not be read as text | none from the record; judge the row yourself as in the table above, through the page you open |
 | the file or a row is missing (no record) | The check was not run on this dossier | one blocking FACT-3 finding for the record ("run `quote-check.py --record` on the research"); list the quotes under Not checked |

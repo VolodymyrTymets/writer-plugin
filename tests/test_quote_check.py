@@ -4,6 +4,7 @@ The script is driven as it is run (a subprocess) against a local HTTP server, so
 neutral synthetic pages under tmp_path (PLG-1).
 """
 import json
+import os
 import subprocess
 import sys
 import threading
@@ -39,11 +40,18 @@ PAGES = {
     '/md': ('text/markdown', f'# Title\n\nThe cache MUST NOT store the response. {filler(250)}', 200),
     '/md2': ('text/markdown', f'## Limits\n\n- While **Gmail/Microsoft Outlook** accounts work, see [the help page](https://x.test/a) and `code`.\n> A __quoted__ line.\n\n{filler(250)}', 200),
     '/clause': ('text/html', f'<body><p>While the account is linked, our team works on more accounts as well.</p><p>{filler(250)}</p></body>', 200),
+    '/num': ('text/html', f'<body><p>The plan costs $5.99 per month. 23 million users signed up. Latency fell by 40 percent.</p><p>{filler(250)}</p></body>', 200),
+    '/gap': ('text/html', f'<body><p>A cache MUST NOT store the response.</p><p>{filler(400)}</p><p>Then it MUST revalidate.</p></body>', 200),
+    '/huge': ('text/html', '<body><p>' + 'plain ' * 600000 + '</p></body>', 200),
+    '/cp1252': ('text/html', b'<html><head><meta charset="windows-1252"></head><body><p>It\x92s \x93stale\x94 now.</p><p>' + filler(250).encode() + b'</p></body>', 200),
+    '/nohead': ('text/html', f'<html><head><title>T</title><body><p>{QUOTE}</p><p>{filler(250)}</p></body>', 200),
     '/pdf': ('application/pdf', '%PDF-1.4 ' + QUOTE, 200),
     '/gone': ('text/html', 'not here', 404),
     '/blocked': ('text/html', 'denied', 403),
 }
 HITS = []
+REDIRECTS = {'/to-ftp': 'ftp://example.com/x', '/to-private': 'http://10.0.0.1/x', '/to-metadata': 'http://169.254.169.254/latest/meta-data/',
+             '/to-ok': '/ok'}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -51,11 +59,27 @@ class Handler(BaseHTTPRequestHandler):
         HITS.append(self.path)
         if self.path == '/slow':
             time.sleep(3)
-        kind, body, status = PAGES.get(self.path, ('text/html', 'x', 404))
-        data = body.encode('utf-8')
         try:
+            if self.path in REDIRECTS:
+                self.send_response(302)
+                self.send_header('Location', REDIRECTS[self.path])
+                self.send_header('Content-Length', '0')
+                self.end_headers()
+                return
+            if self.path == '/drip':  # a body that arrives a little at a time: no single socket read is ever slow
+                self.send_response(200)
+                self.send_header('Content-Type', 'text/html')
+                self.send_header('Content-Length', '100000')
+                self.end_headers()
+                for _ in range(100):
+                    self.wfile.write(b'x' * 1000)
+                    self.wfile.flush()
+                    time.sleep(0.2)
+                return
+            kind, body, status = PAGES.get(self.path, ('text/html', 'x', 404))
+            data = body if isinstance(body, bytes) else body.encode('utf-8')
             self.send_response(status)
-            self.send_header('Content-Type', kind + ('; charset=utf-8' if kind == 'text/html' else ''))
+            self.send_header('Content-Type', kind)
             self.send_header('Content-Length', str(len(data)))
             self.end_headers()
             self.wfile.write(data)
@@ -81,11 +105,15 @@ def bank(rows):
         + '\n## Open gaps\n- none\n'
 
 
-def run(tmp_path, rows, *extra):
+def run(tmp_path, rows, *extra, loopback=True):
     art = tmp_path / 'articles' / 'demo'
     art.mkdir(parents=True, exist_ok=True)
     (art / 'research.md').write_text(bank(rows), encoding='utf-8')
-    p = subprocess.run([sys.executable, str(SCRIPT), '--root', str(tmp_path), *extra, 'demo'], capture_output=True, text=True)
+    env = dict(os.environ)
+    env.pop('QUOTE_CHECK_ALLOW_LOOPBACK', None)
+    if loopback:
+        env['QUOTE_CHECK_ALLOW_LOOPBACK'] = '1'  # the test seam: the local server is the only loopback host a test may reach
+    p = subprocess.run([sys.executable, str(SCRIPT), '--root', str(tmp_path), *extra, 'demo'], capture_output=True, text=True, env=env)
     return Result(p.returncode, p.stdout, p.stderr)
 
 
@@ -138,12 +166,12 @@ def test_an_altered_quote_is_not_found(server, tmp_path, path, quote, why):
 
 
 @pytest.mark.parametrize('quote,expected', [
-    ('A cache stores a response ... the cache reuses it.', 'found'),
-    ('A cache stores a response … Later the cache reuses it.', 'found'),
+    ('A cache stores a response ... the cache reuses it.', 'found-elided'),
+    ('A cache stores a response … Later the cache reuses it.', 'found-elided'),
     ('the cache reuses it. ... A cache stores a response', 'not-found'),
     ('A cache stores a response ... never said.', 'not-found'),
 ], ids=['three-dots', 'ellipsis-char', 'out-of-order', 'missing-segment'])
-def test_a_quote_with_an_ellipsis_matches_its_segments_in_order(server, tmp_path, quote, expected):
+def test_a_quote_with_an_ellipsis_is_found_in_pieces_and_says_so(server, tmp_path, quote, expected):
     assert statuses(run(tmp_path, [(server + '/segments', quote)])) == {'F1': expected}
 
 
@@ -267,3 +295,71 @@ def test_record_ignores_the_approval_lines_in_its_hash(server, tmp_path):
 def test_a_bad_request_writes_no_record(tmp_path):
     subprocess.run([sys.executable, str(SCRIPT), '--root', str(tmp_path), '--record', 'nope'], capture_output=True, text=True)
     assert not (tmp_path / 'articles').exists()
+
+
+# ---------------- findings of the self-review ----------------
+@pytest.mark.parametrize('quote,expected', [
+    ('The plan costs $5.99 per month.', 'found'),
+    ('23 million users signed up.', 'found'),
+    ('3 million users signed up.', 'not-found'),
+    ('The plan costs $5.', 'not-found'),
+    ('Latency fell by 4', 'not-found'),
+    ('Latency fell by 40', 'found'),
+], ids=['full-price', 'full-number', 'longer-number-left', 'cut-price', 'cut-number-right', 'whole-number'])
+def test_a_quote_never_matches_the_middle_of_a_longer_word_or_number(server, tmp_path, quote, expected):
+    assert statuses(run(tmp_path, [(server + '/num', quote)])) == {'F1': expected}
+
+
+@pytest.mark.parametrize('quote,expected', [
+    ('A cache MUST ... store the response.', 'found-elided'),
+    ('A cache MUST NOT store the response. ... Then it MUST revalidate.', 'not-found'),
+], ids=['short-elision-is-flagged', 'pieces-far-apart'])
+def test_pieces_of_an_elided_quote_must_sit_close_together(server, tmp_path, quote, expected):
+    assert statuses(run(tmp_path, [(server + '/gap', quote)])) == {'F1': expected}
+
+
+def test_a_page_over_the_size_cap_is_unreachable_not_a_miss(server, tmp_path):
+    r = run(tmp_path, [(server + '/huge', 'plain plain plain')])
+    assert statuses(r) == {'F1': 'unreachable'} and 'over 3 MB' in r.out
+
+
+def test_a_body_that_trickles_in_still_ends_inside_the_budget_and_the_record_is_written(server, tmp_path):
+    started = time.time()
+    r = run(tmp_path, [(server + '/drip', QUOTE), (server + '/ok', QUOTE)], '--timeout', '1', '--budget', '1', '--record')
+    assert statuses(r)['F1'] == 'unreachable' and time.time() - started < 6
+    assert (tmp_path / 'articles' / 'demo' / '.quote-check.json').exists()
+
+
+def test_a_loopback_address_is_refused_unless_a_test_allows_it(server, tmp_path):
+    r = run(tmp_path, [(server + '/ok', QUOTE)], loopback=False)
+    assert statuses(r) == {'F1': 'unreachable'} and 'not a public address' in r.out
+
+
+@pytest.mark.parametrize('path,why', [('/to-ftp', 'not an http(s) URL'), ('/to-private', 'not a public address'),
+                                      ('/to-metadata', 'not a public address')], ids=['ftp', 'private-range', 'metadata-address'])
+def test_a_redirect_to_a_non_web_or_non_public_target_is_refused(server, tmp_path, path, why):
+    r = run(tmp_path, [(server + path, QUOTE)])
+    assert statuses(r) == {'F1': 'unreachable'} and why in r.out
+
+
+def test_a_redirect_to_a_normal_page_is_followed(server, tmp_path):
+    assert statuses(run(tmp_path, [(server + '/to-ok', QUOTE)])) == {'F1': 'found'}
+
+
+def test_a_charset_declared_only_in_the_page_is_used(server, tmp_path):
+    assert statuses(run(tmp_path, [(server + '/cp1252', 'It\u2019s \u201cstale\u201d now.')])) == {'F1': 'found'}
+
+
+def test_a_head_that_is_never_closed_does_not_hide_the_body(server, tmp_path):
+    assert statuses(run(tmp_path, [(server + '/nohead', QUOTE)])) == {'F1': 'found'}
+
+
+def test_a_repeated_fact_id_keeps_its_worst_status_in_the_record(server, tmp_path):
+    art = tmp_path / 'articles' / 'demo'
+    art.mkdir(parents=True)
+    row = '| F1 | c | {u} | P | 2026-01-01 | 2026-11-16 | {q} |\n'
+    (art / 'research.md').write_text('## Fact bank\n\n| F# | claim | source URL | publisher | published | accessed | verbatim quote |\n|--|--|--|--|--|--|--|\n'
+                                     + row.format(u=server + '/changed', q=QUOTE) + row.format(u=server + '/ok', q=QUOTE), encoding='utf-8')
+    env = dict(os.environ, QUOTE_CHECK_ALLOW_LOOPBACK='1')
+    subprocess.run([sys.executable, str(SCRIPT), '--root', str(tmp_path), '--record', 'demo'], capture_output=True, text=True, env=env)
+    assert json.loads((art / '.quote-check.json').read_text())['rows'] == {'F1': 'not-found'}

@@ -63,9 +63,10 @@ Write the result to `articles/<slug>/research.md`.
 
 ## Step 4 — Check the quotes, then run the gate and save the verdict
 
-0. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py articles/<slug>` **without** `--record`. It fetches each source and looks
+0. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py <slug>` **without** `--record` (the argument is the slug, not a path). It fetches each source and looks
    for each quote word for word in the page's text. A row it prints as `not-found` has a quote that is not on the page: fetch the
    page again and copy the page's real words, or drop the row; never edit a quote to make the check pass without reading the page.
+   A `found-elided` row passes the check but is not settled: read what the `...` hides on the page and make sure it does not change the meaning.
    `unreachable` and `unreadable` rows are not a verdict on the quote (the page could not be read as text); the gate judges them.
    Then run it **with** `--record` as the **last action on `research.md`**: `python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py --record <slug>`.
    Write nothing to `research.md` between this run and the gate: the guard refuses a gate verdict saved against a record made for

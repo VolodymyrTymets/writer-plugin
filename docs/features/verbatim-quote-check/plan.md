@@ -21,7 +21,7 @@ hash-bound record; the guard ties the gate's verdict to it; the gate only reads.
 ## Requirements (ordered, each independently verifiable)
 
 ### R1 — The script (M)
-- files: `bin/quote-check.py` (new), `bin/lib/writer.py` (change: `fact_rows(text)` parses the Fact bank table; `quote_present(page_text, quote)`), `tests/test_quote_check.py` (new)
+- files: `bin/quote-check.py` (new), `bin/lib/writer.py` (change: `fact_rows(text)` parses the Fact bank table; `quote_status(page_text, quote)`), `tests/test_quote_check.py` (new)
 - layer: script over the shared lib, as `doc-copy.py`.
 - test: local `http.server` fixtures, no outbound traffic: found; word changed; whitespace, curly quotes, entities, tags; ellipsis segments in order; 403 and timeout; a 50-word shell; non-HTML; one fetch per URL; no write without `--record`.
 - executed how: run it on the field-test dossier (FT-1 to FT-3, outside this repo) and on the eval fixture; report counts per status. Only counts go in the PR body, never URLs, quotes or row text from that dossier (PLG-1).

@@ -201,7 +201,8 @@ def test_research_stage_records_the_quote_check_last_and_never_writes_the_record
     text = flat('research')
     front = skill_text('research').split('---', 2)[1]
     assert QUOTE_CHECK_RULE in front, 'the exact rule form; a leading wildcard is flagged by Claude Code'
-    assert 'quote-check.py --record' in text and 'last action on `research.md`' in text
+    assert 'quote-check.py <slug>`' in text and 'quote-check.py --record <slug>`' in text and 'last action on `research.md`' in text
+    assert 'quote-check.py articles/' not in text, 'the script takes the slug, not a path'
     assert 'Write nothing to `research.md` between this run and the gate' in text
     assert 'Never write `.quote-check.json` yourself' in text
     assert '`not-found`' in text and 'word for word' in text
@@ -215,7 +216,7 @@ def test_g1_reads_the_recorded_quote_check_and_has_no_shell():
     text = flat('check-research')
     assert '.quote-check.json' in text and 'You cannot run the quote-check script' in text
     check = checklist_text('check-research')
-    for needle in ('## Recorded quote check', '`not-found`', 'blocking FACT-3', '`unreachable`', '`unreadable`', 'no record'):
+    for needle in ('## Recorded quote check', '`found-elided`', '`not-found`', 'blocking FACT-3', '`unreachable`', '`unreadable`', 'no record'):
         assert needle in check, f'G1 checklist lost: {needle}'
     assert 'Bash' not in (ROOT / 'agents' / 'fact-gate.md').read_text(encoding='utf-8').split('---', 2)[1]
 

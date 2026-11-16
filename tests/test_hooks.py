@@ -1455,3 +1455,9 @@ def test_the_quote_record_is_written_only_by_the_script(ws, payload):
 def test_running_the_quote_script_with_record_is_not_blocked(ws):
     research_ready(ws)
     assert guard(ws.root, bash_payload(f'python3 {BIN / "quote-check.py"} --record demo')).code == 0
+
+
+def test_a_pass_that_claims_no_artifact_cannot_skip_the_record_either(ws):
+    ws.chain('research')
+    (ws.art / 'research.md').unlink()
+    assert g1_save(ws, line=PASS['research'], artifact='none').code == 2
