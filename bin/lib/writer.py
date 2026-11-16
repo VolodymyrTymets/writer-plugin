@@ -464,7 +464,9 @@ def describe_article(root: str, slug: str) -> str:
 
 # ---------------- Doc copies (Phase 7b, ADR-012) ----------------
 # A fact tag as the draft stage writes it: `[F7]` or `[F7, F9]`, with the one space before it, so "claim [F7]." becomes "claim.".
-FACT_TAG = re.compile(r'[ \t]?\[F\d+(?:[ \t]*,[ \t]*F\d+)*\]')
+# one definition of a fact tag, `[F7]` or a list `[F7, F9]`, for the Doc copy and for the lint
+FACT_REF = re.compile(r'\[F\d+(?:[ \t]*,[ \t]*F\d+)*\]')
+FACT_TAG = re.compile(r'[ \t]?' + FACT_REF.pattern)
 _REV_IN_TITLE = re.compile(r' · r\d+')
 
 

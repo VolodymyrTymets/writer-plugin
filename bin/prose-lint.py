@@ -22,7 +22,14 @@ from lib import writer as w
 
 FENCE = re.compile(r'^\s*(```|~~~)')
 HEADING = re.compile(r'^(#{1,6})\s+(\S.*)$')
-FACT_REF = re.compile(r'\[F\d+\]')
+FACT_REF = w.FACT_REF
+# What the number check (FACT-1) skips: forms that make no claim a fact ID could source (field-test finding FT-4).
+MARKER_TEXT = re.compile(r"<Can.t be verified\.[^<>]*>")  # the reason inside a marker ("HTTP 403") is not a claim
+MD_TARGET = re.compile(r'\]\([^)]*\)')  # `![Screenshot](shots/2.png)`: the path is not prose
+LABEL = re.compile(r'\b(?:screenshots?|figures?|fig|images?|illustrations?|diagrams?|charts?|tables?|photos?|steps?|tips?|reasons?|examples?|'
+                   r'parts?|sections?|chapters?|options?)\.?\s+\d+\b', re.I)
+CHECKED_DATE = re.compile(r'\bchecked\s+(?:in\s+|on\s+)?(?:\d{1,2}\s+)?(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\.?\s*'
+                          r'(?:\d{1,2},?\s+)?\d{4}\b', re.I)  # "checked in November 2026" is the method note FACT-4 asks for
 URL = re.compile(r'https?://\S+')
 LIST_PREFIX = re.compile(r'^\s*(?:[-*+]|\d+[.)])\s+')
 MARKER_LOOSE = re.compile(r'<Can.t be verified')
@@ -153,10 +160,13 @@ def lint(path: str, brief_path: Optional[str], style_path: Optional[str]) -> Tup
             if not para:
                 return
             joined = ' '.join(t for _, t in para)
+            for noise in (MARKER_TEXT, MD_TARGET, LABEL, CHECKED_DATE):
+                joined = noise.sub(' ', joined)
             for sentence in re.split(r'(?<=[.!?])\s+', joined):
                 if FACT_REF.search(sentence):
                     continue
-                if re.search(r'\d', URL.sub('', sentence)):
+                # a digit glued to a letter is a name (G2, B2B, H2), not a number
+                if re.search(r'(?<![A-Za-z])\d', URL.sub('', sentence)):
                     add('FACT-1', para[0][0], f'a number with no [F#] in its sentence: "{sentence.strip()[:70]}"')
             para.clear()
 
