@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Stage order, mechanical (FLOW-1, FLOW-2, FLOW-3, FLOW-4). PreToolUse: Edit|Write|Bash.
+"""Stage order, mechanical (FLOW-1, FLOW-2, FLOW-3, FLOW-4). PreToolUse: Edit|Write|Bash and the Drive and Docs connector tools.
+
+ADR-016 adds, and these rules FAIL CLOSED (any error blocks; a false allow would skip a human checkpoint, as ADR-012.5): no stage starts before the
+previous artifact is approved (FLOW-2, brief to draft; the final closes with a sign-off); a tool writes an approval line only against an approval
+record that matches the content (a name is typed in the Google Doc and carried over by sync); no tool writes `approvals/` or `.docs-created.json`;
+a Doc upload never carries a filled approval line and an article Doc is exactly the artifact's copy; a `docs.json` entry matches a Doc the create hook
+logged; no connector tool outside the read list touches a logged Doc.
 
 ADR-015 adds: a G1 verdict is saved only against a quote-check record that matches research.md; `.quote-check.json` is written only
 by quote-check.py.
@@ -28,10 +34,58 @@ from lib import writer as w
 
 DRIVE_CREATE = 'mcp__claude_ai_Google_Drive__create_file'  # the real names, recorded by the Phase 7b spike (2026-11-14)
 DRIVE_UPDATE = 'mcp__claude_ai_Google_Drive__update_file'  # metadata only; its `title` can rename a Doc
+DOC_PREFIXES = {'mcp__claude_ai_Google_Drive__': 'fileId', 'mcp__claude_ai_Google_Docs__': 'documentId'}  # the key that holds a Doc id (R0, 2026-11-16)
+DOC_READ_TOOLS = {'read_file_content', 'download_file_content', 'get_file_metadata', 'get_file_permissions', 'list_file_revisions',
+                  'list_recent_files', 'search_files', 'list_shared_drives', 'get_shared_drive_metadata', 'read_doc'}
+DOC_WRITE_TOOLS = {'update_file', 'copy_file', 'trash_file', 'share_file', 'update_doc'}  # each carries a Doc id: without one the call is refused
+
+
+def fault(name):
+    """Test seam, like QUOTE_CHECK_ALLOW_LOOPBACK: WRITER_GUARD_TEST_FAULT=<rule> makes that rule raise, to prove it blocks instead of allowing."""
+    if os.environ.get('WRITER_GUARD_TEST_FAULT') == name:
+        raise RuntimeError('test fault')
+
+
+def fail_closed(rule, what):
+    """Run a rule so that an unexpected error blocks (ADR-012.5): outside the guard's fail_open, which would allow."""
+    def wrap(fn):
+        def run(*args, **kwargs):
+            try:
+                return fn(*args, **kwargs)
+            except SystemExit:
+                raise
+            except Exception as exc:  # deliberate: a rule that cannot decide refuses, because allowing would skip a human checkpoint
+                w.block(rule, f'{what} could not be checked ({type(exc).__name__}: {exc}), so it is refused.',
+                        'fix the cause named above, then try again; do not work around the guard.')
+        return run
+    return wrap
 
 
 def deny_stage(rule, message, alternative):
     w.block(rule, message, alternative)
+
+
+@fail_closed('FLOW-2', 'an approval write')
+def check_approval_write(root, slug, stage, rel, tool, tool_input):
+    """FLOW-2/FLOW-6: a tool makes an approval line non-empty only against the record the recorder wrote from the Google Doc, for exactly
+    this content. Clearing it, or leaving an untouched file as it is, is allowed; changing an approved artifact while keeping the name is not."""
+    fault('approval-write')
+    new = w.resulting_text(root, rel, tool, tool_input)
+    if new is None:  # an Edit that cannot apply writes nothing
+        return
+    key = w.approval_key(stage)
+    value = w.approval_value(new, key)
+    if not value:
+        return
+    old = w.read_text(os.path.join(w.article_dir(root, slug), f'{stage}.md'))
+    if value == w.approval_value(old, key) and w.text_hash(new) == w.text_hash(old):
+        return
+    record = w.latest_approval(root, slug, stage)
+    if record and record.get('value') == value and record.get('artifact_sha256') == w.text_hash(new):
+        return
+    w.block('FLOW-2' if stage != 'final' else 'FLOW-6', f'articles/{slug}/{stage}.md may not get `{key}: {value[:40]}` from a tool: no approval recorded from the '
+            'Google Doc matches this content (an approval covers the exact text, so changing an approved file clears it).',
+            f'the human writes their name after `{key}:` in the {stage} Doc and runs writer-plugin:sync, or types it in the file themselves.')
 
 
 def check_gates(root, slug, sub, tool, tool_input):
@@ -128,6 +182,7 @@ def check_docs(root, slug, rel, tool, tool_input):
     if new[:len(old)] != old:
         w.block('FLOW-6', f'articles/{slug}/docs.json is append-only: this write changes, removes or reorders an entry already recorded.',
                 'keep every existing entry as it is and append the new one at the end.')
+    check_docs_created(root, slug, new[len(old):])
     for e in new[len(old):]:
         ready = e.get('publish_ready')
         if not isinstance(ready, bool):
@@ -147,6 +202,65 @@ def check_docs(root, slug, rel, tool, tool_input):
         if e.get('sha256') != w.artifact_hash(root, slug, 'final'):
             w.block('FLOW-6', 'this publish-ready entry records a hash that is not the final on disk.',
                     'run doc-copy.py again and record its sha256 unchanged.')
+
+
+@fail_closed('FLOW-6', 'a docs.json entry')
+def check_docs_created(root, slug, entries):
+    """ADR-016: a new entry records a Doc the create hook logged (same id, title and uploaded text), made from the artifact as it is now."""
+    fault('docs-entry')
+    log = w.created_log(root, slug)
+    for e in entries:
+        hit = next((d for d in log if d.get('id') == e.get('id') and d.get('title') == e.get('title')
+                    and d.get('text_sha256') == e.get('text_sha256') and d.get('stage') == e.get('stage')), None)
+        if hit is None:
+            w.block('FLOW-6', f'docs.json entry "{str(e.get("title"))[:60]}" matches no Doc the copy skill created (id, title and text_sha256 must match '
+                    'what the create hook logged), so it cannot record a revision.',
+                    'record only a Doc made by the copy skill with the fields doc-copy.py printed; a Doc made any other way is not a revision.')
+        if e.get('sha256') != w.artifact_hash(root, slug, str(e.get('stage'))):
+            w.block('FLOW-6', 'this entry records a hash that is not the artifact on disk now.',
+                    'run doc-copy.py again, make the copy again, and record its sha256 unchanged.')
+
+
+@fail_closed('FLOW-6', 'a Doc upload')
+def check_create_rules(root, tool_input):
+    """ADR-016: an upload never carries a filled approval line (the exact publish-ready final excepted, which check_drive_create already judged),
+    and a Doc titled as an article's copy is exactly that copy, as text."""
+    fault('create')
+    title = str(tool_input.get('title') or '')
+    if w.claims_publish_ready(title):
+        return
+    text = tool_input.get('textContent')
+    if isinstance(text, str) and w.approval_filled(text):
+        w.block('FLOW-2', 'a Doc may not be uploaded with a name already after `Approved-by:` or `Signed-off-by:`: approval is typed in the Doc by a human.',
+                'upload the text the doc-copy script prints, unchanged; it carries the labels empty.')
+    parts = w.parse_doc_title(title)
+    if not parts or not os.path.isdir(w.article_dir(root, str(parts['slug']))):
+        return
+    slug, stage = str(parts['slug']), str(parts['stage'])
+    path = os.path.join(w.article_dir(root, slug), f'{stage}.md')
+    if (not os.path.isfile(path) or tool_input.get('base64Content') is not None or tool_input.get('content') is not None
+            or text != w.doc_text(w.read_text(path), stage)):
+        w.block('FLOW-6', f'a Doc titled "{title[:60]}" must carry exactly the copy of articles/{slug}/{stage}.md, as textContent.',
+                'upload the text the doc-copy script prints, unchanged, under the title it prints.')
+
+
+@fail_closed('FLOW-6', 'a Drive or Docs call')
+def check_doc_tool(root, tool, tool_input):
+    """ADR-016: outside the read list, no connector call touches a Doc the copy skill created; a call that must name a Doc and does not is refused."""
+    fault('doc-tool')
+    prefix = next(p for p in DOC_PREFIXES if tool.startswith(p))
+    name = tool[len(prefix):]
+    if name in DOC_READ_TOOLS or name == 'create_file' or not os.path.isdir(os.path.join(root, 'articles')):
+        return
+    doc_id = tool_input.get(DOC_PREFIXES[prefix])
+    if not isinstance(doc_id, str) or not doc_id:
+        if name in DOC_WRITE_TOOLS:
+            w.block('FLOW-6', f'{name} must name the Doc it changes (`{DOC_PREFIXES[prefix]}`); this call does not, so it cannot be checked.',
+                    'pass the Doc id.')
+        return
+    if doc_id in w.logged_doc_ids(root):
+        w.block('FLOW-6', f'{name} would change or share a review Doc the copy skill created ({doc_id[:12]}…): only a human edits, shares or '
+                'removes it, and approval is typed there.', 'ask the human to do it in Google Docs; a new revision is a new copy made by the copy skill.')
 
 
 PUBLISH_READY_TITLE = re.compile(r'^(?P<slug>.+?) · final · r\d+ · publish-ready$')
@@ -195,15 +309,9 @@ def check_stage(root, slug, stage):
         w.block('FLOW-1', f'the {stage} stage may not start: {why}.',
                 f'run the {prev} stage so its gate saves a PASS verdict on what is on disk. After a hand edit, a gate rerun saved '
                 f'by Write as the next verdict re-records it (ADR-009).')
-    if stage == 'draft':
-        try:
-            with open(os.path.join(w.article_dir(root, slug), 'outline.md'), encoding='utf-8') as fh:
-                approved = bool(w.APPROVED.search(fh.read()))
-        except OSError:
-            approved = False
-        if not approved:
-            w.block('FLOW-2', 'the draft may not be written: `Approved-by:` in outline.md has no value. An empty line is not approval.',
-                    'a human reads the outline and writes their name after `Approved-by:`.')
+    if not w.approved(root, slug, prev):
+        w.block('FLOW-2', f'the {stage} may not be written: `{w.approval_key(prev)}:` in {prev}.md has no value. An empty line is not approval.',
+                f'a human approves the {prev} in its Google Doc and runs writer-plugin:sync, or writes their name after `{w.approval_key(prev)}:` in the file.')
 
 
 def check_target(root, rel, tool, tool_input):
@@ -225,6 +333,9 @@ def check_target(root, rel, tool, tool_input):
                 f'run: python3 {script} --record {slug}')
     elif low == 'docs.json':
         check_docs(root, slug, rel, tool, tool_input)
+    elif low == w.CREATED_LOG or low == 'approvals' or low.startswith('approvals/'):
+        w.block('FLOW-4', f'articles/{slug}/{rest} is written by the record-approval hook from what the Google Doc says; a tool may not write it.',
+                'a human writes their name in the Doc and runs writer-plugin:sync; the hook records it.')
     elif low in ('brief.md', 'research.md', 'outline.md', 'draft.md', 'final.md'):
         check_stage(root, slug, low[:-3])
         if low == 'final.md' and tool in ('Write', 'Edit'):
@@ -233,6 +344,8 @@ def check_target(root, rel, tool, tool_input):
                 sys.stderr.write(f'[writer-plugin] guard-stage-order could not work out the content of {rel}, so the sign-off check was skipped.\n')
             else:
                 check_signoff(root, slug, text)
+        if tool in ('Write', 'Edit'):
+            check_approval_write(root, slug, low[:-3], rel, tool, tool_input)
 
 
 def main():
@@ -240,13 +353,19 @@ def main():
     root = w.project_dir(p)
     cwd = p.get('cwd') or root
     tool, ti = p.get('tool_name'), p.get('tool_input')
+    doc_tool = isinstance(tool, str) and any(tool.startswith(p) for p in DOC_PREFIXES)
+    if doc_tool and not isinstance(ti, dict):
+        w.block('FLOW-6', f'{tool} was called with input the guard cannot read, so it is refused.', 'call the tool with its normal arguments.')
     if not isinstance(ti, dict):
         return
     if tool == DRIVE_CREATE:
         check_drive_create(root, ti)
+        check_create_rules(root, ti)
         return
-    if tool == DRIVE_UPDATE:
-        check_drive_update(ti)
+    if doc_tool:
+        if tool == DRIVE_UPDATE:
+            check_drive_update(ti)
+        check_doc_tool(root, tool, ti)
         return
     if tool in ('Write', 'Edit'):
         paths = [ti.get('file_path')]

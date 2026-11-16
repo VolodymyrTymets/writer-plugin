@@ -751,6 +751,55 @@ def read_approval(root: str, slug: str, stage: str, rev: int) -> Optional[Dict[s
         return None
 
 
+def approval_value(text: str, key: str) -> str:
+    """The value of the last `<key>:` line outside a code fence ('' when empty or absent), as `is_signed` reads a sign-off."""
+    fenced, last = False, ''
+    for line in text.replace('\r\n', '\n').split('\n'):
+        if _FENCE.match(line):
+            fenced = not fenced
+        elif not fenced:
+            m = re.match(r'^[ \t]*' + key + r':(.*)$', line)
+            if m:
+                last = m.group(1).strip()
+    return last
+
+
+def approval_filled(text: str) -> bool:
+    """True when either human line has a value (outside a code fence)."""
+    return bool(approval_value(text, 'Approved-by') or approval_value(text, 'Signed-off-by'))
+
+
+def approved(root: str, slug: str, stage: str) -> bool:
+    """FLOW-2: the stage's artifact carries its approval (`Signed-off-by:` for the final)."""
+    return bool(approval_value(read_text(os.path.join(article_dir(root, slug), f'{stage}.md')), approval_key(stage)))
+
+
+def latest_approval(root: str, slug: str, stage: str) -> Optional[Dict[str, object]]:
+    """The approval record of the highest revision for a stage, or None. A record that exists but cannot be read raises ValueError."""
+    d = os.path.join(article_dir(root, slug), 'approvals')
+    try:
+        names = os.listdir(d)
+    except OSError:
+        return None
+    revs = sorted((int(m.group(1)), n) for n in names for m in [re.match(r'^' + stage + r'\.r(\d+)\.json$', n)] if m)
+    if not revs:
+        return None
+    try:
+        with open(os.path.join(d, revs[-1][1]), encoding='utf-8') as fh:
+            data = json.load(fh)
+    except (OSError, ValueError) as exc:
+        raise ValueError(f'articles/{slug}/approvals/{revs[-1][1]} cannot be read ({exc})') from exc
+    return data if isinstance(data, dict) else None
+
+
+def logged_doc_ids(root: str) -> set:
+    """Every Doc id the copy skill created in any article of this workspace (ADR-016). An unreadable log raises ValueError."""
+    ids = set()
+    for slug in article_slugs(root):
+        ids.update(str(d.get('id')) for d in created_log(root, slug) if d.get('id'))
+    return ids
+
+
 # ---------------- the fact bank and verbatim quotes (ADR-015) ----------------
 _FACT_ROW = re.compile(r'^\s*\|\s*(F\d+)\s*\|')
 _URL = re.compile(r'https?://[^\s<>)\]|]+')
