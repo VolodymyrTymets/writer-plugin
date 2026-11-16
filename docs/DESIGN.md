@@ -131,7 +131,7 @@ Prefer a script or a hook over a prompt rule.
 What the claude.ai Google Drive connector can do (spike, 2026-11-14; ADR-012):
 
 - The tools exist as `mcp__claude_ai_Google_Drive__*` in an **interactive** session after a `/mcp` sign-in. A headless `claude -p` session had none in the
-  2026-11-14 spike, but one run on 2026-11-17 had them and created a real Doc: a test run that must not touch Drive disallows `mcp__claude_ai_Google_Drive__*` and `mcp__claude_ai_Google_Docs__*`.
+  2026-11-14 spike, but one run on 2026-11-16 had them and created a real Doc: a test run that must not touch Drive disallows `mcp__claude_ai_Google_Drive__*` and `mcp__claude_ai_Google_Docs__*`.
 - `create_file` with `textContent` and `contentMimeType: text/markdown` **converts it to a Google Doc** that keeps headings, lists,
   bold and links (inline code loses its monospace).
 - `update_file` changes **metadata only**, never content. So a revision is a **new Doc** (`<slug> · draft · r2`) in the Drive

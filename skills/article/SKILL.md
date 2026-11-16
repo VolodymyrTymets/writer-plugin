@@ -69,8 +69,7 @@ markers (each, and the count), and what the article waits for now, in the words 
 or no Google Drive connection). If you ran nothing, say why.
 
 **Pending comments.** If the script's `comments` list is not empty, list each entry (the stage, the file, how many threads are open) and say that `writer-plugin:sync <slug> <stage>` brings
-in the Doc's comments and approval and restarts the stage that owns them, or that the human can run that stage. You never start a comments rerun yourself: this skill never starts a comments rerun, and
-a stage that applies no comment writes nothing.
+in the Doc's comments and approval and restarts the stage that owns them, or that the human can run that stage. This skill never starts a comments rerun (an entry with `approved: true` means running the stage would clear the approval); a stage that applies no comment writes nothing.
 
 ## Definition of done
 - [ ] Every decision came from `article-status.py`, run again after each actor

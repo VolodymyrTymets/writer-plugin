@@ -2,7 +2,7 @@
 
 No tracker, so the slug stands in for a ticket ID. Branches `feat/approval-in-doc` (PR 1) and `feat/comment-rerun` (PR 2, stacked on it), each a draft PR, the first cut from an up-to-date `main`
 (FT-4 is merged there as `af6dfa4`, #20, and edits `bin/lib/writer.py`, `docs/DESIGN.md`, `CHANGELOG.md`; check `git log --oneline main | grep '(#20)'`, else stop).
-Two PRs were planned (A4); on 2026-11-17 the maintainer put R6 and R7b on the same branch, so it is one PR. The split was: **PR 1 = FT-6, approval in the Doc** (R0 to R5 and their docs); **PR 2 = FT-5, comment rerun** (R6 and its docs), built on PR 1. R6 needs only the cleared approval line and R4's `comments` field.
+Two PRs were planned (A4); on 2026-11-16 the maintainer put R6 and R7b on the same branch, so it is one PR. The split was: **PR 1 = FT-6, approval in the Doc** (R0 to R5 and their docs); **PR 2 = FT-5, comment rerun** (R6 and its docs), built on PR 1. R6 needs only the cleared approval line and R4's `comments` field.
 
 <!-- A human writes this line to approve. Until it is here, guard-plan-approval blocks writes to code. -->
 Approved-by: Approved-by: Volodymyr - 2026-11-17 

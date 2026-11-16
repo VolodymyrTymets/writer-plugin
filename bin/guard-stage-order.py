@@ -90,6 +90,30 @@ def check_approval_write(root, slug, stage, rel, tool, tool_input):
             f'the human writes their name after `{key}:` in the {stage} Doc and runs writer-plugin:sync, or types it in the file themselves.')
 
 
+COMMENTS_FILE = re.compile(r'^comments/(brief|research|outline|draft|final)\.r(\d+)\.md$')
+
+
+@fail_closed('FLOW-4', 'a comments file')
+def check_comments_write(root, slug, rest, rel, tool, tool_input):
+    """ADR-016: a `comments/<stage>.r<k>.md` can restart a stage and clear its approval, so it is written only in the shape sync writes, for a Doc
+    revision `docs.json` recorded, with that revision's hash in its header. Other files in comments/ are not guarded."""
+    fault('comments')
+    m = COMMENTS_FILE.match(rest.lower())
+    if not m:
+        return
+    if tool == 'Bash':
+        w.block('FLOW-4', f'a shell command may not write articles/{slug}/{rest}: the sync skill writes it with the Write tool.', 'run writer-plugin:sync.')
+    text = w.resulting_text(root, rel, tool, tool_input)
+    if text is None:  # an Edit that cannot apply writes nothing
+        return
+    stage, rev = m.group(1), int(m.group(2))
+    sha = w.comments_header_hash(text)
+    entry = next((e for e in w.docs_index(root, slug) if e.get('stage') == stage and e.get('rev') == rev), None)
+    if not sha or entry is None or entry.get('sha256') != sha:
+        w.block('FLOW-4', f'articles/{slug}/{rest} must start with the sync header carrying the hash docs.json recorded for the {stage} Doc r{rev}; this one does not.',
+                'run writer-plugin:sync, which writes the file from the Doc copy docs.json recorded.')
+
+
 def check_gates(root, slug, sub, tool, tool_input):
     if tool == 'Bash':
         w.block('FLOW-4', f'a shell command may not write, move, copy or delete anything in articles/{slug}/gates/.',
@@ -353,6 +377,8 @@ def check_target(root, rel, tool, tool_input):
                 f'run: python3 {script} --record {slug}')
     elif low == 'docs.json':
         check_docs(root, slug, rel, tool, tool_input)
+    elif low.startswith('comments/'):
+        check_comments_write(root, slug, low, rel, tool, tool_input)
     elif low == w.CREATED_LOG or low == 'approvals' or low.startswith('approvals/'):
         w.block('FLOW-4', f'articles/{slug}/{rest} is written by the record-approval hook from what the Google Doc says; a tool may not write it.',
                 'a human writes their name in the Doc and runs writer-plugin:sync; the hook records it.')

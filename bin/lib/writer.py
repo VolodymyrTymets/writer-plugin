@@ -390,28 +390,57 @@ STATE_KEYS = ('slug', 'stage', 'next', 'reason', 'markers', 'stale', 'comments')
 COMMENT_STAGES = ('research', 'outline', 'draft', 'final')  # the stages that rerun on comments; the brief's input is brief.source.md
 
 
+_COMMENTS_HEADER = re.compile(r'^Doc: .* · Doc id: .* · Artifact sha256: ([0-9a-f]{64}) · Synced: .+$')
+# the lines the sync skill writes from the first thread on; reviewer text is always quoted with `> `, so anything else is not the shape
+_COMMENTS_LINE = re.compile(r'^(?:## Comment \d+ · (?:OPEN|RESOLVED)|Anchor:|Comment by `[^`\n]*`:|Reply by `[^`\n]*`:|>.*|)\s*$')
+
+
+def _open_threads(lines: List[str]) -> int:
+    """Open threads in the thread part of a comments file, or 0 when it is not exactly what sync writes: headings numbered 1, 2, 3 in order, each directly followed
+    by an `Anchor:` line. A stray heading, a gap or a repeat means a line that should have been quoted was not, so no thread is trusted."""
+    heads = [(i, re.match(r'^## Comment (\d+) · (OPEN|RESOLVED)\s*$', l)) for i, l in enumerate(lines) if l.startswith('## Comment ')]
+    if not heads or any(m is None for _, m in heads):
+        return 0
+    for n, (i, m) in enumerate(heads, 1):
+        if int(m.group(1)) != n or i + 1 >= len(lines) or lines[i + 1].strip() != 'Anchor:':
+            return 0
+    return sum(1 for _, m in heads if m.group(2) == 'OPEN')
+
+
+def comments_header_hash(text: str) -> Optional[str]:
+    """The artifact hash in a comments file's header: the first line that starts with `Doc: `, in exactly the form the sync skill writes (never a quoted line)."""
+    line = next((l for l in text.split('\n') if l.startswith('Doc: ')), None)
+    m = _COMMENTS_HEADER.match(line) if line else None
+    return m.group(1) if m else None
+
+
 def pending_comments(root: str, slug: str) -> List[Dict[str, object]]:
-    """Comments waiting for the stage that owns the artifact (ADR-016): per stage, the highest `comments/<stage>.r<k>.md` whose `Artifact sha256`
-    header equals the artifact on disk now and which has an open thread. A rebuild changes the hash, so its comments stop being pending: no state file.
-    Thread headings are the ones the sync skill writes (`## Comment <n> · OPEN`); reviewer text is quoted with `> `, so it cannot forge one."""
+    """Comments waiting for the stage that owns the artifact (ADR-016): per stage, the highest `comments/<stage>.r<k>.md` that is in the shape sync writes,
+    whose header hash is the hash `docs.json` recorded for that revision and equals the artifact on disk now, and which has an open thread. A rebuild changes
+    the hash, so its comments stop being pending: no state file. `approved` says the artifact already carries its approval (then nothing restarts by itself)."""
     out: List[Dict[str, object]] = []
     d = os.path.join(article_dir(root, slug), 'comments')
     try:
         names = os.listdir(d)
-    except OSError:
+        docs = docs_index(root, slug)
+    except (OSError, ValueError):
         return out
     for stage in COMMENT_STAGES:
         revs = sorted((int(m.group(1)), n) for n in names for m in [re.match(r'^' + stage + r'\.r(\d+)\.md$', n)] if m)
         if not revs:
             continue
         rev, name = revs[-1]
-        text = read_text(os.path.join(d, name))
-        m = re.search(r'Artifact sha256: ([0-9a-f]{64})', text)
-        if not m or m.group(1) != artifact_hash(root, slug, stage):
+        lines = read_text(os.path.join(d, name)).split('\n')
+        sha = comments_header_hash('\n'.join(lines))
+        entry = next((e for e in docs if e.get('stage') == stage and e.get('rev') == rev), None)
+        if not sha or sha != artifact_hash(root, slug, stage) or entry is None or entry.get('sha256') != sha:
             continue
-        open_threads = len(re.findall(r'^## Comment \d+ · OPEN[ \t]*$', text, re.M))
+        first = next((i for i, l in enumerate(lines) if l.startswith('## Comment ')), None)
+        if first is None or not all(_COMMENTS_LINE.match(l) for l in lines[first:]):
+            continue
+        open_threads = _open_threads(lines[first:])
         if open_threads:
-            out.append({'stage': stage, 'file': f'comments/{name}', 'rev': rev, 'open': open_threads})
+            out.append({'stage': stage, 'file': f'comments/{name}', 'rev': rev, 'open': open_threads, 'approved': approved(root, slug, stage)})
     return out
 
 

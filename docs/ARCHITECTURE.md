@@ -51,7 +51,7 @@ There is no deployment. The plugin is installed from the `writer` marketplace by
 ## External integrations
 | Service | Purpose | Failure mode | Sandbox |
 |---------|---------|--------------|---------|
-| Google Drive connector (claude.ai) | review copies of artifacts and their comments | present only in an interactive session after a `/mcp` sign-in, never in headless `claude -p`; the copy and sync skills say so once and the workflow continues on local files (ADR-012) | n/a |
+| Google Drive connector (claude.ai) | review copies of artifacts and their comments | present in an interactive session after a `/mcp` sign-in, and a headless `claude -p` run can have it too (observed 2026-11-16, ADR-016.10): a test run that must not touch Drive disallows the Drive and Docs tools; the copy and sync skills say so once and the workflow continues on local files (ADR-012) | n/a |
 | WebFetch / WebSearch | `fact-gate` opens sources | gate cannot verify; reports it rather than passing | n/a |
 
 ## Known constraints and landmines

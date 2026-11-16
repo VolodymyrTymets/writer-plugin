@@ -9,10 +9,8 @@ parses a Doc: this hook reads what the connector returned. Only this script writ
 """
 import contextlib
 import datetime
-import hashlib
 import json
 import os
-import tempfile
 from typing import Optional, Tuple
 
 from lib import writer as w
@@ -27,18 +25,20 @@ def now() -> str:
 
 @contextlib.contextmanager
 def locked(path: str):
-    """Two creates at once must both reach the log: an exclusive lock around read-modify-replace (POSIX; elsewhere it is a no-op)."""
-    # The lock lives in the temp folder, keyed by the log's path, so no stray file lands in a writer's article folder.
-    lock_dir = os.path.join(tempfile.gettempdir(), 'writer-plugin', 'locks')
-    os.makedirs(lock_dir, exist_ok=True)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(os.path.join(lock_dir, hashlib.sha256(os.path.realpath(path).encode()).hexdigest()[:24] + '.lock'), 'w') as fh:
+    """Two creates at once must both reach the log: an exclusive lock on the article folder itself around read-modify-replace, so no lock file exists
+    anywhere (POSIX; elsewhere it is a no-op)."""
+    folder = os.path.dirname(path)
+    os.makedirs(folder, exist_ok=True)
+    fd = os.open(folder, os.O_RDONLY)
+    try:
         try:
             import fcntl
-            fcntl.flock(fh, fcntl.LOCK_EX)
+            fcntl.flock(fd, fcntl.LOCK_EX)
         except ImportError:
             pass
         yield
+    finally:
+        os.close(fd)
 
 
 def write_json(path: str, data: dict) -> None:

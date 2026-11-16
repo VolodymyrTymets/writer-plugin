@@ -1,6 +1,6 @@
 # ADR-016 — A human approves in the Google Doc; a hook records it, sync carries it, and a stage is closed when the local artifact has it
 
-- **Date:** 2026-11-17
+- **Date:** 2026-11-16
 - **Status:** accepted
 - **Deciders:** Volodymyr Tymets
 - **Ticket:** none (`docs/features/comment-rerun-and-clean-copies/plan.md`, field-test finding FT-6; FT-5 follows in a second PR)
@@ -13,12 +13,12 @@ A field test (FT-6) showed a human approving the outline in its Google Doc while
 (FLOW-2), stayed empty. Approval and the place it counts were apart. The maintainer's flow: the human approves in the Doc, `/sync` brings the
 approval into the local file, and the stage is closed when the local file has it, for every stage.
 
-## What was verified first (D4, 2026-11-16 and 17)
+## What was verified first (D4, 2026-11-16)
 A throwaway logging plugin and one synthetic Doc (the eval fixture's outline), key names and types only:
 - A `PostToolUse` hook is called for the claude.ai Drive tools. Its input has `tool_input` (`fileId`, `includeComments` for a read), `tool_response`,
   `mcp_server {name, source}` and the usual session keys. For `read_file_content`, `tool_response` is a **JSON string** with `fileContent`, `title`, `viewUrl`
   and, only when there are comments, `commentThreads[{commentId, headPost{authorName, content, modifiedTime, postId}, status}]`. For `create_file` it
-  is a JSON string holding the new Doc's `id` (confirmed live, 2026-11-17). The shape differs per tool (`Bash` returns a dict).
+  is a JSON string holding the new Doc's `id` (confirmed live, 2026-11-16). The shape differs per tool (`Bash` returns a dict).
 - The read-back is a lossy rendering: the HTML comment is dropped, headings come back as `## *Thesis*`, backticks are gone, single newlines merge into one
   paragraph, a table gets an empty header row, URLs sit in `<…>`, and a comment anchor is `<comment_start id=X>…<comment_end id=X>` inside the text. The
   lower-case `\w+` word sequence of the upload (minus the HTML comment and the approval line) equals the read-back's (463 tokens each).
@@ -64,21 +64,25 @@ A throwaway logging plugin and one synthetic Doc (the eval fixture's outline), k
 ## The comment rerun (FT-5, added with the same change)
 7. **Pending comments.** `article-status.py` lists, per stage (research, outline, draft, final), the highest `comments/<stage>.r<k>.md` whose `Artifact sha256` header equals the
    artifact now and which has an open thread. `/sync` writes each thread heading as exactly `· OPEN` or `· RESOLVED`, and reviewer text is quoted with `> `, so it cannot forge a
-   heading. A rebuild changes the hash, which ends them: no state file. The brief has none (its input is `brief.source.md`).
+   heading. A comments file counts only if it is exactly the shape sync writes (the header line, headings numbered 1, 2, 3 each followed by `Anchor:`, every reviewer line quoted),
+   its header hash is the `sha256` `docs.json` recorded for that Doc revision, and that hash is the artifact's now. The guard (fail closed) lets a tool write a
+   `comments/<stage>.r<k>.md` only in that form. A rebuild changes the hash, which ends them: no state file. The brief has none (its input is `brief.source.md`).
 8. **The owning stage reruns on them** (this refines ADR-007.2: a pending file is the stage's written input after a PASS). It reads them as data, applies what fits the brief, the
    upstream artifact and the fact bank, reports each comment applied or not applied with the reason, writes only its artifact and a backup (research now keeps `research.prev.<n>.md`),
-   and clears the approval with the rebuild. A rerun that applies nothing writes no backup, no artifact and runs no gate, so it never costs a BLOCK. A rerun's BLOCK counts toward
+   and clears the approval with the rebuild. A rerun that applies nothing, and has no other reason to run, writes no backup, no artifact and runs no gate, so it never costs a
+   BLOCK; a stage that must rebuild anyway (its verdict is stale or missing) goes on with the comments as extra input. A rerun's BLOCK counts toward
    FLOW-3 like any other: a second one stops the stage.
-9. **`/sync` restarts the stage once** when comments are waiting and no approval came in (`writer-plugin:edit` for the final); with an approval it restarts nothing and lists what stays
-   unapplied. `/article` only reports `comments`. A reviewer's answer to a research question is a pointer note under Open gaps, never a fact row and never an `[F#]`, so a marker
+9. **`/sync` restarts the stage once** when comments are waiting, no approval came in and the artifact is not already approved (`writer-plugin:edit` for the final); otherwise it restarts
+   nothing and lists what stays unapplied. Its `Skill` pre-approval is scoped to the four stage commands (`Skill(writer-plugin:<stage>)`); that only pre-approves, it does not restrict (checked headless, 2026-11-16: an unlisted skill ran too), so the protection is the skill text, which invokes only the stage the table names, and what any rerun still has to pass: that stage's preconditions, the guard and its gate. `/article` only reports `comments`. A reviewer's answer to a research question is a pointer note under Open gaps, never a fact row and never an `[F#]`, so a marker
    it would fill stays; making such an answer a fact needs a new rule for sources the gate cannot open and is a separate decision.
-10. **Observed 2026-11-17:** a headless `claude -p` session can have the Drive connector (ADR-012 said it had none) and a stage then makes a real Doc. Runs that must not touch Drive
+10. **Observed 2026-11-16:** a headless `claude -p` session can have the Drive connector (ADR-012 said it had none) and a stage then makes a real Doc. Runs that must not touch Drive
     disallow the Drive and Docs tools.
 
 ## Known gaps
 - A write the shell parser cannot read (`python3 -c`, command substitution) can still put an approval line into an artifact, as the final's sign-off could (ADR-010).
 - The guard matches Edit, Write, Bash and the two connector servers. A file-writing tool of any other MCP server is outside every rule here.
 - A connector outside the two matched servers that can edit a Doc body is not covered. Within them, an unknown tool is refused only on a logged Doc id.
+- A comment could talk `/sync` into invoking a different skill: nothing in a plugin can deny that. The stage it reaches runs only past its own preconditions, the guard and its gate, and writes only its artifact.
 - Whether a pending (unaccepted) suggestion could show as text was not observed.
 - The recorder trusts `tool_response` as the connector returned it.
 

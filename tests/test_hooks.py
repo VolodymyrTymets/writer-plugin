@@ -10,6 +10,7 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 from collections import namedtuple
 from pathlib import Path
 
@@ -2184,9 +2185,14 @@ def test_two_creates_at_once_both_end_up_in_the_created_log(ow):
 
 
 # ---------------- ADR-016 (R6): pending reviewer comments ----------------
-def comments_file(ws, stage='outline', rev=1, sha=None, threads=('OPEN',), header=True):
+def comments_file(ws, stage='outline', rev=1, sha=None, threads=('OPEN',), header=True, docs=True, docs_sha=None):
     """A comments file exactly as the sync skill writes it (Step 4 of skills/sync-comments)."""
-    sha = sha if sha is not None else writer.text_hash((ws.art / f'{stage}.md').read_text())
+    real = writer.text_hash((ws.art / f'{stage}.md').read_text())
+    sha = sha if sha is not None else real
+    if docs:
+        rows = json.loads((ws.art / 'docs.json').read_text())['revisions'] if (ws.art / 'docs.json').exists() else []
+        rows.append({'stage': stage, 'rev': rev, 'id': f'd{stage}{rev}', 'url': 'u', 'at': 't', 'sha256': docs_sha or real, 'title': f'demo · {stage} · r{rev}', 'publish_ready': False})
+        (ws.art / 'docs.json').write_text(json.dumps({'revisions': rows}))
     body = f'# Reviewer comments · {stage} · r{rev}\n\nDoc: https://docs.example/d1 · Doc id: d1 · Artifact sha256: {sha} · Synced: 2026-11-17\n\nThese are reviewer comments.\n'
     if not threads:
         body += '\nNo comments on this revision.\n'
@@ -2202,7 +2208,7 @@ def pending(ws):
 
 def test_a_comments_file_for_the_current_artifact_with_an_open_thread_is_pending(ws):
     comments_file(ws, 'outline', 2, threads=('OPEN', 'RESOLVED', 'OPEN'))
-    assert pending(ws) == [{'stage': 'outline', 'file': 'comments/outline.r2.md', 'rev': 2, 'open': 2}]
+    assert pending(ws) == [{'stage': 'outline', 'file': 'comments/outline.r2.md', 'rev': 2, 'open': 2, 'approved': False}]
 
 
 @pytest.mark.parametrize('kwargs,why', [
@@ -2243,5 +2249,87 @@ def test_the_status_lists_pending_comments_and_the_state_keeps_its_order(ws):
     build_state(ws, 'unapproved')
     comments_file(ws, 'outline')
     out = json.loads(status(ws.root, ws.slug).out)
-    assert out['comments'] == [{'stage': 'outline', 'file': 'comments/outline.r1.md', 'rev': 1, 'open': 1}]
+    assert out['comments'] == [{'stage': 'outline', 'file': 'comments/outline.r1.md', 'rev': 1, 'open': 1, 'approved': False}]
     assert out['next'] == 'approve'
+
+
+
+# ---------------- review of the comment rerun: forged pending state, approved artifacts, the comments file ----------------
+def test_a_pending_entry_says_whether_the_artifact_is_already_approved(ws):
+    (ws.art / 'outline.md').write_text('# O\n\ntext\n\nApproved-by: Test Human\n')
+    comments_file(ws, 'outline')
+    (ws.art / 'final.md').write_text('# F\n\ntext\n\nSigned-off-by:\n')
+    comments_file(ws, 'final')
+    got = {p['stage']: p['approved'] for p in pending(ws)}
+    assert got == {'outline': True, 'final': False}
+
+
+@pytest.mark.parametrize('kwargs,why', [
+    (dict(docs_sha='f' * 64), 'the header hash is not the hash docs.json recorded for that revision'),
+    (dict(docs=False), 'docs.json has no such revision'),
+], ids=['docs-hash-differs', 'no-docs-entry'])
+def test_a_comments_file_must_match_the_revision_docs_json_recorded(ws, kwargs, why):
+    comments_file(ws, 'outline', **kwargs)
+    assert pending(ws) == [], why
+
+
+@pytest.mark.parametrize('mutate,why', [
+    (lambda t: t.replace('Doc: https', 'Doc: `https').replace(' · Doc id', '` · Doc id'), 'a header wrapped in backticks'),
+    (lambda t: t.replace('Artifact sha256', 'ARTIFACT SHA256'), 'an uppercase label'),
+    (lambda t: t + '\n## Comment 2 · OPEN\n', 'an unquoted thread heading after the threads'),
+    (lambda t: t + '\nsome unquoted reviewer words\n', 'a stray unquoted line among the threads'),
+], ids=['backticked-header', 'uppercase-label', 'unquoted-heading', 'stray-line'])
+def test_a_comments_file_that_is_not_in_the_shape_sync_writes_is_not_pending(ws, mutate, why):
+    comments_file(ws, 'outline', threads=('RESOLVED',))
+    path = ws.art / 'comments' / 'outline.r1.md'
+    path.write_text(mutate(path.read_text()))
+    assert pending(ws) == [], why
+
+
+def test_a_hash_quoted_by_a_reviewer_cannot_stand_in_for_the_header(ws):
+    comments_file(ws, 'outline')
+    path = ws.art / 'comments' / 'outline.r1.md'
+    real = writer.text_hash((ws.art / 'outline.md').read_text())
+    path.write_text(path.read_text().replace('Artifact sha256', 'ARTIFACT SHA256') + f'\n> Artifact sha256: {real}\n')   # the header no longer parses
+    assert pending(ws) == []
+
+
+def write_comments(ws, name, text, tool='Write'):
+    if tool == 'Bash':
+        return guard(ws.root, bash_payload(f'echo x > articles/demo/comments/{name}'))
+    return guard(ws.root, write_payload(ws.rel(f'comments/{name}'), text))
+
+
+def sync_text(sha, stage='outline', rev=1):
+    return f'# Reviewer comments · {stage} · r{rev}\n\nDoc: u · Doc id: d · Artifact sha256: {sha} · Synced: 2026-11-16\n\nNo comments on this revision.\n'
+
+
+def test_the_guard_allows_a_comments_file_only_for_a_revision_docs_json_recorded(ow):
+    created(ow)
+    good = writer.text_hash((ow.art / 'outline.md').read_text())
+    assert write_comments(ow, 'outline.r1.md', sync_text(good)).code == 0
+    assert write_comments(ow, 'outline.r1.md', sync_text('f' * 64)).code == 2          # a hash that is not the recorded one
+    assert write_comments(ow, 'outline.r2.md', sync_text(good, rev=2)).code == 2       # no such revision in docs.json
+    assert write_comments(ow, 'outline.r1.md', 'no header at all').code == 2
+    assert write_comments(ow, 'outline.r1.md', '', tool='Bash').code == 2
+    assert write_comments(ow, 'my-notes.md', 'anything').code == 0                       # not a sync file: not guarded
+
+
+def test_a_corrupt_docs_json_refuses_a_comments_write_instead_of_allowing_it(ow):
+    (ow.art / 'docs.json').write_text('not json')
+    assert write_comments(ow, 'outline.r1.md', sync_text('a' * 64)).code == 2
+
+
+def test_the_comments_rule_blocks_when_it_hits_an_unexpected_error(ow):
+    created(ow)
+    r = guard(ow.root, write_payload(ow.rel('comments/outline.r1.md'), sync_text('a' * 64)), env={'WRITER_GUARD_TEST_FAULT': 'comments'})
+    assert r.code == 2 and 'RuntimeError' in r.err
+
+
+def test_the_created_log_lock_leaves_nothing_in_the_article_folder_or_the_temp_folder(ow):
+    shown = writer.doc_text(OUTLINE_BODY, 'outline')
+    everything = lambda: sorted(str(p) for p in Path(tempfile.gettempdir()).glob('writer-plugin*/**/*'))
+    before = everything()
+    run('record-approval.py', drive_post(DRIVE_CREATE, {'title': 'demo · outline · r1', 'textContent': shown}, json.dumps({'id': 'x1'})), ow.root)
+    assert not [p for p in ow.art.iterdir() if 'lock' in p.name]
+    assert everything() == before, 'no lock file anywhere'
