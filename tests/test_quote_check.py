@@ -232,3 +232,38 @@ def test_fact_rows_reads_the_fixture_dossier():
     rows = writer.fact_rows(path.read_text(encoding='utf-8'))
     assert rows and rows[0]['id'] == 'F1' and rows[0]['url'].startswith('https://') and 'max-age' in rows[0]['quote']
     assert [r['id'] for r in rows] == [f'F{i}' for i in range(1, len(rows) + 1)]
+
+
+# ---------------- --record (ADR-015): the file the guard and G1 read ----------------
+def test_record_writes_the_hash_the_statuses_and_the_printed_lines(server, tmp_path):
+    r = run(tmp_path, [(server + '/ok', QUOTE), (server + '/blocked', QUOTE)], '--record')
+    rec = json.loads((tmp_path / 'articles' / 'demo' / '.quote-check.json').read_text())
+    assert rec['file'] == 'research.md' and rec['sha256'] == writer.text_hash((tmp_path / 'articles' / 'demo' / 'research.md').read_text())
+    assert rec['rows'] == {'F1': 'found', 'F2': 'unreachable'} and rec['lines'][0] == 'F1 found' and rec['lines'][1].startswith('F2 unreachable')
+    assert r.code == 0 and rec['at']
+
+
+def test_record_is_written_even_when_a_quote_is_not_found(server, tmp_path):
+    r = run(tmp_path, [(server + '/changed', QUOTE)], '--record')
+    rec = json.loads((tmp_path / 'articles' / 'demo' / '.quote-check.json').read_text())
+    assert r.code == 1 and rec['rows'] == {'F1': 'not-found'}
+
+
+def test_record_of_a_dossier_with_no_fact_rows_is_an_empty_one(tmp_path):
+    art = tmp_path / 'articles' / 'demo'
+    art.mkdir(parents=True)
+    (art / 'research.md').write_text('# Research\n\nnone yet\n', encoding='utf-8')
+    subprocess.run([sys.executable, str(SCRIPT), '--root', str(tmp_path), '--record', 'demo'], capture_output=True, text=True)
+    assert json.loads((art / '.quote-check.json').read_text())['rows'] == {}
+
+
+def test_record_ignores_the_approval_lines_in_its_hash(server, tmp_path):
+    run(tmp_path, [(server + '/ok', QUOTE)], '--record')
+    path = tmp_path / 'articles' / 'demo' / 'research.md'
+    path.write_text(path.read_text() + '\nApproved-by: Test Human\n')
+    assert json.loads((path.parent / '.quote-check.json').read_text())['sha256'] == writer.text_hash(path.read_text())
+
+
+def test_a_bad_request_writes_no_record(tmp_path):
+    subprocess.run([sys.executable, str(SCRIPT), '--root', str(tmp_path), '--record', 'nope'], capture_output=True, text=True)
+    assert not (tmp_path / 'articles').exists()

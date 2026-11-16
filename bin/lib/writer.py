@@ -244,6 +244,16 @@ def lint_record(root: str, slug: str) -> Optional[Dict[str, object]]:
         return None
 
 
+def quote_record(root: str, slug: str) -> Optional[Dict[str, object]]:
+    """The run recorded by `quote-check.py --record` beside the research dossier, or None when absent or unreadable (ADR-015)."""
+    try:
+        with open(os.path.join(article_dir(root, slug), '.quote-check.json'), encoding='utf-8') as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
 def resulting_text(root: str, rel: str, tool: str, tool_input: dict) -> Optional[str]:
     """The content `rel` will have after a Write or Edit, or None when it cannot be worked out (a Bash write, a missing file,
     an old_string that is not there). The caller then allows the action: a false block costs a writer's turn."""

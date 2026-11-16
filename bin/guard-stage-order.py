@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Stage order, mechanical (FLOW-1, FLOW-2, FLOW-3, FLOW-4). PreToolUse: Edit|Write|Bash.
 
+ADR-015 adds: a G1 verdict is saved only against a quote-check record that matches research.md; `.quote-check.json` is written only
+by quote-check.py.
+
 Phase 5 adds (ADR-010): a G4 verdict is saved only against a lint record that matches final.md; `.prose-lint.json` is written
 only by prose-lint.py; a non-empty `Signed-off-by:` is written only against a current G4 PASS on the content the write produces,
 and never beside an unverified-claim marker (FLOW-6).
@@ -61,6 +64,15 @@ def check_gates(root, slug, sub, tool, tool_input):
     if not lm or lm.group(1) != f'{w.GATE_ID[stage]} {stage}':
         w.block('FLOW-4', f'line 1 of a {w.gate_name(stage)} verdict must match the ADR-004 pattern for its own gate (got "{line[:80]}").',
                 'save the verdict exactly as the gate returned it, line 1 first.')
+    now_research = w.artifact_hash(root, slug, 'research') if stage == 'research' else None
+    # the one verdict that needs no record is G1's BLOCK for a research.md that does not exist; the text alone cannot claim it
+    if stage == 'research' and not (now_research is None and _says_no_artifact(str((tool_input or {}).get('content') or ''))):
+        record, now = w.quote_record(root, slug), now_research
+        if record is None or now is None or record.get('sha256') != now:
+            script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'quote-check.py')
+            w.block('FLOW-4', f'a G1 verdict is saved only against a quote-check run on the research as it is now, and articles/{slug}/.quote-check.json '
+                    'is missing or was recorded for another version of research.md (the gate reads the statuses from it).',
+                    f'run: python3 {script} --record {slug}, change nothing in research.md afterwards, then rerun G1 and save its verdict.')
     if stage == 'final':
         record, now = w.lint_record(root, slug), w.artifact_hash(root, slug, 'final')
         if record is None or now is None or record.get('sha256') != now:
@@ -68,6 +80,12 @@ def check_gates(root, slug, sub, tool, tool_input):
             w.block('FLOW-4', f'a G4 verdict is saved only against a prose-lint run on the final as it is now, and articles/{slug}/.prose-lint.json '
                     'is missing or was recorded for another version of final.md (the gate reads the findings from it).',
                     f'run: python3 {script} --record articles/{slug}/final.md, change nothing in final.md afterwards, then rerun G4 and save its verdict.')
+
+
+def _says_no_artifact(content: str) -> bool:
+    """G1's verdict for a missing research.md (`Artifact: none`): there is nothing to check quotes in."""
+    lines = content.split('\n')
+    return len(lines) > 1 and lines[1].strip() == 'Artifact: none'
 
 
 def check_signoff(root, slug, text):
@@ -201,6 +219,10 @@ def check_target(root, rel, tool, tool_input):
         script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'prose-lint.py')
         w.block('FLOW-4', f'articles/{slug}/.prose-lint.json is the record of a real prose-lint run; a tool may not write it (the G4 gate trusts it).',
                 f'run: python3 {script} --record articles/{slug}/final.md')
+    elif low == '.quote-check.json':
+        script = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'quote-check.py')
+        w.block('FLOW-4', f'articles/{slug}/.quote-check.json is the record of a real quote-check run; a tool may not write it (the G1 gate trusts it).',
+                f'run: python3 {script} --record {slug}')
     elif low == 'docs.json':
         check_docs(root, slug, rel, tool, tool_input)
     elif low in ('brief.md', 'research.md', 'outline.md', 'draft.md', 'final.md'):

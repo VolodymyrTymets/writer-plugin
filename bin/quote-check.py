@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Is each fact-bank quote on its source page, word for word? (ADR-015)
 
-    python3 bin/quote-check.py [--root <workspace>] [--timeout SECONDS] [--budget SECONDS] <slug>
+    python3 bin/quote-check.py [--record] [--root <workspace>] [--timeout SECONDS] [--budget SECONDS] <slug>
 
 Fetches every source URL in `articles/<slug>/research.md` once, takes the page's visible text and looks for the quote in it. One line
 per row: `F<n> found | not-found | unreachable | unreadable [detail]`.
@@ -10,8 +10,13 @@ per row: `F<n> found | not-found | unreachable | unreadable [detail]`.
   unreachable  no usable page: HTTP error, timeout, not HTML, not http(s), or the time budget ran out
   unreadable   the page has too little text to judge (a page that builds itself in the browser): no verdict on the quote
 Exit 0 when no row is not-found, 1 when one is, 2 on a bad request. It sends a plain client name and never pretends to be a browser:
-a blocked page stays unreachable. It writes nothing. Stdlib only.
+a blocked page stays unreachable. Without `--record` it writes nothing (so it may be run any time); with `--record` (the research stage, last)
+it writes `.quote-check.json` beside the dossier: the hash of research.md, every row's status and the printed lines, so a write-free gate
+can read them and the guard can tell they are current. Stdlib only.
 """
+import datetime
+import json
+import os
 import re
 import sys
 import time
@@ -113,12 +118,21 @@ def check(rows: List[Dict[str, str]], timeout: float, budget: float) -> List[Tup
     return out
 
 
+def record(path: str, text: str, results: List[Tuple[str, str, str]], lines: List[str]) -> None:
+    rec = {'file': os.path.basename(path), 'sha256': w.text_hash(text), 'rows': {fid: status for fid, status, _ in results}, 'lines': lines,
+           'at': datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds')}
+    with open(os.path.join(os.path.dirname(os.path.abspath(path)), '.quote-check.json'), 'w', encoding='utf-8') as fh:
+        json.dump(rec, fh)
+
+
 def main(argv: List[str]) -> int:
-    args, root, timeout, budget, slugs = list(argv), None, 10.0, 90.0, []
+    args, root, timeout, budget, slugs, do_record = list(argv), None, 10.0, 90.0, [], False
     try:
         while args:
             a = args.pop(0)
-            if a == '--root' and args:
+            if a == '--record':
+                do_record = True
+            elif a == '--root' and args:
                 root = args.pop(0)
             elif a == '--timeout' and args:
                 timeout = float(args.pop(0))
@@ -129,13 +143,12 @@ def main(argv: List[str]) -> int:
     except ValueError:
         slugs = []
     if len(slugs) != 1:
-        sys.stderr.write('usage: quote-check.py [--root <workspace>] [--timeout SECONDS] [--budget SECONDS] <slug>\n')
+        sys.stderr.write('usage: quote-check.py [--record] [--root <workspace>] [--timeout SECONDS] [--budget SECONDS] <slug>\n')
         return 2
     slug = slugs[0]
     if not w.SLUG.match(slug):
         sys.stderr.write(f'"{slug}" is not an article slug (one folder name under articles/)\n')
         return 2
-    import os
     root = root or os.environ.get('CLAUDE_PROJECT_DIR') or os.getcwd()
     path = os.path.join(w.article_dir(root, slug), 'research.md')
     text = w.read_text(path) if os.path.isfile(path) else None
@@ -143,12 +156,13 @@ def main(argv: List[str]) -> int:
         sys.stderr.write(f'articles/{slug}/research.md does not exist under {root}\n')
         return 2
     rows = w.fact_rows(text)
+    results = check(rows, timeout, budget) if rows else []
+    lines = [f'{fid} {status}' + (f' {why}' if why else '') for fid, status, why in results]
+    print('\n'.join(lines) if lines else 'quote-check: no fact rows in the Fact bank')
+    if do_record:
+        record(path, text, results, lines)
     if not rows:
-        print('quote-check: no fact rows in the Fact bank')
         return 0
-    results = check(rows, timeout, budget)
-    for fid, status, why in results:
-        print(f'{fid} {status}' + (f' {why}' if why else ''))
     counts = {s: sum(1 for _, st, _ in results if st == s) for s in ('found', 'not-found', 'unreachable', 'unreadable')}
     print('quote-check: ' + ', '.join(f'{n} {s}' for s, n in counts.items()))
     return 1 if counts['not-found'] else 0

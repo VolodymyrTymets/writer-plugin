@@ -1374,3 +1374,84 @@ def test_a_drive_folder_create_is_not_a_labelled_doc(ws):
     r = guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE,
                         'tool_input': {'title': 'demo', 'contentMimeType': 'application/vnd.google-apps.folder', 'parentId': 'F0'}})
     assert r.code == 0
+
+
+# ---------------- ADR-015: the G1 save and the quote-check record ----------------
+def research_ready(ws, record=True, body=None):
+    """G0 stands, a research.md, and (by default) a quote-check record that matches it."""
+    ws.chain('research')
+    text = body if body is not None else '# research\n\ntext\n'
+    (ws.art / 'research.md').write_text(text)
+    if record:
+        (ws.art / '.quote-check.json').write_text(json.dumps({'file': 'research.md', 'sha256': writer.text_hash(text), 'rows': {}, 'lines': []}))
+
+
+def g1_save(ws, line=None, k=1, artifact='x'):
+    return guard(ws.root, write_payload(ws.rel(f'gates/G1-research.r{k}.md'), (line or PASS['research']) + f'\nArtifact: {artifact}\n'))
+
+
+def test_a_g1_verdict_is_saved_against_a_matching_quote_record(ws):
+    research_ready(ws)
+    assert g1_save(ws).code == 0
+
+
+def test_a_g1_verdict_is_blocked_with_no_quote_record_and_the_message_names_the_command(ws):
+    research_ready(ws, record=False)
+    r = g1_save(ws)
+    assert r.code == 2 and 'quote-check' in r.err and '--record' in r.err and 'FLOW-4' in r.err
+
+
+def test_a_g1_verdict_is_blocked_when_research_changed_after_the_check(ws):
+    research_ready(ws)
+    (ws.art / 'research.md').write_text('# research\n\na different dossier\n')
+    assert g1_save(ws).code == 2
+
+
+def test_a_corrupt_quote_record_blocks_the_g1_save(ws):
+    research_ready(ws)
+    (ws.art / '.quote-check.json').write_text('not json')
+    assert g1_save(ws).code == 2
+
+
+def test_an_approval_line_after_the_check_still_matches_the_record(ws):
+    research_ready(ws)
+    (ws.art / 'research.md').write_text('# research\n\ntext\n\nApproved-by: Test Human\n')
+    assert g1_save(ws).code == 0
+
+
+def test_a_g1_block_is_also_saved_only_against_a_record(ws):
+    research_ready(ws, record=False)
+    assert g1_save(ws, line=BLOCK['research']).code == 2
+
+
+def test_the_g1_block_for_a_missing_research_needs_no_record(ws):
+    ws.chain('research')
+    (ws.art / 'research.md').unlink()
+    assert g1_save(ws, line=BLOCK['research'], artifact='none').code == 0
+
+
+def test_a_g1_verdict_that_claims_no_artifact_cannot_skip_the_record_while_research_exists(ws):
+    research_ready(ws, record=False)
+    assert g1_save(ws, line=BLOCK['research'], artifact='none').code == 2
+
+
+def test_other_gates_need_no_quote_record(ws):
+    ws.approve()
+    ws.chain('outline')
+    assert guard(ws.root, write_payload(ws.rel('gates/G2-outline.r1.md'), PASS['outline'] + '\nArtifact: x\n')).code == 0
+
+
+@pytest.mark.parametrize('payload', [
+    write_payload('articles/demo/.quote-check.json', '{}'),
+    edit_payload('articles/demo/.quote-check.json'),
+    bash_payload('echo {} > articles/demo/.quote-check.json'),
+    bash_payload('cp /tmp/x articles/demo/.quote-check.json'),
+], ids=['write', 'edit', 'redirect', 'cp'])
+def test_the_quote_record_is_written_only_by_the_script(ws, payload):
+    r = guard(ws.root, payload)
+    assert r.code == 2 and '--record' in r.err and 'FLOW-4' in r.err
+
+
+def test_running_the_quote_script_with_record_is_not_blocked(ws):
+    research_ready(ws)
+    assert guard(ws.root, bash_payload(f'python3 {BIN / "quote-check.py"} --record demo')).code == 0
