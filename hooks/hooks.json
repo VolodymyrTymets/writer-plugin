@@ -34,6 +34,16 @@
             "timeout": 10
           }
         ]
+      },
+      {
+        "matcher": "mcp__claude_ai_Google_Drive__create_file|mcp__claude_ai_Google_Drive__read_file_content",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/bin/record-approval.py\"",
+            "timeout": 10
+          }
+        ]
       }
     ],
     "Stop": [

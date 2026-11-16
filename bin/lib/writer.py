@@ -662,6 +662,95 @@ def doc_copy(root: str, slug: str, stage: str) -> Dict[str, object]:
             'folder_path': drive_folder_path(root, slug), 'folder_id': recorded_folder_id(root, slug)}
 
 
+# ---------------- Docs the copy skill created, and the approval a Doc carries (ADR-016) ----------------
+CREATED_LOG = '.docs-created.json'
+_DOC_TITLE = re.compile(r'^(?P<slug>.+?) · (?P<stage>brief|research|outline|draft|final) · r(?P<rev>\d+)(?: · (?P<label>ungated|publish-ready))?$')
+_COMMENT_TAG = re.compile(r'<comment_(?:start|end) id=[^>]*>')
+_HTML_COMMENT = re.compile(r'<!--.*?-->', re.S)
+MAX_APPROVAL = 120
+
+
+def parse_doc_title(title: str) -> Optional[Dict[str, object]]:
+    """`<slug> · <stage> · r<k>[ · ungated | · publish-ready]` (ADR-012.1) as {slug, stage, rev, label}, or None for any other title."""
+    m = _DOC_TITLE.match(title or '')
+    if not m or not SLUG.match(m.group('slug')):
+        return None
+    return {'slug': m.group('slug'), 'stage': m.group('stage'), 'rev': int(m.group('rev')), 'label': m.group('label') or ''}
+
+
+def tool_result(response: object) -> Optional[dict]:
+    """A connector tool's result as a dict. A hook gets it as a JSON string (R0, 2026-11-16), but a dict or a list of text blocks is read too."""
+    if isinstance(response, list):
+        response = ''.join(str(b.get('text', '')) for b in response if isinstance(b, dict))
+    if isinstance(response, str):
+        try:
+            response = json.loads(response)
+        except ValueError:
+            return None
+    return response if isinstance(response, dict) else None
+
+
+def created_log(root: str, slug: str) -> List[Dict[str, object]]:
+    """The Docs the copy skill created for an article. A missing file is an empty log; one that exists but cannot be read raises ValueError."""
+    path = os.path.join(article_dir(root, slug), CREATED_LOG)
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, encoding='utf-8') as fh:
+            data = json.load(fh)
+        docs = data.get('docs') if isinstance(data, dict) else None
+        if not isinstance(docs, list) or not all(isinstance(d, dict) for d in docs):
+            raise ValueError('it is not {"docs": [...]}')
+        return docs
+    except (OSError, ValueError) as exc:
+        raise ValueError(f'articles/{slug}/{CREATED_LOG} cannot be read ({exc})') from exc
+
+
+def doc_approval(file_content: str, stage: str) -> Optional[str]:
+    """The name typed after the stage's approval label in a Doc body: the first such line outside a code fence, comment anchors stripped,
+    trimmed, one line, at most 120 characters (a longer value is refused, never cut). None when the line is empty or absent."""
+    key = approval_key(stage)
+    fenced = False
+    for line in _COMMENT_TAG.sub('', file_content).split('\n'):
+        if _FENCE.match(line):
+            fenced = not fenced
+            continue
+        m = None if fenced else re.match(r'^' + key + r':[ \t]*(.*)$', line)
+        if m:
+            value = m.group(1).strip()
+            return value if value and len(value) <= MAX_APPROVAL else None
+    return None
+
+
+def _doc_words(text: str, stage: str) -> List[str]:
+    """Words of a Doc body for comparison (R0): comment tags and HTML comments gone, the approval lines and the instruction left out,
+    lower case `\\w+` runs. Google reflows lines, drops backticks and wraps headings, but keeps the words in order."""
+    key = approval_key(stage)
+    text = _HTML_COMMENT.sub('', _COMMENT_TAG.sub('', text))
+    text = re.sub(r'^[ \t]*(?:Approved-by|Signed-off-by):.*$', '', text, flags=re.M)
+    text = text.replace(doc_note(key), '')
+    return re.findall(r'\w+', text.lower())
+
+
+def doc_equals_artifact(root: str, slug: str, stage: str, file_content: str) -> bool:
+    """True when a Doc body is the copy of the artifact on disk, apart from the approval line, the instruction and Google's reformatting."""
+    expected = doc_text(read_text(os.path.join(article_dir(root, slug), f'{stage}.md')), stage)
+    return _doc_words(expected, stage) == _doc_words(file_content, stage)
+
+
+def approval_path(root: str, slug: str, stage: str, rev: int) -> str:
+    return os.path.join(article_dir(root, slug), 'approvals', f'{stage}.r{rev}.json')
+
+
+def read_approval(root: str, slug: str, stage: str, rev: int) -> Optional[Dict[str, object]]:
+    try:
+        with open(approval_path(root, slug, stage, rev), encoding='utf-8') as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
 # ---------------- the fact bank and verbatim quotes (ADR-015) ----------------
 _FACT_ROW = re.compile(r'^\s*\|\s*(F\d+)\s*\|')
 _URL = re.compile(r'https?://[^\s<>)\]|]+')

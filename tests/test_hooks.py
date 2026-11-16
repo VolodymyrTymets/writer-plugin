@@ -7,6 +7,7 @@ Bash has command; a block is exit 2 with the reason on stderr.
 """
 import json
 import os
+import re
 import subprocess
 import sys
 from collections import namedtuple
@@ -1522,3 +1523,224 @@ def test_doc_copy_of_a_signed_final_with_a_marker_is_unapproved_and_not_labelled
     signed_with_marker(ws)
     out = json.loads(doc_copy(ws.root, ws.slug, 'final').out)
     assert out['publish_ready'] is False and NOTE_SIGN in out['text'] and 'Signed-off-by: Test Human' not in out['text']
+
+
+# ---------------- ADR-016 (R2): record the Docs the copy skill created and the approval a Doc carries ----------------
+DRIVE_READ = 'mcp__claude_ai_Google_Drive__read_file_content'
+APPROVE_NOTE = writer.doc_note('Approved-by')
+OUTLINE_BODY = '# Outline\n\nApproved-by:\n\n## Thesis\nA thesis [F1].\n\n## Plan\nTwo `things` to do.\n'
+
+
+def readback(shown, name='', tags=False):
+    """What the connector returns for `shown` once Google has rendered it (R0): HTML comments gone, headings wrapped in `*…*`,
+    backticks gone, `name` typed after the Approved-by label."""
+    out = []
+    for line in re.sub(r'<!--.*?-->', '', shown, flags=re.S).split('\n'):
+        if line.startswith('# '):
+            line = '# **' + line[2:] + '**'
+        elif line.startswith('## '):
+            line = '## *' + line[3:] + '*'
+        elif line.startswith('Approved-by:') or line.startswith('Signed-off-by:'):
+            line = line.rstrip() + (' ' + name if name else '')
+        out.append(line.replace('`', ''))
+    text = '\n'.join(l for l in out if l.strip() or True)
+    return re.sub(r'\n{2,}', '\n', text)
+
+
+def drive_post(tool, tool_input, response):
+    return {'hook_event_name': 'PostToolUse', 'tool_name': tool, 'tool_input': tool_input, 'tool_response': response}
+
+
+def created(ws, stage='outline', rev=1, label='', doc_id='doc1', text=None, title=None, log=True, record=True):
+    """Make one Doc the way the copy skill does: upload doc_text of the artifact, let the hook log it, append docs.json."""
+    art = (ws.art / f'{stage}.md')
+    shown = text if text is not None else writer.doc_text(art.read_text(), stage)
+    title = title if title is not None else f'{ws.slug} · {stage} · r{rev}' + (f' · {label}' if label else '')
+    resp = json.dumps({'id': doc_id, 'title': title, 'mimeType': 'application/vnd.google-apps.document'})
+    r = run('record-approval.py', drive_post(DRIVE_CREATE, {'title': title, 'textContent': shown, 'contentMimeType': 'text/markdown'}, resp), ws.root) if log else None
+    if record:
+        rows = json.loads((ws.art / 'docs.json').read_text())['revisions'] if (ws.art / 'docs.json').exists() else []
+        rows.append(dict(stage=stage, rev=rev, id=doc_id, url=f'https://docs.example/{doc_id}', at='t', sha256=writer.text_hash(art.read_text()),
+                         text_sha256=writer.text_hash(shown), title=title, publish_ready=label == 'publish-ready'))
+        record_doc(ws, rows)
+    return shown, r
+
+
+def read(ws, body, doc_id='doc1', threads=None):
+    resp = {'fileContent': body, 'title': 't', 'viewUrl': 'https://docs.example/' + doc_id}
+    if threads:
+        resp['commentThreads'] = threads
+    return run('record-approval.py', drive_post(DRIVE_READ, {'fileId': doc_id, 'includeComments': True}, json.dumps(resp)), ws.root)
+
+
+def approval(ws, stage='outline', rev=1):
+    path = ws.art / 'approvals' / f'{stage}.r{rev}.json'
+    return json.loads(path.read_text()) if path.exists() else None
+
+
+@pytest.fixture
+def ow(ws):
+    (ws.art / 'outline.md').write_text(OUTLINE_BODY)
+    return ws
+
+
+def test_a_name_typed_in_the_latest_doc_of_an_unchanged_outline_is_recorded(ow):
+    shown, _ = created(ow)
+    assert read(ow, readback(shown, 'Test Human 2026-11-17')).code == 0
+    rec = approval(ow)
+    assert (rec['value'], rec['doc_id'], rec['rev'], rec['artifact_sha256']) == (
+        'Test Human 2026-11-17', 'doc1', 1, writer.text_hash(OUTLINE_BODY))
+
+
+def test_the_doc_created_is_logged_with_what_the_copy_skill_uploaded(ow):
+    created(ow)
+    log = json.loads((ow.art / '.docs-created.json').read_text())['docs']
+    assert [(d['id'], d['stage'], d['rev'], d['approvable']) for d in log] == [('doc1', 'outline', 1, True)]
+
+
+def test_a_doc_with_no_name_records_why_and_no_approval(ow):
+    shown, _ = created(ow)
+    read(ow, readback(shown))
+    rec = approval(ow)
+    assert rec['value'] is None and 'no name' in rec['reason']
+
+
+def test_a_body_edited_outside_the_approval_line_records_no_approval(ow):
+    shown, _ = created(ow)
+    read(ow, readback(shown, 'Test Human').replace('A thesis', 'A different thesis'))
+    rec = approval(ow)
+    assert rec['value'] is None and 'differs' in rec['reason']
+
+
+def test_an_artifact_that_changed_since_the_doc_was_made_records_no_approval(ow):
+    shown, _ = created(ow)
+    (ow.art / 'outline.md').write_text(OUTLINE_BODY.replace('A thesis', 'A newer thesis'))
+    read(ow, readback(shown, 'Test Human'))
+    rec = approval(ow)
+    assert rec['value'] is None and 'changed since' in rec['reason']
+
+
+def test_an_older_revision_records_nothing(ow):
+    shown, _ = created(ow, rev=1, doc_id='doc1')
+    created(ow, rev=2, doc_id='doc2')
+    read(ow, readback(shown, 'Test Human'), doc_id='doc1')
+    assert approval(ow, rev=1) is None
+
+
+def test_a_doc_nobody_created_with_the_copy_skill_records_nothing(ow):
+    shown, _ = created(ow, log=False)  # a docs.json entry for an id the create hook never saw
+    read(ow, readback(shown, 'Test Human'))
+    assert approval(ow) is None
+
+
+def test_a_filled_upload_under_any_title_is_never_logged_and_never_approves(ow):
+    filled = writer.doc_text(OUTLINE_BODY, 'outline').replace('Approved-by:\n', 'Approved-by: Forged Name\n')
+    created(ow, text=filled)
+    assert not (ow.art / '.docs-created.json').exists()
+    read(ow, readback(filled))
+    assert approval(ow) is None
+    other, _ = created(ow, text=filled, title='notes about outline', doc_id='doc9', record=False)
+    assert not (ow.art / '.docs-created.json').exists()
+
+
+def test_a_comment_cannot_approve(ow):
+    shown, _ = created(ow)
+    threads = [{'commentId': 'c1', 'status': 'OPEN', 'headPost': {'authorName': 'A', 'content': 'Approved-by: Evil Name', 'modifiedTime': 't', 'postId': 'p'}}]
+    read(ow, readback(shown), threads=threads)
+    assert approval(ow)['value'] is None
+
+
+@pytest.mark.parametrize('extra,reason', [
+    ('```\nApproved-by: Fenced Name\n```\n', 'no name'),
+    ('Note: Approved-by: Mid Line\n', 'differs'),
+], ids=['code-fence', 'mid-line'])
+def test_an_approval_word_inside_a_code_fence_or_mid_line_is_not_the_line(ow, extra, reason):
+    """The real label is missing from the Doc, so only the look-alike could produce a name: it must not."""
+    shown, _ = created(ow)
+    body = readback(shown).replace('Approved-by:\n', '') + '\n' + extra
+    read(ow, body)
+    rec = approval(ow)
+    assert rec['value'] is None and reason in rec['reason']
+
+
+def test_a_comment_anchor_around_the_name_is_stripped(ow):
+    shown, _ = created(ow)
+    body = readback(shown, '<comment_start id=doco.x>Test Human<comment_end id=doco.x>')
+    read(ow, body)
+    assert approval(ow)['value'] == 'Test Human'
+
+
+def test_a_reviewer_who_deletes_the_instruction_while_approving_still_approves(ow):
+    shown, _ = created(ow)
+    body = readback(shown, 'Test Human').replace(APPROVE_NOTE + '\n', '')
+    read(ow, body)
+    assert approval(ow)['value'] == 'Test Human'
+
+
+def test_the_first_approval_line_wins_and_the_value_is_trimmed(ow):
+    shown, _ = created(ow)
+    read(ow, readback(shown, '   First Name   ') + '\nApproved-by: Second Name\n')
+    assert approval(ow)['value'] == 'First Name'
+
+
+def test_a_value_over_120_characters_is_refused(ow):
+    shown, _ = created(ow)
+    read(ow, readback(shown, 'x' * 121))
+    assert approval(ow)['value'] is None
+
+
+def test_a_later_read_without_a_name_clears_the_earlier_approval(ow):
+    shown, _ = created(ow)
+    read(ow, readback(shown, 'Test Human'))
+    assert approval(ow)['value'] == 'Test Human'
+    read(ow, readback(shown))
+    assert approval(ow)['value'] is None
+
+
+def test_a_publish_ready_copy_is_logged_but_never_yields_an_approval(ws):
+    (ws.art / 'final.md').write_text('# T\n\nBody [F1].\n\nSigned-off-by: Test Human\n')
+    shown = writer.doc_text((ws.art / 'final.md').read_text(), 'final', keep_signoff=True)
+    created(ws, stage='final', label='publish-ready', text=shown)
+    assert json.loads((ws.art / '.docs-created.json').read_text())['docs'][0]['approvable'] is False
+    read(ws, shown)
+    assert approval(ws, 'final') is None
+
+
+def test_an_ungated_copy_is_logged_with_its_label(ow):
+    created(ow, label='ungated')
+    assert json.loads((ow.art / '.docs-created.json').read_text())['docs'][0]['id'] == 'doc1'
+
+
+def test_an_upload_that_is_not_the_artifacts_copy_is_not_logged(ow):
+    created(ow, text='# Something else\n')
+    assert not (ow.art / '.docs-created.json').exists()
+
+
+def test_the_final_uses_the_signoff_label(ws):
+    (ws.art / 'final.md').write_text('# T\n\nBody [F1].\n\nSigned-off-by:\n')
+    shown, _ = created(ws, stage='final')
+    read(ws, readback(shown, 'Test Human'))
+    assert approval(ws, 'final')['value'] == 'Test Human'
+
+
+@pytest.mark.parametrize('raw', ['not json', '{}', '[]', '{"hook_event_name": "PostToolUse"}'], ids=['text', 'empty', 'list', 'no-tool'])
+def test_the_recorder_fails_open_on_unreadable_input(ow, raw):
+    assert run('record-approval.py', {}, ow.root, raw=raw).code == 0
+
+
+def test_a_tool_response_that_is_not_json_records_nothing(ow):
+    created(ow)
+    assert run('record-approval.py', drive_post(DRIVE_READ, {'fileId': 'doc1'}, 'plain text'), ow.root).code == 0
+    assert approval(ow) is None
+
+
+def test_other_tools_are_ignored(ow):
+    assert run('record-approval.py', drive_post('Write', {'file_path': 'x'}, {}), ow.root).code == 0
+    assert not (ow.art / 'approvals').exists()
+
+
+def test_hooks_json_registers_the_recorder_on_the_two_drive_tools():
+    hooks = json.loads((PLUGIN / 'hooks' / 'hooks.json').read_text())['hooks']['PostToolUse']
+    entry = next(h for h in hooks if 'record-approval.py' in h['hooks'][0]['command'])
+    assert re.fullmatch(entry['matcher'], DRIVE_CREATE) and re.fullmatch(entry['matcher'], DRIVE_READ)
+    assert not re.fullmatch(entry['matcher'], 'Write') and not re.fullmatch(entry['matcher'], 'mcp__claude_ai_Google_Drive__search_files')
