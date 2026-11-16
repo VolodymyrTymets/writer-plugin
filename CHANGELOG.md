@@ -8,6 +8,15 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- Reviewer comments reach the stage they are about (FT-5, ADR-016). The status script lists `comments` waiting for a stage; research, outline, draft and the edit stage read them as data, back the
+  artifact up (research now keeps `research.prev.<n>.md`), rebuild with them, clear the approval and are gated again; a rerun that applies nothing writes nothing and runs no gate. `/sync` restarts the owning
+  stage once when comments are waiting and no approval came in. A reviewer's answer to a research question is recorded as a pointer note, never as a fact, so it does not clear a marker.
+- Approval happens in the Google Doc (FT-6, ADR-016). Every Doc copy is unapproved and says where to approve; a name typed after `Approved-by:` (the final's is `Signed-off-by:`) is
+  recorded by the new `record-approval` hook and carried into the local artifact by `/sync`; a stage is closed when the local file has it, and the next stage is blocked until then
+  (FLOW-2 now covers the brief, research, outline and draft). The guard refuses any other way for a tool to fill an approval line, a filled upload, and any call that edits, shares,
+  copies or removes a Doc the copy skill created. `article-status.py` reports `approve` for every stage and carries an empty `comments` list.
+  **Upgrading:** an article already in progress shows `approve` at a passed stage until its line is added; re-run `writer-plugin:setup` (or edit FLOW-2 in your `CLAUDE.md`) for
+  the new rule text. **Downgrading:** `approvals/` and `.docs-created.json` are inert and safe to delete, and the old FLOW-2 checks only the outline.
 - `prose-lint.py` FACT-1 no longer flags numbers that make no claim: marker reasons ("HTTP 403"), image paths, numbered labels ("Screenshot 2",
   "Step 3"), "checked in <month year>", and names with a digit (G2, B2B). A fact list `[F5, F14]` counts as one tag, here and in the word count;
   the lint and the Doc copy now share one tag pattern (FT-4).

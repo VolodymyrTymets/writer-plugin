@@ -28,6 +28,7 @@ In that case line 3 is `Coverage: n/a`.
 statistic age limit); the workspace `CLAUDE.md` if present. If the style guide is absent, say so under Not checked.
 
 ## Checks
+You do not judge the `Approved-by:` line: it is a human's, and no rule here covers it.
 Work through @references/checklist.md. **Open every source URL in the fact bank** and compare; never judge a fact from
 memory. You cannot run the quote-check script: you read the statuses it recorded, and the checklist says what each one
 settles. For each finding record the rule ID, the offending row and the concrete fix.

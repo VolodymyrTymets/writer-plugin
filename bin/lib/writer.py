@@ -82,7 +82,10 @@ def rel_path(root: str, path: str, cwd: Optional[str] = None) -> Optional[str]:
     base = os.path.normpath(root)
     if full != base and not full.startswith(base + os.sep):
         return None
-    return os.path.relpath(full, base).replace(os.sep, '/')
+    lexical = os.path.relpath(full, base).replace(os.sep, '/')
+    # A symlink inside the workspace (`art2 -> articles`) names the same file: judge the resolved path when it stays inside the workspace.
+    resolved = os.path.relpath(os.path.realpath(full), os.path.realpath(base)).replace(os.sep, '/')
+    return lexical if resolved.startswith('..') else resolved
 
 
 # ---------------- articles, gates, verdicts ----------------
@@ -274,7 +277,7 @@ def resulting_text(root: str, rel: str, tool: str, tool_input: dict) -> Optional
 
 
 # ---------------- which paths the guard cares about ----------------
-ARTICLE_PATH = re.compile(r'^articles/([^/]+)/(.+)$')
+ARTICLE_PATH = re.compile(r'^articles/([^/]+)/(.+)$', re.I)  # the default macOS filesystem ignores case: `Articles/` is the same folder
 
 
 def split_article(rel: str) -> Optional[Tuple[str, str]]:
@@ -330,7 +333,7 @@ def bash_targets(command: str) -> List[Tuple[str, str]]:
             args = [t for t in tokens[1:] if not t.startswith('-')]
             if prog in _WRITERS:
                 targets.extend(('write', a) for a in args)
-            elif prog in ('sed', 'perl') and any(t.startswith('-i') for t in tokens[1:]):
+            elif prog in ('sed', 'perl') and any(re.match(r'^-[A-Za-z]*i', t) or t == '--in-place' for t in tokens[1:]):  # -i, -pi, -ni, --in-place
                 targets.extend(('write', a) for a in args[1:])
     return targets
 
@@ -381,18 +384,75 @@ MARKER_TEXT = re.compile(MARKER_LOOSE.pattern + r'[^>\n]*>?')
 # A slug is one visible folder name under articles/: no separator, no leading dot (so no `..`), no line break. Anything else could
 # point the status script outside articles/. Spaces are allowed: the guard treats any such folder as an article too.
 SLUG = re.compile(r'(?!\.)[^/\\\x00\r\n]+\Z')
-STATE_KEYS = ('slug', 'stage', 'next', 'reason', 'markers', 'stale')
+STATE_KEYS = ('slug', 'stage', 'next', 'reason', 'markers', 'stale', 'comments')
+
+
+COMMENT_STAGES = ('research', 'outline', 'draft', 'final')  # the stages that rerun on comments; the brief's input is brief.source.md
+
+
+_COMMENTS_HEADER = re.compile(r'^Doc: .* · Doc id: .* · Artifact sha256: ([0-9a-f]{64}) · Synced: .+$')
+# the lines the sync skill writes from the first thread on; reviewer text is always quoted with `> `, so anything else is not the shape
+_COMMENTS_LINE = re.compile(r'^(?:## Comment \d+ · (?:OPEN|RESOLVED)|Anchor:|Comment by `[^`\n]*`:|Reply by `[^`\n]*`:|>.*|)\s*$')
+
+
+def _open_threads(lines: List[str]) -> int:
+    """Open threads in the thread part of a comments file, or 0 when it is not exactly what sync writes: headings numbered 1, 2, 3 in order, each directly followed
+    by an `Anchor:` line. A stray heading, a gap or a repeat means a line that should have been quoted was not, so no thread is trusted."""
+    heads = [(i, re.match(r'^## Comment (\d+) · (OPEN|RESOLVED)\s*$', l)) for i, l in enumerate(lines) if l.startswith('## Comment ')]
+    if not heads or any(m is None for _, m in heads):
+        return 0
+    for n, (i, m) in enumerate(heads, 1):
+        if int(m.group(1)) != n or i + 1 >= len(lines) or lines[i + 1].strip() != 'Anchor:':
+            return 0
+    return sum(1 for _, m in heads if m.group(2) == 'OPEN')
+
+
+def comments_header_hash(text: str) -> Optional[str]:
+    """The artifact hash in a comments file's header: the first line that starts with `Doc: `, in exactly the form the sync skill writes (never a quoted line)."""
+    line = next((l for l in text.split('\n') if l.startswith('Doc: ')), None)
+    m = _COMMENTS_HEADER.match(line) if line else None
+    return m.group(1) if m else None
+
+
+def pending_comments(root: str, slug: str) -> List[Dict[str, object]]:
+    """Comments waiting for the stage that owns the artifact (ADR-016): per stage, the highest `comments/<stage>.r<k>.md` that is in the shape sync writes,
+    whose header hash is the hash `docs.json` recorded for that revision and equals the artifact on disk now, and which has an open thread. A rebuild changes
+    the hash, so its comments stop being pending: no state file. `approved` says the artifact already carries its approval (then nothing restarts by itself)."""
+    out: List[Dict[str, object]] = []
+    d = os.path.join(article_dir(root, slug), 'comments')
+    try:
+        names = os.listdir(d)
+        docs = docs_index(root, slug)
+    except (OSError, ValueError):
+        return out
+    for stage in COMMENT_STAGES:
+        revs = sorted((int(m.group(1)), n) for n in names for m in [re.match(r'^' + stage + r'\.r(\d+)\.md$', n)] if m)
+        if not revs:
+            continue
+        rev, name = revs[-1]
+        lines = read_text(os.path.join(d, name)).split('\n')
+        sha = comments_header_hash('\n'.join(lines))
+        entry = next((e for e in docs if e.get('stage') == stage and e.get('rev') == rev), None)
+        if not sha or sha != artifact_hash(root, slug, stage) or entry is None or entry.get('sha256') != sha:
+            continue
+        first = next((i for i, l in enumerate(lines) if l.startswith('## Comment ')), None)
+        if first is None or not all(_COMMENTS_LINE.match(l) for l in lines[first:]):
+            continue
+        open_threads = _open_threads(lines[first:])
+        if open_threads:
+            out.append({'stage': stage, 'file': f'comments/{name}', 'rev': rev, 'open': open_threads, 'approved': approved(root, slug, stage)})
+    return out
 
 
 def unknown_state(slug: str, reason: str) -> Dict[str, object]:
     return {'slug': slug, 'stage': None, 'next': 'unknown', 'reason': reason, 'markers': [], 'stale': False,
-            'summary': f'unknown: {reason}', 'stale_reason': None}
+            'summary': f'unknown: {reason}', 'stale_reason': None, 'comments': []}
 
 
 def article_state(root: str, slug: str) -> Dict[str, object]:
     """Where an article is and the one next step, read from the files and the verdicts (ADR-011).
 
-    `next` is a stage to run (`brief` .. `final`), `approve`, `sign-off`, `stopped`, `stale`, `done` or `unknown`. First match
+    `next` is a stage to run (`brief` .. `final`), `approve` (the stage it names passed its gate and waits for its approval), `sign-off`, `stopped`, `stale`, `done` or `unknown`. First match
     wins: unknown, then stopped (a gate with two BLOCKs, the guard's FLOW-3 rule whatever its latest verdict), then stale (a
     verdict no longer covers what is on disk), then the walk down the chain. `summary` and `stale_reason` feed the briefing
     line; the orchestrator reads the rest."""
@@ -420,8 +480,8 @@ def article_state(root: str, slug: str) -> Dict[str, object]:
             nxt, summary = s, f'{gate} BLOCK ({name}): the {s} stage fixes it and reruns'
             break
         last_pass = s
-        if s == 'outline' and not APPROVED.search(read_text(os.path.join(art, 'outline.md'))):
-            nxt, summary = 'approve', "outline passed G2, waiting for a human's Approved-by"
+        if s != 'final' and not approved(root, slug, s):  # FLOW-2 for every stage (ADR-016): the stage is not finished until it is approved
+            nxt, summary = 'approve', f"{s} passed {GATE_ID[s]}, waiting for a human's Approved-by"
             break
         if s == 'final':
             if is_signed(read_text(os.path.join(art, 'final.md'))):
@@ -446,7 +506,7 @@ def article_state(root: str, slug: str) -> Dict[str, object]:
     elif stale_reason:
         nxt, reason = 'stale', stale_reason
     return {'slug': slug, 'stage': stage, 'next': nxt, 'reason': reason, 'markers': markers, 'stale': nxt == 'stale',
-            'summary': summary, 'stale_reason': stale_reason}
+            'summary': summary, 'stale_reason': stale_reason, 'comments': pending_comments(root, slug)}
 
 
 def describe_article(root: str, slug: str) -> str:
@@ -485,19 +545,71 @@ def strip_fact_ids(text: str) -> str:
 _FRONT_MATTER = re.compile(r'\A---\n(.*?)\n---\n', re.S)
 
 
-def doc_text(text: str) -> str:
-    """The Markdown a reviewer's Doc gets: fact tags stripped, and a leading front-matter block turned into a list. Google
-    reads raw front matter as a rule plus a heading (live run, 2026-11-14), but the title, meta description and slug are
-    things a reviewer checks, so they stay, as `- **Title:** …` lines."""
+_APPROVAL_LINE_ANY = re.compile(r'^[ \t]*(Approved-by|Signed-off-by):.*$')
+
+
+def approval_key(stage: Optional[str]) -> str:
+    """The human line a stage closes with: the final's is a sign-off (FLOW-6), every other artifact's an approval (FLOW-2)."""
+    return 'Signed-off-by' if stage == 'final' else 'Approved-by'
+
+
+def doc_note(key: str) -> str:
+    # Plain words, no backticks or colon after the label: Google drops backticks and the read-back keeps this line apart from the label (R0).
+    return f'To approve, write your name after the {key} label below, then run writer-plugin:sync.'
+
+
+def _open_approval(text: str, stage: Optional[str], keep_signoff: bool) -> str:
+    """A Doc copy is always unapproved (FT-6, ADR-016): each approval line is emptied and given the instruction, in its own paragraph,
+    and a guidance HTML comment directly above it is dropped (Google drops it anyway). An artifact with no such line gets the block at
+    its end. The one exception is the publish-ready final, which keeps its signed line and gets no instruction."""
+    out: List[str] = []
+    fenced = found = False
+    lines = text.split('\n')
+    for n, line in enumerate(lines):
+        if _FENCE.match(line):
+            fenced = not fenced
+        m = None if fenced else _APPROVAL_LINE_ANY.match(line)
+        if not m:
+            out.append(line)
+            continue
+        found = True
+        if keep_signoff and m.group(1) == 'Signed-off-by':
+            out.append(line)
+            continue
+        if out and out[-1].strip().endswith('-->'):  # the note a template puts straight above the line
+            k = len(out) - 1
+            while k >= 0 and '<!--' not in out[k]:
+                k -= 1
+            # only a comment that opens its own line: text before `<!--` on that line is the article's and stays
+            if k >= 0 and out[k].lstrip().startswith('<!--') and all(o.strip() for o in out[k:]):
+                del out[k:]
+        if out and out[-1].strip():
+            out.append('')
+        out += [doc_note(m.group(1)), '', f'{m.group(1)}:']
+        if n + 1 < len(lines) and lines[n + 1].strip():
+            out.append('')
+    body = '\n'.join(out)
+    if not found and stage and not (keep_signoff and stage == 'final'):
+        key = approval_key(stage)
+        body = body.rstrip('\n') + f'\n\n{doc_note(key)}\n\n{key}:\n'
+    return body
+
+
+def doc_text(text: str, stage: Optional[str] = None, keep_signoff: bool = False) -> str:
+    """The Markdown a reviewer's Doc gets: fact tags stripped, a leading front-matter block turned into a list (Google reads raw front
+    matter as a rule plus a heading, live run 2026-11-14), and, when `stage` is given, every approval line emptied with the instruction
+    (`keep_signoff` is for the publish-ready final alone). Without a stage the approval lines are left as they are."""
     m = _FRONT_MATTER.match(text)
     if not m:
-        return strip_fact_ids(text)
+        shown = strip_fact_ids(text)
+        return _open_approval(shown, stage, keep_signoff) if stage else shown
     items = []
     for line in m.group(1).split('\n'):
         key, sep, value = line.partition(':')
         if sep and key.strip():
             items.append(f'- **{key.strip().replace("_", " ").capitalize()}:** {value.strip()}')
-    return '\n'.join(items) + '\n\n' + strip_fact_ids(text[m.end():])
+    body = strip_fact_ids(text[m.end():])
+    return '\n'.join(items) + '\n\n' + (_open_approval(body, stage, keep_signoff) if stage else body)
 
 
 def docs_path(root: str, slug: str) -> str:
@@ -601,7 +713,7 @@ def doc_copy(root: str, slug: str, stage: str) -> Dict[str, object]:
     rev = next_rev(root, slug, stage)
     ready = stage == 'final' and publish_ready(root, slug)
     title = doc_title(slug, stage, rev, ready, check_gate(root, slug, stage) is None)
-    shown = doc_text(text)
+    shown = doc_text(text, stage, keep_signoff=ready)
     shown_sha = text_hash(shown)
     last = next((e for e in reversed(docs_index(root, slug)) if e.get('stage') == stage), None)
     skip = bool(last) and last.get('text_sha256') == shown_sha and \
@@ -609,6 +721,146 @@ def doc_copy(root: str, slug: str, stage: str) -> Dict[str, object]:
     return {'text': shown, 'sha256': text_hash(text), 'text_sha256': shown_sha, 'rev': rev, 'publish_ready': ready,
             'title': title, 'skip': skip, 'existing_url': last.get('url') if skip else None,
             'folder_path': drive_folder_path(root, slug), 'folder_id': recorded_folder_id(root, slug)}
+
+
+# ---------------- Docs the copy skill created, and the approval a Doc carries (ADR-016) ----------------
+CREATED_LOG = '.docs-created.json'
+_DOC_TITLE = re.compile(r'^(?P<slug>.+?) · (?P<stage>brief|research|outline|draft|final) · r(?P<rev>\d+)(?: · (?P<label>ungated|publish-ready))?$')
+_COMMENT_TAG = re.compile(r'<comment_(?:start|end) id=[^>]*>')
+_HTML_COMMENT = re.compile(r'<!--.*?-->', re.S)
+MAX_APPROVAL = 120
+
+
+def parse_doc_title(title: str) -> Optional[Dict[str, object]]:
+    """`<slug> · <stage> · r<k>[ · ungated | · publish-ready]` (ADR-012.1) as {slug, stage, rev, label}, or None for any other title."""
+    m = _DOC_TITLE.match(title or '')
+    if not m or not SLUG.match(m.group('slug')):
+        return None
+    return {'slug': m.group('slug'), 'stage': m.group('stage'), 'rev': int(m.group('rev')), 'label': m.group('label') or ''}
+
+
+def tool_result(response: object) -> Optional[dict]:
+    """A connector tool's result as a dict. A hook gets it as a JSON string (R0, 2026-11-16), but a dict or a list of text blocks is read too."""
+    if isinstance(response, list):
+        response = ''.join(str(b.get('text', '')) for b in response if isinstance(b, dict))
+    if isinstance(response, str):
+        try:
+            response = json.loads(response)
+        except ValueError:
+            return None
+    return response if isinstance(response, dict) else None
+
+
+def created_log(root: str, slug: str) -> List[Dict[str, object]]:
+    """The Docs the copy skill created for an article. A missing file is an empty log; one that exists but cannot be read raises ValueError."""
+    path = os.path.join(article_dir(root, slug), CREATED_LOG)
+    if not os.path.exists(path):
+        return []
+    try:
+        with open(path, encoding='utf-8') as fh:
+            data = json.load(fh)
+        docs = data.get('docs') if isinstance(data, dict) else None
+        if not isinstance(docs, list) or not all(isinstance(d, dict) for d in docs):
+            raise ValueError('it is not {"docs": [...]}')
+        return docs
+    except (OSError, ValueError) as exc:
+        raise ValueError(f'articles/{slug}/{CREATED_LOG} cannot be read ({exc})') from exc
+
+
+def doc_approval(file_content: str, stage: str) -> Optional[str]:
+    """The name typed after the stage's approval label in a Doc body: the first such line outside a code fence, comment anchors stripped,
+    trimmed, one line, at most 120 characters (a longer value is refused, never cut). None when the line is empty or absent."""
+    key = approval_key(stage)
+    fenced = False
+    for line in _COMMENT_TAG.sub('', file_content).split('\n'):
+        if _FENCE.match(line):
+            fenced = not fenced
+            continue
+        m = None if fenced else re.match(r'^' + key + r':[ \t]*(.*)$', line)
+        if m:
+            value = m.group(1).strip()
+            return value if value and len(value) <= MAX_APPROVAL else None
+    return None
+
+
+def _doc_words(text: str, stage: str) -> List[str]:
+    """Words of a Doc body for comparison (R0): comment tags and HTML comments gone, the approval lines and the instruction left out,
+    lower case `\\w+` runs. Google reflows lines, drops backticks and wraps headings, but keeps the words in order."""
+    key = approval_key(stage)
+    text = _HTML_COMMENT.sub('', _COMMENT_TAG.sub('', text))
+    text = re.sub(r'^[ \t]*(?:Approved-by|Signed-off-by):.*$', '', text, flags=re.M)
+    text = text.replace(doc_note(key), '').lower()
+    text = re.sub(r'\\([^\w\s])', r'\1', text)  # markdown escapes (`\*`, `\_`) are Google's, not the author's
+    # Numbers keep their sign, currency, decimal mark and percent, and the comparison operators stay: an edit that flips only one of them is an edit.
+    return re.findall(r'[-+±$€£]?\d[\d.,]*\d%?|[-+±$€£]?\d%?|[^\W_]+|(?<=\s)[<>=±≤≥](?=\s)', text)
+
+
+def doc_equals_artifact(root: str, slug: str, stage: str, file_content: str) -> bool:
+    """True when a Doc body is the copy of the artifact on disk, apart from the approval line, the instruction and Google's reformatting."""
+    expected = doc_text(read_text(os.path.join(article_dir(root, slug), f'{stage}.md')), stage)
+    return _doc_words(expected, stage) == _doc_words(file_content, stage)
+
+
+def approval_path(root: str, slug: str, stage: str, rev: int) -> str:
+    return os.path.join(article_dir(root, slug), 'approvals', f'{stage}.r{rev}.json')
+
+
+def read_approval(root: str, slug: str, stage: str, rev: int) -> Optional[Dict[str, object]]:
+    try:
+        with open(approval_path(root, slug, stage, rev), encoding='utf-8') as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def approval_value(text: str, key: str) -> str:
+    """The value of the last `<key>:` line outside a code fence ('' when empty or absent), as `is_signed` reads a sign-off."""
+    fenced, last = False, ''
+    for line in text.replace('\r\n', '\n').split('\n'):
+        if _FENCE.match(line):
+            fenced = not fenced
+        elif not fenced:
+            m = re.match(r'^[ \t]*' + key + r':(.*)$', line)
+            if m:
+                last = m.group(1).strip()
+    return last
+
+
+def approval_filled(text: str) -> bool:
+    """True when either human line has a value (outside a code fence)."""
+    return bool(approval_value(text, 'Approved-by') or approval_value(text, 'Signed-off-by'))
+
+
+def approved(root: str, slug: str, stage: str) -> bool:
+    """FLOW-2: the stage's artifact carries its approval (`Signed-off-by:` for the final)."""
+    return bool(approval_value(read_text(os.path.join(article_dir(root, slug), f'{stage}.md')), approval_key(stage)))
+
+
+def latest_approval(root: str, slug: str, stage: str) -> Optional[Dict[str, object]]:
+    """The approval record of the highest revision for a stage, or None. A record that exists but cannot be read raises ValueError."""
+    d = os.path.join(article_dir(root, slug), 'approvals')
+    try:
+        names = os.listdir(d)
+    except OSError:
+        return None
+    revs = sorted((int(m.group(1)), n) for n in names for m in [re.match(r'^' + stage + r'\.r(\d+)\.json$', n)] if m)
+    if not revs:
+        return None
+    try:
+        with open(os.path.join(d, revs[-1][1]), encoding='utf-8') as fh:
+            data = json.load(fh)
+    except (OSError, ValueError) as exc:
+        raise ValueError(f'articles/{slug}/approvals/{revs[-1][1]} cannot be read ({exc})') from exc
+    return data if isinstance(data, dict) else None
+
+
+def logged_doc_ids(root: str) -> set:
+    """Every Doc id the copy skill created in any article of this workspace (ADR-016). An unreadable log raises ValueError."""
+    ids = set()
+    for slug in article_slugs(root):
+        ids.update(str(d.get('id')) for d in created_log(root, slug) if d.get('id'))
+    return ids
 
 
 # ---------------- the fact bank and verbatim quotes (ADR-015) ----------------

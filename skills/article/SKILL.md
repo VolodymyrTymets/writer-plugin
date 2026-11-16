@@ -1,6 +1,6 @@
 ---
 name: article
-description: Runs the whole article chain for one slug - brief, research, outline, then (after a human approves the outline) draft and final - calling each stage's actor in order and stopping at the two human checkpoints. Use to start an article from a brief or to continue one where it stopped. It writes nothing itself.
+description: Runs the whole article chain for one slug - brief, research, outline, then draft and final - calling each stage's actor in order and stopping at every human approval. Use to start an article from a brief or to continue one where it stopped. It writes nothing itself.
 argument-hint: "[article slug] [path to the brief, or paste the brief in the message]"
 allowed-tools: Read, Glob, Grep, Skill, AskUserQuestion, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py *)
 ---
@@ -55,8 +55,8 @@ repeat any of that. When it returns, go back to Step 2.
 
 | `next` | What you tell the user |
 |--------|------------------------|
-| `approve` | The outline passed G2. A human reads `articles/<slug>/outline.md`, then writes a name after `Approved-by:` in `articles/<slug>/outline.md`. This is the cheap moment to change direction. List every entry of `markers` and the count: approval is allowed with markers, but each one is a claim that will not appear in the article until a human supplies a fact. Then run `writer-plugin:article <slug>` again to continue with the draft. |
-| `sign-off` | The final passed G4 and **is not signed off**. A human reads `articles/<slug>/final.md`, then writes a name after `Signed-off-by:` in `articles/<slug>/final.md`. List every entry of `markers` and the count; while one remains the sign-off is refused (FLOW-6): a human supplies the fact or drops the claim, and the article goes back through the stage that holds it. Then run `writer-plugin:article <slug>` again to confirm it is done. |
+| `approve` | The stage the script's `stage` names (brief, research, outline or draft) passed its gate and is **not approved**; tell the human which one. A human reads its Doc (the stage's actor reported the URL) and writes a name after `Approved-by:` in the Doc, then runs `writer-plugin:sync <slug> <stage>`; or writes a name after `Approved-by:` in `articles/<slug>/<stage>.md` themselves. For the outline a human writes a name after `Approved-by:` in `articles/<slug>/outline.md` (or in its Doc); this is the cheap moment to change direction. List every entry of `markers` and the count: approval is allowed with markers, but each one is a claim that will not appear in the article until a human supplies a fact. Then run `writer-plugin:article <slug>` again to continue with the next stage. |
+| `sign-off` | The final passed G4 and **is not signed off**. A human reads the final's Doc and writes a name after `Signed-off-by:` in the Doc, then runs `writer-plugin:sync <slug> final`; or writes a name after `Signed-off-by:` in `articles/<slug>/final.md` themselves. List every entry of `markers` and the count; while one remains the sign-off is refused (FLOW-6): a human supplies the fact or drops the claim, and the article goes back through the stage that holds it. Then run `writer-plugin:article <slug>` again to confirm it is done. |
 | `stopped` | Quote `reason` (it names both BLOCK verdicts and how a human archives them). Two BLOCKs hand the article to the human (FLOW-3). |
 | `stale` | Quote `reason`. A verdict no longer covers what is on disk: the artifact it names was changed or its upstream was re-gated. Rebuilding or re-gating it is the human's decision; say which stage's command reruns it, taking the stage from the verdict file named in `reason` (`G<n>-<stage>.r<k>.md`), not from `stage`, which is where the chain stopped. |
 | `unknown` | Quote `reason`. Do not guess a stage. |
@@ -67,6 +67,9 @@ repeat any of that. When it returns, go back to Step 2.
 A few lines: the slug, each stage you ran in this call with its verdict file (the latest `gates/G<n>-<stage>.r<k>.md`), the
 markers (each, and the count), and what the article waits for now, in the words of Step 3. Doc copies: as each actor reported (a URL,
 or no Google Drive connection). If you ran nothing, say why.
+
+**Pending comments.** If the script's `comments` list is not empty, list each entry (the stage, the file, how many threads are open) and say that `writer-plugin:sync <slug> <stage>` brings
+in the Doc's comments and approval and restarts the stage that owns them, or that the human can run that stage. This skill never starts a comments rerun (an entry with `approved: true` means running the stage would clear the approval); a stage that applies no comment writes nothing.
 
 ## Definition of done
 - [ ] Every decision came from `article-status.py`, run again after each actor

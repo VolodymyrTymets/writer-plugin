@@ -7,8 +7,10 @@ Bash has command; a block is exit 2 with the reason on stderr.
 """
 import json
 import os
+import re
 import subprocess
 import sys
+import tempfile
 from collections import namedtuple
 from pathlib import Path
 
@@ -37,8 +39,8 @@ STAGES = ['brief', 'research', 'outline', 'draft', 'final']
 OUTLINE = '# Outline\n\nApproved-by:{approval}\n\n## Thesis\nA thesis.\n'
 
 
-def run(script, payload, root, raw=None):
-    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(root))
+def run(script, payload, root, raw=None, env=None):
+    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(root), **(env or {}))
     data = raw if raw is not None else json.dumps(dict(payload, cwd=str(root)))
     r = subprocess.run([sys.executable, str(BIN / script)], input=data, capture_output=True, text=True, env=env, cwd=str(root))
     return Result(r.returncode, r.stdout, r.stderr)
@@ -57,8 +59,8 @@ def bash_payload(command):
     return {'hook_event_name': 'PreToolUse', 'tool_name': 'Bash', 'tool_input': {'command': command}}
 
 
-def guard(root, payload, **kw):
-    return run('guard-stage-order.py', payload, root, **kw)
+def guard(root, payload, env=None, **kw):
+    return run('guard-stage-order.py', payload, root, env=env, **kw)
 
 
 class Workspace:
@@ -67,7 +69,10 @@ class Workspace:
         self.art = root / 'articles' / slug
         (self.art / 'gates').mkdir(parents=True)
         for stage in STAGES:
-            (self.art / f'{stage}.md').write_text(OUTLINE.format(approval='') if stage == 'outline' else f'# {stage}\n\ntext\n')
+            # WHY: FLOW-2 now covers every stage (ADR-016), so an artifact the chain has passed is approved by default; the outline and the
+            # final keep the empty line the tests drive explicitly.
+            body = f'# {stage}\n\ntext\n' + ('' if stage in ('final',) else '\nApproved-by: Test Human\n')
+            (self.art / f'{stage}.md').write_text(OUTLINE.format(approval='') if stage == 'outline' else body)
 
     def rel(self, name):
         return f'articles/{self.slug}/{name}'
@@ -364,7 +369,8 @@ def test_hooks_json_registers_the_guard_and_the_recorder_on_the_tools_that_exist
     post_ = [g for g in hooks['PostToolUse'] if any('record-verdict' in h['command'] for h in g['hooks'])]
     assert pre and post_
     # MultiEdit does not exist in this build (ADR-009). The MCP tools parsed are the Drive create and update calls, for FLOW-6 on a Doc title (ADR-012).
-    assert pre[0]['matcher'] == 'Edit|Write|Bash|mcp__claude_ai_Google_Drive__create_file|mcp__claude_ai_Google_Drive__update_file'
+    # WHY: the guard now judges every Drive and Docs connector call that names a Doc (ADR-016, R3), so the matcher is the two server prefixes
+    assert pre[0]['matcher'] == 'Edit|Write|Bash|mcp__claude_ai_Google_Drive__.*|mcp__claude_ai_Google_Docs__.*'
     assert post_[0]['matcher'] == 'Write'
 
 
@@ -539,7 +545,14 @@ def final_ready(ws, text=None, record=True):
     (ws.art / 'final.md').write_text(body)
     if record:
         (ws.art / '.prose-lint.json').write_text(json.dumps({'sha256': writer.text_hash(body), 'findings': 0, 'lines': []}))
+    give_approval(ws, 'final', 'Test Human', body)  # the record the recorder would hold once the human signed in the Doc (ADR-016)
     return body
+
+
+def give_approval(ws, stage, value, text):
+    (ws.art / 'approvals').mkdir(exist_ok=True)
+    (ws.art / 'approvals' / f'{stage}.r1.json').write_text(json.dumps(
+        {'doc_id': 'd1', 'rev': 1, 'artifact_sha256': writer.text_hash(text), 'value': value, 'reason': None, 'at': 't'}))
 
 
 def g4_save(ws, line=None, k=1):
@@ -662,6 +675,7 @@ def test_replace_all_is_resolved_like_the_edit_tool(ws):
     ws.verdict('final', 1, PASS['final'], sidecar=True)
     judged = '# T\n\nbar and bar.\n\nSigned-off-by: Test Human\n'
     (ws.art / 'gates' / 'G4-final.r1.json').write_text(json.dumps({'artifact_sha256': writer.text_hash(judged), 'upstream': 'G3-draft.r1.md'}))
+    give_approval(ws, 'final', 'Test Human', judged)  # the sign-off in the Doc covers the judged text too (ADR-016); this test is about the G4 rule
     edit = {'file_path': ws.rel('final.md'), 'old_string': 'foo', 'new_string': 'bar'}
     assert guard(ws.root, {'tool_name': 'Edit', 'tool_input': dict(edit, replace_all=True)}).code == 0
     r = guard(ws.root, {'tool_name': 'Edit', 'tool_input': dict(edit, replace_all=False)})
@@ -693,9 +707,18 @@ def test_an_edit_that_cannot_be_resolved_is_allowed_and_says_so(ws):
     assert r.code == 0 and 'sign-off check was skipped' in r.err
 
 
-def test_a_shell_write_to_final_is_allowed_by_the_sign_off_rule_a_stated_gap(ws):
+def test_a_shell_write_of_the_signoff_label_into_the_final_is_refused(ws):
+    # WHY: this was the stated gap (ADR-010). The shell command that names an approval label and writes an artifact is now refused (ADR-016);
+    # what stays a gap is a write the parser cannot see, pinned below.
     final_ready(ws)
-    assert guard(ws.root, bash_payload("sed -i '' 's/Signed-off-by:/Signed-off-by: X/' articles/demo/final.md")).code == 0
+    r = guard(ws.root, bash_payload("sed -i '' 's/Signed-off-by:/Signed-off-by: X/' articles/demo/final.md"))
+    assert r.code == 2 and 'FLOW-6' in r.err
+
+
+def test_a_write_the_shell_parser_cannot_see_stays_a_stated_gap(ws):
+    final_ready(ws)
+    cmd = "python3 -c \"open('articles/demo/final.md','a').write('Signed-off-by: X')\""
+    assert guard(ws.root, bash_payload(cmd)).code == 0
 
 
 # ---------------- Phase 6 (ADR-011): one article state for the briefing and the orchestrator ----------------
@@ -862,7 +885,8 @@ def test_the_status_script_prints_the_state_as_json_and_writes_nothing(ws, state
     r = status(ws.root, ws.slug)
     assert r.code == 0
     out = json.loads(r.out)
-    assert set(out) == {'slug', 'stage', 'next', 'reason', 'markers', 'stale'}
+    # WHY: `comments` joins the contract, always [] in PR 1 (ADR-016, R4); no key was removed or loosened
+    assert set(out) == {'slug', 'stage', 'next', 'reason', 'markers', 'stale', 'comments'}
     assert out['slug'] == ws.slug and out['next'] == EXPECTED_STATE[state][0]
     assert tree(ws.root) == before
 
@@ -1080,12 +1104,24 @@ DRIVE_CREATE = 'mcp__claude_ai_Google_Drive__create_file'
 
 
 def entry(ws, rev=1, ready=True, sha=None, stage='final'):
+    art = ws.art / f'{stage}.md'
+    shown = writer.doc_text(art.read_text(errors='replace'), stage, keep_signoff=ready) if art.exists() else ''
     return {'stage': stage, 'rev': rev, 'id': f'd{rev}', 'url': f'https://docs.example/d{rev}', 'at': 't',
             'sha256': sha if sha is not None else writer.artifact_hash(str(ws.root), ws.slug, stage),
+            'text_sha256': writer.text_hash(shown),
             'title': f'{ws.slug} · {stage} · r{rev}' + (' · publish-ready' if ready else ''), 'publish_ready': ready}
 
 
-def docs_write(ws, entries):
+def log_created(ws, entries):
+    """What the create hook would have logged for these entries (the guard matches a new docs.json entry to it)."""
+    docs = [{'id': e['id'], 'title': e['title'], 'slug': ws.slug, 'stage': e['stage'], 'rev': e['rev'], 'label': '',
+             'text_sha256': e.get('text_sha256'), 'approvable': not e['publish_ready'], 'at': 't'} for e in entries]
+    (ws.art / '.docs-created.json').write_text(json.dumps({'docs': docs}))
+
+
+def docs_write(ws, entries, logged=True):
+    if logged:
+        log_created(ws, entries)
     return guard(ws.root, write_payload(ws.rel('docs.json'), json.dumps({'revisions': entries})))
 
 
@@ -1097,7 +1133,12 @@ def docs_edit(ws, old, new):
 def drive_create(ws, title):
     """A create call that uploads the final exactly as doc-copy.py prints it, so only the title and the article's state decide."""
     final = ws.art / 'final.md'
-    text = writer.doc_text(final.read_text(errors='replace')) if final.exists() else '# T\n'
+    # WHY: this helper builds the upload the copy skill makes for this title: the publish-ready final keeps its signed line, any other copy is
+    # unapproved (FT-6, ADR-016; docs/features/comment-rerun-and-clean-copies/plan.md R1)
+    text = writer.doc_text(final.read_text(errors='replace'), 'final', keep_signoff=writer.claims_publish_ready(title)) if final.exists() else '# T\n'
+    parts = writer.parse_doc_title(title)
+    if parts and parts['stage'] != 'final' and (ws.art / f'{parts["stage"]}.md').exists():
+        text = writer.doc_text((ws.art / f'{parts["stage"]}.md').read_text(errors='replace'), str(parts['stage']))
     return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE,
                            'tool_input': {'title': title, 'textContent': text, 'contentMimeType': 'text/markdown'}})
 
@@ -1200,7 +1241,10 @@ def test_a_marker_blocks_the_publish_ready_doc_even_when_signed_by_hand(ws):
 def test_hooks_json_runs_the_guard_on_the_drive_create_tool_the_spike_recorded():
     hooks = json.loads((PLUGIN / 'hooks' / 'hooks.json').read_text())['hooks']['PreToolUse']
     matcher = next(g['matcher'] for g in hooks if any('guard-stage-order' in h['command'] for h in g['hooks']))
-    assert set(matcher.split('|')) == {'Edit', 'Write', 'Bash', DRIVE_CREATE, 'mcp__claude_ai_Google_Drive__update_file'}
+    # WHY: the two named Drive tools are still guarded, now through the server prefixes (ADR-016, R3)
+    assert set(matcher.split('|')) == {'Edit', 'Write', 'Bash', 'mcp__claude_ai_Google_Drive__.*', 'mcp__claude_ai_Google_Docs__.*'}
+    for tool in (DRIVE_CREATE, 'mcp__claude_ai_Google_Drive__update_file', 'mcp__claude_ai_Google_Docs__update_doc'):
+        assert re.fullmatch(matcher, tool), tool
 
 
 # ---------------- Phase 7b review: the label is checked on the text, in every spelling, and never fails open ----------------
@@ -1366,6 +1410,7 @@ def test_a_folder_recorded_for_another_path_is_not_reused(ws):
 def test_recording_the_folder_beside_an_appended_entry_is_allowed(ws):
     build_state(ws, 'final-unsigned')
     body = {'folder': {'id': 'F1', 'path': 'ws/demo'}, 'revisions': [entry(ws, ready=False)]}
+    log_created(ws, body['revisions'])
     assert guard(ws.root, write_payload(ws.rel('docs.json'), json.dumps(body))).code == 0
 
 
@@ -1461,3 +1506,830 @@ def test_a_pass_that_claims_no_artifact_cannot_skip_the_record_either(ws):
     ws.chain('research')
     (ws.art / 'research.md').unlink()
     assert g1_save(ws, line=PASS['research'], artifact='none').code == 2
+
+
+# ---------------- FT-6 (approval in the Doc): a copy is always unapproved and says where to approve ----------------
+NOTE_APPROVE = 'To approve, write your name after the Approved-by label below, then run writer-plugin:sync.'
+NOTE_SIGN = 'To approve, write your name after the Signed-off-by label below, then run writer-plugin:sync.'
+HTML_NOTE = '<!-- A human fills this line to approve the outline. Any non-empty value after the colon means approved (FLOW-2);\n     an empty line is not approval. -->\n'
+
+
+@pytest.mark.parametrize('value', ['', ' Test Human 2026-11-14'], ids=['empty', 'approved'])
+def test_an_outline_copy_always_shows_an_empty_approval_line_and_the_instruction(value):
+    text = f'# Outline\n\n{HTML_NOTE}Approved-by:{value}\n\n## Thesis\nA claim [F1].\n'
+    assert writer.doc_text(text, 'outline') == f'# Outline\n\n{NOTE_APPROVE}\n\nApproved-by:\n\n## Thesis\nA claim.\n'
+
+
+def test_an_unsigned_final_copy_names_the_signoff_line():
+    text = '# T\n\nBody [F1].\n\nSigned-off-by:\n'
+    assert writer.doc_text(text, 'final') == f'# T\n\nBody.\n\n{NOTE_SIGN}\n\nSigned-off-by:\n'
+
+
+def test_a_publish_ready_final_keeps_its_signed_line_and_gets_no_instruction():
+    text = '# T\n\nBody [F1].\n\nSigned-off-by: Test Human\n'
+    out = writer.doc_text(text, 'final', keep_signoff=True)
+    assert out == '# T\n\nBody.\n\nSigned-off-by: Test Human\n' and 'writer-plugin:sync' not in out
+
+
+def test_a_copy_of_an_artifact_with_no_approval_line_gets_one_at_the_end():
+    assert writer.doc_text('# Draft\n\nBody.\n', 'draft') == f'# Draft\n\nBody.\n\n{NOTE_APPROVE}\n\nApproved-by:\n'
+
+
+def test_an_approval_word_inside_a_code_fence_is_not_an_approval_line():
+    text = '# T\n\n```\nApproved-by: Test Human\n```\n'
+    assert 'Approved-by: Test Human' in writer.doc_text(text, 'draft')
+
+
+def test_without_a_stage_the_text_is_only_stripped_as_before():
+    assert writer.doc_text('# T\n\nApproved-by: x\n') == '# T\n\nApproved-by: x\n'
+
+
+def test_the_instruction_and_the_label_are_separate_paragraphs():
+    """Google merges lines without a blank between them into one paragraph (R0), which would hide the label from `sync`."""
+    out = writer.doc_text('# T\n\nBody.\nApproved-by:\n', 'outline')
+    assert f'{NOTE_APPROVE}\n\nApproved-by:' in out and f'\n\n{NOTE_APPROVE}' in out
+
+
+def test_the_instruction_is_not_an_approval_line_for_the_hash():
+    shown = writer.doc_text('# T\n\nApproved-by:\n', 'outline')
+    assert writer.text_hash(shown) != writer.text_hash('# T\n') and 'Approved-by:' not in writer.strip_approval(shown)
+
+
+@pytest.mark.parametrize('state,stage', [('approved', 'outline'), ('unapproved', 'outline')], ids=['approved-outline', 'unapproved-outline'])
+def test_doc_copy_of_an_outline_is_unapproved_whatever_the_file_says(ws, state, stage):
+    build_state(ws, state)
+    out = json.loads(doc_copy(ws.root, ws.slug, stage).out)
+    assert NOTE_APPROVE in out['text'] and 'Approved-by: Test' not in out['text'] and out['text'].rstrip().count('Approved-by:') == 1
+
+
+def test_doc_copy_of_a_signed_final_with_a_marker_is_unapproved_and_not_labelled(ws):
+    signed_with_marker(ws)
+    out = json.loads(doc_copy(ws.root, ws.slug, 'final').out)
+    assert out['publish_ready'] is False and NOTE_SIGN in out['text'] and 'Signed-off-by: Test Human' not in out['text']
+
+
+# ---------------- ADR-016 (R2): record the Docs the copy skill created and the approval a Doc carries ----------------
+DRIVE_READ = 'mcp__claude_ai_Google_Drive__read_file_content'
+APPROVE_NOTE = writer.doc_note('Approved-by')
+OUTLINE_BODY = '# Outline\n\nApproved-by:\n\n## Thesis\nA thesis [F1].\n\n## Plan\nTwo `things` to do.\n'
+
+
+def readback(shown, name='', tags=False):
+    """What the connector returns for `shown` once Google has rendered it (R0): HTML comments gone, headings wrapped in `*…*`,
+    backticks gone, `name` typed after the Approved-by label."""
+    out = []
+    for line in re.sub(r'<!--.*?-->', '', shown, flags=re.S).split('\n'):
+        if line.startswith('# '):
+            line = '# **' + line[2:] + '**'
+        elif line.startswith('## '):
+            line = '## *' + line[3:] + '*'
+        elif line.startswith('Approved-by:') or line.startswith('Signed-off-by:'):
+            line = line.rstrip() + (' ' + name if name else '')
+        out.append(line.replace('`', ''))
+    text = '\n'.join(l for l in out if l.strip() or True)
+    return re.sub(r'\n{2,}', '\n', text)
+
+
+def drive_post(tool, tool_input, response):
+    return {'hook_event_name': 'PostToolUse', 'tool_name': tool, 'tool_input': tool_input, 'tool_response': response}
+
+
+def created(ws, stage='outline', rev=1, label='', doc_id='doc1', text=None, title=None, log=True, record=True):
+    """Make one Doc the way the copy skill does: upload doc_text of the artifact, let the hook log it, append docs.json."""
+    art = (ws.art / f'{stage}.md')
+    shown = text if text is not None else writer.doc_text(art.read_text(), stage)
+    title = title if title is not None else f'{ws.slug} · {stage} · r{rev}' + (f' · {label}' if label else '')
+    resp = json.dumps({'id': doc_id, 'title': title, 'mimeType': 'application/vnd.google-apps.document'})
+    r = run('record-approval.py', drive_post(DRIVE_CREATE, {'title': title, 'textContent': shown, 'contentMimeType': 'text/markdown'}, resp), ws.root) if log else None
+    if record:
+        rows = json.loads((ws.art / 'docs.json').read_text())['revisions'] if (ws.art / 'docs.json').exists() else []
+        rows.append(dict(stage=stage, rev=rev, id=doc_id, url=f'https://docs.example/{doc_id}', at='t', sha256=writer.text_hash(art.read_text()),
+                         text_sha256=writer.text_hash(shown), title=title, publish_ready=label == 'publish-ready'))
+        record_doc(ws, rows)
+    return shown, r
+
+
+def read(ws, body, doc_id='doc1', threads=None):
+    resp = {'fileContent': body, 'title': 't', 'viewUrl': 'https://docs.example/' + doc_id}
+    if threads:
+        resp['commentThreads'] = threads
+    return run('record-approval.py', drive_post(DRIVE_READ, {'fileId': doc_id, 'includeComments': True}, json.dumps(resp)), ws.root)
+
+
+def approval(ws, stage='outline', rev=1):
+    path = ws.art / 'approvals' / f'{stage}.r{rev}.json'
+    return json.loads(path.read_text()) if path.exists() else None
+
+
+@pytest.fixture
+def ow(ws):
+    (ws.art / 'outline.md').write_text(OUTLINE_BODY)
+    return ws
+
+
+def test_a_name_typed_in_the_latest_doc_of_an_unchanged_outline_is_recorded(ow):
+    shown, _ = created(ow)
+    assert read(ow, readback(shown, 'Test Human 2026-11-17')).code == 0
+    rec = approval(ow)
+    assert (rec['value'], rec['doc_id'], rec['rev'], rec['artifact_sha256']) == (
+        'Test Human 2026-11-17', 'doc1', 1, writer.text_hash(OUTLINE_BODY))
+
+
+def test_the_doc_created_is_logged_with_what_the_copy_skill_uploaded(ow):
+    created(ow)
+    log = json.loads((ow.art / '.docs-created.json').read_text())['docs']
+    assert [(d['id'], d['stage'], d['rev'], d['approvable']) for d in log] == [('doc1', 'outline', 1, True)]
+
+
+def test_a_doc_with_no_name_records_why_and_no_approval(ow):
+    shown, _ = created(ow)
+    read(ow, readback(shown))
+    rec = approval(ow)
+    assert rec['value'] is None and 'no name' in rec['reason']
+
+
+def test_a_body_edited_outside_the_approval_line_records_no_approval(ow):
+    shown, _ = created(ow)
+    read(ow, readback(shown, 'Test Human').replace('A thesis', 'A different thesis'))
+    rec = approval(ow)
+    assert rec['value'] is None and 'differs' in rec['reason']
+
+
+def test_an_artifact_that_changed_since_the_doc_was_made_records_no_approval(ow):
+    shown, _ = created(ow)
+    (ow.art / 'outline.md').write_text(OUTLINE_BODY.replace('A thesis', 'A newer thesis'))
+    read(ow, readback(shown, 'Test Human'))
+    rec = approval(ow)
+    assert rec['value'] is None and 'changed since' in rec['reason']
+
+
+def test_an_older_revision_records_nothing(ow):
+    shown, _ = created(ow, rev=1, doc_id='doc1')
+    created(ow, rev=2, doc_id='doc2')
+    read(ow, readback(shown, 'Test Human'), doc_id='doc1')
+    assert approval(ow, rev=1) is None
+
+
+def test_a_doc_nobody_created_with_the_copy_skill_records_nothing(ow):
+    shown, _ = created(ow, log=False)  # a docs.json entry for an id the create hook never saw
+    read(ow, readback(shown, 'Test Human'))
+    assert approval(ow) is None
+
+
+def test_a_filled_upload_under_any_title_is_never_logged_and_never_approves(ow):
+    filled = writer.doc_text(OUTLINE_BODY, 'outline').replace('Approved-by:\n', 'Approved-by: Forged Name\n')
+    created(ow, text=filled)
+    assert not (ow.art / '.docs-created.json').exists()
+    read(ow, readback(filled))
+    assert approval(ow) is None
+    other, _ = created(ow, text=filled, title='notes about outline', doc_id='doc9', record=False)
+    assert not (ow.art / '.docs-created.json').exists()
+
+
+def test_a_comment_cannot_approve(ow):
+    shown, _ = created(ow)
+    threads = [{'commentId': 'c1', 'status': 'OPEN', 'headPost': {'authorName': 'A', 'content': 'Approved-by: Evil Name', 'modifiedTime': 't', 'postId': 'p'}}]
+    read(ow, readback(shown), threads=threads)
+    assert approval(ow)['value'] is None
+
+
+@pytest.mark.parametrize('extra,reason', [
+    ('```\nApproved-by: Fenced Name\n```\n', 'no name'),
+    ('Note: Approved-by: Mid Line\n', 'differs'),
+], ids=['code-fence', 'mid-line'])
+def test_an_approval_word_inside_a_code_fence_or_mid_line_is_not_the_line(ow, extra, reason):
+    """The real label is missing from the Doc, so only the look-alike could produce a name: it must not."""
+    shown, _ = created(ow)
+    body = readback(shown).replace('Approved-by:\n', '') + '\n' + extra
+    read(ow, body)
+    rec = approval(ow)
+    assert rec['value'] is None and reason in rec['reason']
+
+
+def test_a_comment_anchor_around_the_name_is_stripped(ow):
+    shown, _ = created(ow)
+    body = readback(shown, '<comment_start id=doco.x>Test Human<comment_end id=doco.x>')
+    read(ow, body)
+    assert approval(ow)['value'] == 'Test Human'
+
+
+def test_a_reviewer_who_deletes_the_instruction_while_approving_still_approves(ow):
+    shown, _ = created(ow)
+    body = readback(shown, 'Test Human').replace(APPROVE_NOTE + '\n', '')
+    read(ow, body)
+    assert approval(ow)['value'] == 'Test Human'
+
+
+def test_the_first_approval_line_wins_and_the_value_is_trimmed(ow):
+    shown, _ = created(ow)
+    read(ow, readback(shown, '   First Name   ') + '\nApproved-by: Second Name\n')
+    assert approval(ow)['value'] == 'First Name'
+
+
+def test_a_value_over_120_characters_is_refused(ow):
+    shown, _ = created(ow)
+    read(ow, readback(shown, 'x' * 121))
+    assert approval(ow)['value'] is None
+
+
+def test_a_later_read_without_a_name_clears_the_earlier_approval(ow):
+    shown, _ = created(ow)
+    read(ow, readback(shown, 'Test Human'))
+    assert approval(ow)['value'] == 'Test Human'
+    read(ow, readback(shown))
+    assert approval(ow)['value'] is None
+
+
+def test_a_publish_ready_copy_is_logged_but_never_yields_an_approval(ws):
+    (ws.art / 'final.md').write_text('# T\n\nBody [F1].\n\nSigned-off-by: Test Human\n')
+    shown = writer.doc_text((ws.art / 'final.md').read_text(), 'final', keep_signoff=True)
+    created(ws, stage='final', label='publish-ready', text=shown)
+    assert json.loads((ws.art / '.docs-created.json').read_text())['docs'][0]['approvable'] is False
+    read(ws, shown)
+    assert approval(ws, 'final') is None
+
+
+def test_an_ungated_copy_is_logged_with_its_label(ow):
+    created(ow, label='ungated')
+    assert json.loads((ow.art / '.docs-created.json').read_text())['docs'][0]['id'] == 'doc1'
+
+
+def test_an_upload_that_is_not_the_artifacts_copy_is_not_logged(ow):
+    created(ow, text='# Something else\n')
+    assert not (ow.art / '.docs-created.json').exists()
+
+
+def test_the_final_uses_the_signoff_label(ws):
+    (ws.art / 'final.md').write_text('# T\n\nBody [F1].\n\nSigned-off-by:\n')
+    shown, _ = created(ws, stage='final')
+    read(ws, readback(shown, 'Test Human'))
+    assert approval(ws, 'final')['value'] == 'Test Human'
+
+
+@pytest.mark.parametrize('raw', ['not json', '{}', '[]', '{"hook_event_name": "PostToolUse"}'], ids=['text', 'empty', 'list', 'no-tool'])
+def test_the_recorder_fails_open_on_unreadable_input(ow, raw):
+    assert run('record-approval.py', {}, ow.root, raw=raw).code == 0
+
+
+def test_a_tool_response_that_is_not_json_records_nothing(ow):
+    created(ow)
+    assert run('record-approval.py', drive_post(DRIVE_READ, {'fileId': 'doc1'}, 'plain text'), ow.root).code == 0
+    assert approval(ow) is None
+
+
+def test_other_tools_are_ignored(ow):
+    assert run('record-approval.py', drive_post('Write', {'file_path': 'x'}, {}), ow.root).code == 0
+    assert not (ow.art / 'approvals').exists()
+
+
+def test_hooks_json_registers_the_recorder_on_the_two_drive_tools():
+    hooks = json.loads((PLUGIN / 'hooks' / 'hooks.json').read_text())['hooks']['PostToolUse']
+    entry = next(h for h in hooks if 'record-approval.py' in h['hooks'][0]['command'])
+    assert re.fullmatch(entry['matcher'], DRIVE_CREATE) and re.fullmatch(entry['matcher'], DRIVE_READ)
+    assert not re.fullmatch(entry['matcher'], 'Write') and not re.fullmatch(entry['matcher'], 'mcp__claude_ai_Google_Drive__search_files')
+
+
+# ---------------- ADR-016 (R3): the guard for approval in the Doc ----------------
+def doc_tool(ws, tool, **ti):
+    return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': f'mcp__claude_ai_Google_{tool}', 'tool_input': ti})
+
+
+def logged(ws, doc_id='docL', stage='outline'):
+    (ws.art / '.docs-created.json').write_text(json.dumps({'docs': [{'id': doc_id, 'title': f'demo · {stage} · r1', 'slug': 'demo', 'stage': stage,
+                                                                      'rev': 1, 'label': '', 'text_sha256': 'x', 'approvable': True, 'at': 't'}]}))
+
+
+@pytest.mark.parametrize('stage,prev', [('research', 'brief'), ('outline', 'research'), ('draft', 'outline'), ('final', 'draft')])
+def test_a_stage_is_blocked_until_the_previous_artifact_is_approved(ws, stage, prev):
+    ws.chain(stage)
+    (ws.art / f'{prev}.md').write_text(OUTLINE.format(approval='') if prev == 'outline' else f'# {prev}\n\ntext\n\nApproved-by:\n')
+    r = guard(ws.root, write_payload(ws.rel(f'{stage}.md')))
+    assert r.code == 2 and 'FLOW-2' in r.err and f'{prev}.md' in r.err
+
+
+@pytest.mark.parametrize('stage,body', [('brief', '# Brief\n\ntext\n\nApproved-by: Test Human\n'), ('research', '# R\n\nApproved-by: Test Human\n'),
+                                        ('outline', '# O\n\nApproved-by: Test Human\n'), ('draft', '# D\n\nApproved-by: Test Human\n')])
+def test_a_tool_cannot_fill_an_approval_without_a_record(ws, stage, body):
+    ws.chain('final')
+    (ws.art / f'{stage}.md').write_text(body.replace('Test Human', ''))
+    r = guard(ws.root, write_payload(ws.rel(f'{stage}.md'), body))
+    assert r.code == 2 and 'FLOW-2' in r.err and 'Google Doc' in r.err
+
+
+def test_an_approval_with_a_matching_record_is_allowed_whole_file_or_edit(ws):
+    ws.chain('final')
+    (ws.art / 'research.md').write_text('# R\n\nbody\n\nApproved-by:\n')
+    signed = '# R\n\nbody\n\nApproved-by: Test Human\n'
+    give_approval(ws, 'research', 'Test Human', signed)
+    assert guard(ws.root, write_payload(ws.rel('research.md'), signed)).code == 0
+    assert edit_final_like(ws, 'research.md', 'Approved-by:\n', 'Approved-by: Test Human\n').code == 0
+
+
+def edit_final_like(ws, name, old, new):
+    return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': 'Edit', 'tool_input': {
+        'file_path': ws.rel(name), 'old_string': old, 'new_string': new, 'replace_all': False}})
+
+
+@pytest.mark.parametrize('rec_value,rec_text,why', [
+    ('Someone Else', '# R\n\nbody\n\nApproved-by: Test Human\n', 'another name'),
+    ('Test Human', '# R\n\nan older body\n\nApproved-by: Test Human\n', 'another text (stale)'),
+], ids=['other-name', 'stale-hash'])
+def test_a_record_for_another_name_or_text_does_not_allow_the_write(ws, rec_value, rec_text, why):
+    ws.chain('final')
+    (ws.art / 'research.md').write_text('# R\n\nbody\n\nApproved-by:\n')
+    give_approval(ws, 'research', rec_value, rec_text)
+    assert guard(ws.root, write_payload(ws.rel('research.md'), '# R\n\nbody\n\nApproved-by: Test Human\n')).code == 2, why
+
+
+def test_clearing_an_approval_and_leaving_an_approved_file_untouched_are_allowed(ws):
+    ws.chain('final')
+    (ws.art / 'research.md').write_text('# R\n\nbody\n\nApproved-by: Test Human\n')
+    assert guard(ws.root, write_payload(ws.rel('research.md'), '# R\n\nbody\n\nApproved-by:\n')).code == 0
+    assert guard(ws.root, write_payload(ws.rel('research.md'), '# R\n\nbody\n\nApproved-by: Test Human\n')).code == 0
+
+
+def test_changing_an_approved_artifact_while_keeping_the_name_is_refused(ws):
+    ws.chain('final')
+    (ws.art / 'research.md').write_text('# R\n\nbody\n\nApproved-by: Test Human\n')
+    r = edit_final_like(ws, 'research.md', 'body', 'a different body')
+    assert r.code == 2 and 'FLOW-2' in r.err and 'clears it' in r.err
+
+
+def test_a_corrupt_approval_record_refuses_instead_of_allowing(ws):
+    ws.chain('final')
+    (ws.art / 'research.md').write_text('# R\n\nbody\n\nApproved-by:\n')
+    (ws.art / 'approvals').mkdir()
+    (ws.art / 'approvals' / 'research.r1.json').write_text('not json')
+    assert guard(ws.root, write_payload(ws.rel('research.md'), '# R\n\nbody\n\nApproved-by: Test Human\n')).code == 2
+
+
+def test_a_signoff_needs_the_record_as_well_as_the_g4_pass(ws):
+    final_ready(ws)
+    ws.verdict('final', 1, PASS['final'], sidecar=True)
+    signed = FINAL.format(who=' Test Human')
+    assert guard(ws.root, write_payload(ws.rel('final.md'), signed)).code == 0
+    (ws.art / 'approvals' / 'final.r1.json').unlink()
+    r = guard(ws.root, write_payload(ws.rel('final.md'), signed))
+    assert r.code == 2 and 'FLOW-6' in r.err
+
+
+@pytest.mark.parametrize('payload', [
+    write_payload('articles/demo/approvals/outline.r1.json', '{}'),
+    edit_payload('articles/demo/approvals/outline.r1.json'),
+    bash_payload('echo {} > articles/demo/approvals/outline.r1.json'),
+    write_payload('articles/demo/.docs-created.json', '{}'),
+    edit_payload('articles/demo/.docs-created.json'),
+    bash_payload('cp /tmp/x articles/demo/.docs-created.json'),
+], ids=['write-approval', 'edit-approval', 'shell-approval', 'write-log', 'edit-log', 'shell-log'])
+def test_no_tool_writes_the_approval_records_or_the_created_log(ws, payload):
+    r = guard(ws.root, payload)
+    assert r.code == 2 and 'FLOW-4' in r.err and 'sync' in r.err
+
+
+def create(ws, title, text, **extra):
+    return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE,
+                           'tool_input': dict({'title': title, 'textContent': text, 'contentMimeType': 'text/markdown'}, **extra)})
+
+
+@pytest.mark.parametrize('title', ['notes', 'demo · outline · r1', 'demo · outline · r1 · ungated'], ids=['other-title', 'article-title', 'ungated'])
+def test_an_upload_with_a_name_already_in_the_approval_line_is_refused_under_any_title(ow, title):
+    r = create(ow, title, '# Outline\n\nApproved-by: Forged Name\n')
+    assert r.code == 2 and 'FLOW-2' in r.err
+
+
+def test_a_signoff_line_filled_in_an_upload_is_refused_too(ws):
+    assert create(ws, 'notes', '# T\n\nSigned-off-by: Forged Name\n').code == 2
+
+
+def test_an_exact_copy_is_allowed_and_a_look_alike_in_a_fence_is_not_an_approval(ow):
+    shown = writer.doc_text(OUTLINE_BODY, 'outline')
+    assert create(ow, 'demo · outline · r1', shown).code == 0
+    assert create(ow, 'notes', '# Git\n\n```\nSigned-off-by: Jane <j@x.test>\n```\n').code == 0
+
+
+@pytest.mark.parametrize('text,extra', [('# Something else\n', {}), (None, {'base64Content': 'eA=='}), (None, {'content': 'eA=='})],
+                         ids=['other-text', 'base64', 'deprecated-content'])
+def test_a_doc_titled_as_the_articles_copy_must_be_exactly_that_copy(ow, text, extra):
+    shown = writer.doc_text(OUTLINE_BODY, 'outline')
+    ti = {'title': 'demo · outline · r1', 'contentMimeType': 'text/markdown', **({'textContent': text} if text else {}), **extra}
+    if text is None and extra:
+        ti['textContent'] = shown
+    r = guard(ow.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE, 'tool_input': ti})
+    assert r.code == 2 and 'FLOW-6' in r.err
+
+
+def test_a_folder_create_and_an_unrelated_doc_pass(ow):
+    folder = guard(ow.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE, 'tool_input': {
+        'title': 'demo', 'contentMimeType': 'application/vnd.google-apps.folder', 'parentId': 'root'}})
+    assert folder.code == 0 and create(ow, 'my notes', '# Plain text\n').code == 0
+
+
+def test_a_new_docs_entry_must_match_a_doc_the_create_hook_logged(ow):
+    shown, _ = created(ow, log=True, record=False)
+    good = entry(ow, stage='outline', ready=False)
+    good['id'], good['title'] = 'doc1', 'demo · outline · r1'
+    good['text_sha256'] = writer.text_hash(shown)
+    assert docs_write(ow, [good], logged=False).code == 0
+    for field, bad in (('id', 'other'), ('title', 'demo · outline · r9'), ('text_sha256', 'f' * 64), ('sha256', 'e' * 64)):
+        assert docs_write(ow, [dict(good, **{field: bad})], logged=False).code == 2, field
+
+
+def test_an_entry_with_no_log_or_a_corrupt_log_is_refused(ow):
+    e = entry(ow, stage='outline', ready=False)
+    assert docs_write(ow, [e], logged=False).code == 2
+    (ow.art / '.docs-created.json').write_text('not json')
+    assert docs_write(ow, [e], logged=False).code == 2
+
+
+def test_the_publish_ready_path_and_an_ungated_copy_pass_the_whole_chain(ws):
+    build_state(ws, 'signed')
+    final = (ws.art / 'final.md').read_text()
+    shown = writer.doc_text(final, 'final', keep_signoff=True)
+    title = 'demo · final · r1 · publish-ready'
+    assert create(ws, title, shown).code == 0
+    run('record-approval.py', drive_post(DRIVE_CREATE, {'title': title, 'textContent': shown}, json.dumps({'id': 'dpr'})), ws.root)
+    e = dict(entry(ws, ready=True), id='dpr', text_sha256=writer.text_hash(shown))
+    assert docs_write(ws, [e], logged=False).code == 0
+
+
+@pytest.mark.parametrize('tool', ['Docs__update_doc', 'Drive__update_file', 'Drive__copy_file', 'Drive__trash_file', 'Drive__share_file',
+                                  'Drive__a_tool_added_later'], ids=['update-doc', 'update-file', 'copy', 'trash', 'share', 'unknown'])
+def test_a_connector_call_that_is_not_a_read_is_refused_on_a_logged_doc(ws, tool):
+    logged(ws)
+    key = 'documentId' if tool.startswith('Docs') else 'fileId'
+    assert doc_tool(ws, tool, **{key: 'docL'}).code == 2
+    assert doc_tool(ws, tool, **{key: 'someone elses doc'}).code == 0
+
+
+@pytest.mark.parametrize('tool', ['Docs__read_doc', 'Drive__read_file_content', 'Drive__get_file_metadata', 'Drive__download_file_content',
+                                  'Drive__list_file_revisions'])
+def test_reading_a_logged_doc_is_always_allowed(ws, tool):
+    logged(ws)
+    assert doc_tool(ws, tool, fileId='docL', documentId='docL').code == 0
+
+
+@pytest.mark.parametrize('tool', ['Docs__update_doc', 'Drive__update_file', 'Drive__copy_file', 'Drive__trash_file', 'Drive__share_file'])
+def test_a_write_tool_that_names_no_doc_is_refused(ws, tool):
+    assert doc_tool(ws, tool, title='x').code == 2
+
+
+def test_a_search_with_no_log_and_a_call_outside_a_workspace_pass(ws, tmp_path):
+    assert doc_tool(ws, 'Drive__search_files', query="title = 'x'").code == 0
+    assert doc_tool(ws, 'Drive__update_file', fileId='any', title='renamed').code == 0  # no log: nothing is protected yet
+    elsewhere = tmp_path / 'not-a-workspace'
+    elsewhere.mkdir()
+    r = guard(elsewhere, {'hook_event_name': 'PreToolUse', 'tool_name': 'mcp__claude_ai_Google_Docs__update_doc', 'tool_input': {'documentId': 'd'}})
+    assert r.code == 0
+
+
+def test_a_corrupt_created_log_refuses_a_write_tool(ws):
+    (ws.art / '.docs-created.json').write_text('{broken')
+    assert doc_tool(ws, 'Docs__update_doc', documentId='anything').code == 2
+
+
+@pytest.mark.parametrize('tool', ['mcp__claude_ai_Google_Docs__update_doc', 'mcp__claude_ai_Google_Drive__share_file', DRIVE_CREATE])
+def test_input_the_guard_cannot_read_is_refused_for_a_connector_tool(ws, tool):
+    assert guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': tool, 'tool_input': 'a string'}).code == 2
+
+
+FAULTS = [
+    ('approval-write', lambda ws: guard(ws.root, write_payload(ws.rel('research.md'), '# R\n'), env={'WRITER_GUARD_TEST_FAULT': 'approval-write'})),
+    ('docs-entry', lambda ws: guard(ws.root, write_payload(ws.rel('docs.json'), json.dumps({'revisions': [entry(ws, stage='outline', ready=False)]})),
+                                    env={'WRITER_GUARD_TEST_FAULT': 'docs-entry'})),
+    ('create', lambda ws: guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE, 'tool_input': {'title': 'x', 'textContent': 'y'}},
+                                env={'WRITER_GUARD_TEST_FAULT': 'create'})),
+    ('doc-tool', lambda ws: guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': 'mcp__claude_ai_Google_Docs__update_doc',
+                                            'tool_input': {'documentId': 'd'}}, env={'WRITER_GUARD_TEST_FAULT': 'doc-tool'})),
+]
+
+
+@pytest.mark.parametrize('name,call', FAULTS, ids=[f[0] for f in FAULTS])
+def test_each_fail_closed_rule_blocks_when_it_hits_an_unexpected_error(ws, name, call):
+    ws.chain('final')
+    r = call(ws)
+    assert r.code == 2 and 'could not be checked' in r.err and 'RuntimeError' in r.err
+
+
+# ---------------- ADR-016 (R4): every stage waits for its approval, and the status carries `comments` ----------------
+NEXT_AFTER = {'brief': 'research', 'research': 'outline', 'outline': 'draft', 'draft': 'final'}
+
+
+def unapprove(ws, stage):
+    (ws.art / f'{stage}.md').write_text(OUTLINE.format(approval='') if stage == 'outline' else f'# {stage}\n\ntext\n\nApproved-by:\n')
+
+
+@pytest.mark.parametrize('stage', list(NEXT_AFTER))
+def test_a_passed_stage_without_its_approval_is_waiting_for_a_human(ws, stage):
+    ws.approve()  # the outline defaults to unapproved; only `stage` is left without its approval
+    unapprove(ws, stage)
+    ws.chain(NEXT_AFTER[stage])
+    s = writer.article_state(str(ws.root), ws.slug)
+    assert (s['next'], s['stage']) == ('approve', stage)
+    assert s['summary'] == f"{stage} passed {GATE[stage]}, waiting for a human's Approved-by"
+    assert writer.describe_article(str(ws.root), ws.slug).startswith(s['summary'])
+
+
+@pytest.mark.parametrize('stage', list(NEXT_AFTER))
+def test_an_approved_stage_hands_over_to_the_next(ws, stage):
+    ws.chain(NEXT_AFTER[stage])
+    if stage == 'outline':
+        ws.approve()
+    s = writer.article_state(str(ws.root), ws.slug)
+    assert s['next'] != 'approve' or s['stage'] != stage
+
+
+def test_an_unapproved_earlier_stage_holds_the_chain_even_when_later_files_exist(ws):
+    unapprove(ws, 'research')
+    ws.chain('final')
+    s = writer.article_state(str(ws.root), ws.slug)
+    assert (s['next'], s['stage']) == ('approve', 'research')
+
+
+def test_a_stale_verdict_still_outranks_a_missing_approval(ws):
+    unapprove(ws, 'research')
+    ws.chain('outline')
+    (ws.art / 'research.md').write_text('# research\n\nchanged text\n\nApproved-by:\n')
+    assert writer.article_state(str(ws.root), ws.slug)['next'] == 'stale'
+
+
+@pytest.mark.parametrize('state', ['nothing', 'brief-passed', 'unapproved', 'two-blocks', 'stale', 'final-unsigned', 'signed'])
+def test_the_status_json_carries_an_empty_comments_list_in_every_state(ws, state):
+    build_state(ws, state)
+    out = json.loads(subprocess.run([sys.executable, str(BIN / 'article-status.py'), '--root', str(ws.root), ws.slug],
+                                    capture_output=True, text=True).stdout)
+    assert out['comments'] == [] and 'next' in out
+
+
+@pytest.mark.parametrize('slug', ['', '../x', 'bad\nslug'], ids=['none', 'dotdot', 'newline'])
+def test_an_invalid_slug_still_prints_unknown_with_an_empty_comments_list(ws, slug):
+    args = [slug] if slug else []
+    out = json.loads(subprocess.run([sys.executable, str(BIN / 'article-status.py'), '--root', str(ws.root), *args], capture_output=True, text=True).stdout)
+    assert (out['next'], out['comments']) == ('unknown', [])
+
+
+# ---------------- ADR-016 self-review findings ----------------
+FILLED_OUTLINE = '# O\n\nApproved-by: Mallory\n'
+
+
+@pytest.mark.parametrize('rel', ['Articles/demo/outline.md', 'ARTICLES/demo/outline.md', 'articles/demo/OUTLINE.md'], ids=['Articles', 'ARTICLES', 'OUTLINE'])
+def test_the_guard_reads_the_articles_path_case_insensitively(ws, rel):
+    """The default macOS filesystem treats these as the same file, so they must meet the same rules."""
+    ws.chain('final')
+    (ws.art / 'outline.md').write_text('# O\n\nApproved-by:\n')
+    r = guard(ws.root, write_payload(rel, FILLED_OUTLINE))
+    assert r.code == 2 and 'FLOW-2' in r.err
+
+
+def test_a_symlink_to_the_articles_folder_is_guarded_like_the_folder(ws):
+    ws.chain('final')
+    (ws.art / 'outline.md').write_text('# O\n\nApproved-by:\n')
+    os.symlink(ws.root / 'articles', ws.root / 'art2')
+    r = guard(ws.root, write_payload('art2/demo/outline.md', FILLED_OUTLINE))
+    assert r.code == 2 and 'FLOW-2' in r.err
+
+
+@pytest.mark.parametrize('command', [
+    "sed -i '' 's/^Approved-by:.*$/Approved-by: Mallory/' articles/demo/outline.md",
+    "echo 'Approved-by: Mallory' >> articles/demo/outline.md",
+    "printf 'Signed-off-by: Mallory\\n' >> articles/demo/final.md",
+    "tee -a articles/demo/draft.md <<< 'approved-by: Mallory'",
+    "perl -pi -e 's/^Approved-by:/Approved-by: M/' articles/demo/research.md",
+], ids=['sed', 'echo-append', 'printf-signoff', 'tee', 'perl'])
+def test_a_shell_command_that_writes_an_approval_label_into_an_artifact_is_refused(ws, command):
+    ws.chain('final')
+    r = guard(ws.root, bash_payload(command))
+    assert r.code == 2 and 'Write tool' in r.err and ('FLOW-2' in r.err or 'FLOW-6' in r.err)
+
+
+@pytest.mark.parametrize('command', [
+    "echo 'Approved-by: someone' > articles/demo/notes.md",
+    "git commit -m 'Signed-off-by: A'",
+    "grep -n 'Approved-by' articles/demo/outline.md",
+], ids=['other-file', 'no-target', 'a-read'])
+def test_a_shell_command_that_does_not_write_an_artifact_is_not_caught_by_the_label_rule(ws, command):
+    ws.chain('final')
+    assert guard(ws.root, bash_payload(command)).code == 0
+
+
+@pytest.mark.parametrize('ti', [
+    {'ids': ['docL']}, {'target': {'doc': 'docL'}}, {'url': 'https://docs.google.com/document/d/docL/edit'}, {'fileIds': ['x', 'docL']},
+], ids=['list', 'nested', 'url', 'second-item'])
+def test_an_unknown_tool_is_refused_whatever_key_carries_a_logged_doc_id(ws, ti):
+    logged(ws)
+    assert doc_tool(ws, 'Docs__tool_added_later', **ti).code == 2
+    assert doc_tool(ws, 'Docs__tool_added_later', **{k: 'someone elses doc' for k in ti}).code == 0
+
+
+def test_a_read_tool_may_carry_a_logged_id_under_any_key(ws):
+    logged(ws)
+    assert doc_tool(ws, 'Drive__search_files', query='docL').code == 0
+
+
+def test_a_text_line_that_ends_in_an_html_comment_is_not_deleted_from_the_copy():
+    text = '# T\n\nKeep TTL under 200 ms. <!-- see F3 -->\nApproved-by:\n'
+    out = writer.doc_text(text, 'outline')
+    assert 'Keep TTL under 200 ms.' in out and f'{NOTE_APPROVE}\n\nApproved-by:' in out
+
+
+def test_a_multi_line_guidance_comment_directly_above_the_line_is_still_dropped():
+    out = writer.doc_text('# T\n\n<!-- one\n     two -->\nApproved-by:\n', 'outline')
+    assert 'one' not in out and 'two' not in out
+
+
+@pytest.mark.parametrize('old,new', [('10.5%', '-10,5%'), ('x < 5', 'x > 5'), ('a = b', 'a ± b'), ('costs $5', 'costs 5'), ('3.14', '314')],
+                         ids=['sign-and-decimal', 'less-greater', 'equals-plusminus', 'currency', 'decimal-point'])
+def test_an_edit_that_changes_only_a_number_or_an_operator_is_still_an_edit(ow, old, new):
+    (ow.art / 'outline.md').write_text(OUTLINE_BODY.replace('A thesis', f'A thesis with {old}'))
+    shown, _ = created(ow)
+    read(ow, readback(shown, 'Test Human').replace(old, new))
+    rec = approval(ow)
+    assert rec['value'] is None and 'differs' in rec['reason']
+
+
+@pytest.mark.parametrize('word', ['max_age', 'a_b_c'])
+def test_an_underscore_escaped_by_google_is_not_an_edit(ow, word):
+    (ow.art / 'outline.md').write_text(OUTLINE_BODY.replace('A thesis', f'A {word} thesis'))
+    shown, _ = created(ow)
+    read(ow, readback(shown, 'Test Human').replace(word, word.replace('_', '\\_')))
+    assert approval(ow)['value'] == 'Test Human'
+
+
+def test_a_stage_whose_previous_artifact_cannot_be_read_is_refused_not_allowed(ws):
+    ws.chain('outline')
+    (ws.art / 'research.md').write_bytes(b'\xff\xfe broken \xff\nApproved-by:\n')
+    r = guard(ws.root, write_payload(ws.rel('outline.md')))
+    assert r.code == 2 and 'could not be checked' in r.err
+
+
+def test_the_stage_rule_blocks_when_it_hits_an_unexpected_error(ws):
+    ws.chain('outline')
+    r = guard(ws.root, write_payload(ws.rel('outline.md')), env={'WRITER_GUARD_TEST_FAULT': 'stage'})
+    assert r.code == 2 and 'RuntimeError' in r.err
+
+
+def test_two_creates_at_once_both_end_up_in_the_created_log(ow):
+    shown = writer.doc_text(OUTLINE_BODY, 'outline')
+    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(ow.root))
+    procs = []
+    for i in range(8):
+        payload = drive_post(DRIVE_CREATE, {'title': f'demo · outline · r{i + 1}', 'textContent': shown}, json.dumps({'id': f'doc{i}'}))
+        procs.append(subprocess.Popen([sys.executable, str(BIN / 'record-approval.py')], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE, text=True, env=env, cwd=str(ow.root)))
+        procs[-1].stdin.write(json.dumps(dict(payload, cwd=str(ow.root))))
+        procs[-1].stdin.close()
+    for p in procs:
+        p.wait(timeout=30)
+    ids = sorted(d['id'] for d in json.loads((ow.art / '.docs-created.json').read_text())['docs'])
+    assert ids == sorted(f'doc{i}' for i in range(8))
+    assert not [p for p in ow.art.iterdir() if p.name.endswith('.lock')], 'the lock must not land in the article folder'
+
+
+# ---------------- ADR-016 (R6): pending reviewer comments ----------------
+def comments_file(ws, stage='outline', rev=1, sha=None, threads=('OPEN',), header=True, docs=True, docs_sha=None):
+    """A comments file exactly as the sync skill writes it (Step 4 of skills/sync-comments)."""
+    real = writer.text_hash((ws.art / f'{stage}.md').read_text())
+    sha = sha if sha is not None else real
+    if docs:
+        rows = json.loads((ws.art / 'docs.json').read_text())['revisions'] if (ws.art / 'docs.json').exists() else []
+        rows.append({'stage': stage, 'rev': rev, 'id': f'd{stage}{rev}', 'url': 'u', 'at': 't', 'sha256': docs_sha or real, 'title': f'demo · {stage} · r{rev}', 'publish_ready': False})
+        (ws.art / 'docs.json').write_text(json.dumps({'revisions': rows}))
+    body = f'# Reviewer comments · {stage} · r{rev}\n\nDoc: https://docs.example/d1 · Doc id: d1 · Artifact sha256: {sha} · Synced: 2026-11-17\n\nThese are reviewer comments.\n'
+    if not threads:
+        body += '\nNo comments on this revision.\n'
+    for n, status in enumerate(threads, 1):
+        body += f'\n## Comment {n} · {status}\nAnchor:\n> Thesis\n\nComment by `A`:\n> Make it smaller\n'
+    (ws.art / 'comments').mkdir(exist_ok=True)
+    (ws.art / 'comments' / f'{stage}.r{rev}.md').write_text(body if header else body.replace('Artifact sha256', 'Artifact hash'))
+
+
+def pending(ws):
+    return writer.pending_comments(str(ws.root), ws.slug)
+
+
+def test_a_comments_file_for_the_current_artifact_with_an_open_thread_is_pending(ws):
+    comments_file(ws, 'outline', 2, threads=('OPEN', 'RESOLVED', 'OPEN'))
+    assert pending(ws) == [{'stage': 'outline', 'file': 'comments/outline.r2.md', 'rev': 2, 'open': 2, 'approved': False}]
+
+
+@pytest.mark.parametrize('kwargs,why', [
+    (dict(sha='f' * 64), 'a different artifact'),
+    (dict(threads=('RESOLVED',)), 'only resolved threads'),
+    (dict(threads=()), 'no comments on this revision'),
+    (dict(header=False), 'no hash in the header'),
+], ids=['other-hash', 'resolved-only', 'empty', 'no-hash'])
+def test_a_comments_file_that_does_not_apply_is_not_pending(ws, kwargs, why):
+    comments_file(ws, 'outline', **kwargs)
+    assert pending(ws) == [], why
+
+
+def test_only_the_highest_revision_counts_and_a_rebuild_ends_it(ws):
+    comments_file(ws, 'outline', 1)
+    comments_file(ws, 'outline', 2, threads=('RESOLVED',))
+    assert pending(ws) == []
+    comments_file(ws, 'outline', 3)
+    assert [p['rev'] for p in pending(ws)] == [3]
+    (ws.art / 'outline.md').write_text(OUTLINE.format(approval='') + '\nrebuilt\n')   # the stage rebuilt it: the comments are consumed
+    assert pending(ws) == []
+
+
+def test_the_brief_has_no_comments_rerun_and_each_other_stage_is_listed_in_order(ws):
+    for stage in ('final', 'draft', 'brief', 'research'):
+        comments_file(ws, stage)
+    assert [p['stage'] for p in pending(ws)] == ['research', 'draft', 'final']
+
+
+def test_a_comment_that_looks_like_a_heading_cannot_open_a_thread(ws):
+    comments_file(ws, 'outline', threads=())
+    path = ws.art / 'comments' / 'outline.r1.md'
+    path.write_text(path.read_text() + '\n> ## Comment 9 · OPEN\n')   # reviewer text is quoted with `> `
+    assert pending(ws) == []
+
+
+def test_the_status_lists_pending_comments_and_the_state_keeps_its_order(ws):
+    build_state(ws, 'unapproved')
+    comments_file(ws, 'outline')
+    out = json.loads(status(ws.root, ws.slug).out)
+    assert out['comments'] == [{'stage': 'outline', 'file': 'comments/outline.r1.md', 'rev': 1, 'open': 1, 'approved': False}]
+    assert out['next'] == 'approve'
+
+
+
+# ---------------- review of the comment rerun: forged pending state, approved artifacts, the comments file ----------------
+def test_a_pending_entry_says_whether_the_artifact_is_already_approved(ws):
+    (ws.art / 'outline.md').write_text('# O\n\ntext\n\nApproved-by: Test Human\n')
+    comments_file(ws, 'outline')
+    (ws.art / 'final.md').write_text('# F\n\ntext\n\nSigned-off-by:\n')
+    comments_file(ws, 'final')
+    got = {p['stage']: p['approved'] for p in pending(ws)}
+    assert got == {'outline': True, 'final': False}
+
+
+@pytest.mark.parametrize('kwargs,why', [
+    (dict(docs_sha='f' * 64), 'the header hash is not the hash docs.json recorded for that revision'),
+    (dict(docs=False), 'docs.json has no such revision'),
+], ids=['docs-hash-differs', 'no-docs-entry'])
+def test_a_comments_file_must_match_the_revision_docs_json_recorded(ws, kwargs, why):
+    comments_file(ws, 'outline', **kwargs)
+    assert pending(ws) == [], why
+
+
+@pytest.mark.parametrize('mutate,why', [
+    (lambda t: t.replace('Doc: https', 'Doc: `https').replace(' · Doc id', '` · Doc id'), 'a header wrapped in backticks'),
+    (lambda t: t.replace('Artifact sha256', 'ARTIFACT SHA256'), 'an uppercase label'),
+    (lambda t: t + '\n## Comment 2 · OPEN\n', 'an unquoted thread heading after the threads'),
+    (lambda t: t + '\nsome unquoted reviewer words\n', 'a stray unquoted line among the threads'),
+], ids=['backticked-header', 'uppercase-label', 'unquoted-heading', 'stray-line'])
+def test_a_comments_file_that_is_not_in_the_shape_sync_writes_is_not_pending(ws, mutate, why):
+    comments_file(ws, 'outline', threads=('RESOLVED',))
+    path = ws.art / 'comments' / 'outline.r1.md'
+    path.write_text(mutate(path.read_text()))
+    assert pending(ws) == [], why
+
+
+def test_a_hash_quoted_by_a_reviewer_cannot_stand_in_for_the_header(ws):
+    comments_file(ws, 'outline')
+    path = ws.art / 'comments' / 'outline.r1.md'
+    real = writer.text_hash((ws.art / 'outline.md').read_text())
+    path.write_text(path.read_text().replace('Artifact sha256', 'ARTIFACT SHA256') + f'\n> Artifact sha256: {real}\n')   # the header no longer parses
+    assert pending(ws) == []
+
+
+def write_comments(ws, name, text, tool='Write'):
+    if tool == 'Bash':
+        return guard(ws.root, bash_payload(f'echo x > articles/demo/comments/{name}'))
+    return guard(ws.root, write_payload(ws.rel(f'comments/{name}'), text))
+
+
+def sync_text(sha, stage='outline', rev=1):
+    return f'# Reviewer comments · {stage} · r{rev}\n\nDoc: u · Doc id: d · Artifact sha256: {sha} · Synced: 2026-11-16\n\nNo comments on this revision.\n'
+
+
+def test_the_guard_allows_a_comments_file_only_for_a_revision_docs_json_recorded(ow):
+    created(ow)
+    good = writer.text_hash((ow.art / 'outline.md').read_text())
+    assert write_comments(ow, 'outline.r1.md', sync_text(good)).code == 0
+    assert write_comments(ow, 'outline.r1.md', sync_text('f' * 64)).code == 2          # a hash that is not the recorded one
+    assert write_comments(ow, 'outline.r2.md', sync_text(good, rev=2)).code == 2       # no such revision in docs.json
+    assert write_comments(ow, 'outline.r1.md', 'no header at all').code == 2
+    assert write_comments(ow, 'outline.r1.md', '', tool='Bash').code == 2
+    assert write_comments(ow, 'my-notes.md', 'anything').code == 0                       # not a sync file: not guarded
+
+
+def test_a_corrupt_docs_json_refuses_a_comments_write_instead_of_allowing_it(ow):
+    (ow.art / 'docs.json').write_text('not json')
+    assert write_comments(ow, 'outline.r1.md', sync_text('a' * 64)).code == 2
+
+
+def test_the_comments_rule_blocks_when_it_hits_an_unexpected_error(ow):
+    created(ow)
+    r = guard(ow.root, write_payload(ow.rel('comments/outline.r1.md'), sync_text('a' * 64)), env={'WRITER_GUARD_TEST_FAULT': 'comments'})
+    assert r.code == 2 and 'RuntimeError' in r.err
+
+
+def test_the_created_log_lock_leaves_nothing_in_the_article_folder_or_the_temp_folder(ow):
+    shown = writer.doc_text(OUTLINE_BODY, 'outline')
+    everything = lambda: sorted(str(p) for p in Path(tempfile.gettempdir()).glob('writer-plugin*/**/*'))
+    before = everything()
+    run('record-approval.py', drive_post(DRIVE_CREATE, {'title': 'demo · outline · r1', 'textContent': shown}, json.dumps({'id': 'x1'})), ow.root)
+    assert not [p for p in ow.art.iterdir() if 'lock' in p.name]
+    assert everything() == before, 'no lock file anywhere'

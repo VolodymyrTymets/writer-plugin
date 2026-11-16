@@ -129,3 +129,17 @@ def test_constitution_flow_6_blocks_publication_while_a_marker_remains():
     flow_6 = re.search(r'\*\*FLOW-6\*\*(.*?)(?= - \*\*|## )', text).group(1)
     assert re.search(r"Can.t be verified", flow_6), 'FLOW-6 must name the marker, loosely (any apostrophe)'
     assert 'publish-ready' in flow_6
+
+
+@pytest.mark.parametrize('name', ['brief.md', 'research.md', 'outline.md'])
+def test_every_approving_template_ships_one_empty_approval_line_and_no_doc_instruction(name):
+    text = read(TEMPLATES / name)
+    lines = [l for l in text.split('\n') if l.startswith('Approved-by:')]
+    assert len(lines) == 1 and lines[0][len('Approved-by:'):].strip() == '', f'{name}: one empty Approved-by line (FLOW-2)'
+    assert 'writer-plugin:sync' not in text, 'the instruction belongs to the Doc copy only (doc_text), never to a local artifact'
+
+
+def test_the_constitution_states_flow_2_for_every_stage():
+    text = read(ROOT / 'rules' / 'core' / 'CLAUDE.template.md')
+    flow2 = next(l for l in text.split('\n') if l.startswith('- **FLOW-2**'))
+    assert 'No stage starts' in flow2 and 'previous artifact' in flow2 and 'Approved-by:' in flow2 and 'Signed-off-by:' in flow2

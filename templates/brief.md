@@ -3,6 +3,10 @@
 Slug: {{SLUG}}
 Source: `brief.source.md` (the brief as it was supplied, kept unchanged)
 
+<!-- A human approves the brief in its Google Doc or writes a name here. Any non-empty value after the colon means approved (FLOW-2);
+     an empty line is not approval. -->
+Approved-by:
+
 ## Reader (BRF-1)
 - **Who:** {{who the reader is: role, context}}
 - **Already knows:** {{what they know before reading}}

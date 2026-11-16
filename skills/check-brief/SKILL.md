@@ -28,6 +28,7 @@ Name the file you settled on on line 2 of your output (`Artifact:`, as a path re
 is not needed at this gate.
 
 ## Checks
+You do not judge the `Approved-by:` line: it is a human's, and no rule here covers it.
 Work through @references/checklist.md. Record for each finding: the rule ID, the offending line of `brief.md`, and the
 concrete fix.
 

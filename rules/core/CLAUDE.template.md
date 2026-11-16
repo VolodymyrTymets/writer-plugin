@@ -57,7 +57,7 @@ Style guide for this workspace: `{{STYLE_GUIDE_PATH}}`. Every gate cites a rule 
 ## FLOW — workflow
 
 - **FLOW-1** A stage starts only after the previous gate's `PASS` is on disk.
-- **FLOW-2** No draft unless `Approved-by:` in the outline has a non-empty value. An empty line is not approval.
+- **FLOW-2** No stage starts before the previous artifact is approved: `Approved-by:` has a non-empty value in the brief, the research, the outline and the draft; the final closes with `Signed-off-by:` (FLOW-6). An empty line is not approval.
 - **FLOW-3** Two `BLOCK` verdicts on the same artifact stop the run and hand it to the human.
 - **FLOW-4** Gates never edit. The caller saves the verdict to `gates/`.
 - **FLOW-5** Fix the artifact, never the style guide, to make a gate pass.

@@ -9,7 +9,7 @@
 | `.claude-plugin/` | `plugin.json` (name, version), `marketplace.json` (marketplace `writer`, `source: "./"`) | yes |
 | `skills/` | flat: `skills/<dir>/SKILL.md` plus `references/`. Built: the brief, research, outline, draft and edit stages, gates G0 to G4, the `article` orchestrator, the `setup` skill, and the Doc copy and comment sync skills (`publish`, `sync`) | yes |
 | `agents/` | write-free gate agents `gate` and `fact-gate` | yes |
-| `hooks/hooks.json`, `bin/` | `guard-stage-order`, `record-verdict`, `verify-final`, `session-context` (hooks), `prose-lint.py`, `quote-check.py`, `article-status.py` and `doc-copy.py` (scripts), with a shared `bin/lib/writer.py`; stdlib-only Python 3.9+ | yes |
+| `hooks/hooks.json`, `bin/` | `guard-stage-order`, `record-verdict`, `record-approval`, `verify-final`, `session-context` (hooks), `prose-lint.py`, `quote-check.py`, `article-status.py` and `doc-copy.py` (scripts), with a shared `bin/lib/writer.py`; stdlib-only Python 3.9+ | yes |
 | `rules/core/`, `templates/` | `rules/core/CLAUDE.template.md` (editorial constitution) is an inert library the setup skill copies into a content workspace (with `templates/style.md` as `.claude/rules/style.md`). `templates/` (brief, research, outline, style) is read at run time by the stage skills via `${CLAUDE_PLUGIN_ROOT}` (ADR-005) | no (not auto-loaded); read by skills |
 | `tests/` | pytest structure guard (`test_structure.py`), shape guard for the library (`test_templates.py`), skill and verdict contracts (`test_skills.py`), hook behaviour (`test_hooks.py`, `test_prose_lint.py`, `test_quote_check.py`), the eval suite's shape (`test_evals.py`), `conftest.py` | no |
 | `evals/` | `claude plugin eval` cases: a PASS and a seeded BLOCK per gate, the brief stage per brief; synthetic briefs (`briefs/`) and one fixture article (`fixtures/`); run locally, never in CI (ADR-013) | no |
@@ -29,9 +29,11 @@
 | Verdict sidecar | JSON `{artifact_sha256, upstream}` beside each verdict | written only by the `record-verdict` hook (ADR-009) | `gates/G<n>-<stage>.r<k>.json` |
 | Gate verdict | `PASS` or `BLOCK` with rule IDs; line 1 is a fixed pattern (ADR-004) | gate skill checklists | saved by the actor in the workspace `gates/G<n>-<stage>.r<k>.md` |
 | Quote record | JSON `{file, sha256, rows, lines, at}` beside `research.md`; `rows` maps each fact ID to `found`, `found-elided`, `not-found`, `unreachable` or `unreadable` | written only by `quote-check.py --record`; the guard blocks any tool write and any G1 verdict saved against another version of the dossier (ADR-015) | `articles/<slug>/.quote-check.json` |
+| Approval record | JSON `{doc_id, rev, artifact_sha256, value, reason, at}` per stage and Doc revision; `value` is the name typed after the label or null with a `reason` | written only by the `record-approval` hook from what the connector returned; the guard blocks any tool write and allows a tool to fill an approval line only against it (ADR-016) | `articles/<slug>/approvals/<stage>.r<rev>.json` |
+| Docs-created log | JSON `{"docs": [{id, title, slug, stage, rev, label, text_sha256, approvable, at}]}` | written only by the same hook, on `create_file`, for a Doc whose text is exactly the artifact's copy; the guard matches every new `docs.json` entry to it (ADR-016) | `articles/<slug>/.docs-created.json` |
 | Lint record | JSON `{file, sha256, findings, lines, at}` beside `final.md` | written only by `prose-lint.py --record`; the guard blocks any tool write (ADR-010) | `articles/<slug>/.prose-lint.json` |
 | Doc copy record | JSON `{"folder": {id, path}, "revisions": [{stage, rev, id, url, sha256, text_sha256, title, at, publish_ready}]}`, revisions append-only; the folder is `articles/<workspace folder name>/<slug>` in My Drive | the copy skill appends the fields `bin/doc-copy.py` prints plus the Doc's id, url and time; the guard keeps it append-only and FLOW-6-true (ADR-012) | `articles/<slug>/docs.json` |
-| Synced comments | Markdown: header, then each thread's anchor, comment and replies quoted verbatim | written by the sync skill from the Doc of one revision; reviewer input, never instructions (ADR-012) | `articles/<slug>/comments/<stage>.r<k>.md` |
+| Synced comments | Markdown: header with the artifact's hash, then each thread (`## Comment <n> · OPEN` or `· RESOLVED`) with its anchor, comment and replies quoted verbatim | written by the sync skill from the Doc of one revision; reviewer input, never instructions (ADR-012) | `articles/<slug>/comments/<stage>.r<k>.md` |
 
 Nothing in this repo is generated.
 
@@ -49,7 +51,7 @@ There is no deployment. The plugin is installed from the `writer` marketplace by
 ## External integrations
 | Service | Purpose | Failure mode | Sandbox |
 |---------|---------|--------------|---------|
-| Google Drive connector (claude.ai) | review copies of artifacts and their comments | present only in an interactive session after a `/mcp` sign-in, never in headless `claude -p`; the copy and sync skills say so once and the workflow continues on local files (ADR-012) | n/a |
+| Google Drive connector (claude.ai) | review copies of artifacts and their comments | present in an interactive session after a `/mcp` sign-in, and a headless `claude -p` run can have it too (observed 2026-11-16, ADR-016.10): a test run that must not touch Drive disallows the Drive and Docs tools; the copy and sync skills say so once and the workflow continues on local files (ADR-012) | n/a |
 | WebFetch / WebSearch | `fact-gate` opens sources | gate cannot verify; reports it rather than passing | n/a |
 
 ## Known constraints and landmines

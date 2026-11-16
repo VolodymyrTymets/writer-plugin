@@ -3,6 +3,10 @@
 Slug: {{SLUG}}
 Brief: `brief.md`
 
+<!-- A human approves the research in its Google Doc or writes a name here. Any non-empty value after the colon means approved (FLOW-2);
+     an empty line is not approval. -->
+Approved-by:
+
 ## Questions
 | # | Question (from the brief) | Answered by |
 |---|---------------------------|-------------|

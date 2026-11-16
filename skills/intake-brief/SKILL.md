@@ -37,6 +37,7 @@ Read `${CLAUDE_PLUGIN_ROOT}/templates/brief.md` and fill every field from the in
 - Ask in at most **two batched rounds**, all open gaps in one AskUserQuestion call per round. After the second round
   state your assumption for anything still open under "Assumptions made while normalising". Record every answer the user
   gave in a round there too, as `<field>: answered by the user, round <n>`: the gate cannot see the chat. Never invent a reader or a keyword.
+- The template ships an empty `Approved-by:` line: leave `Approved-by:` empty; approval is the human's (FLOW-2).
 - Leave no `{{placeholder}}` in the file. "none" is a valid value for must include and must avoid.
 
 Write the result to `articles/<slug>/brief.md`.
