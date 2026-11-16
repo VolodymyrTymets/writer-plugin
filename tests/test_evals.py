@@ -53,6 +53,21 @@ def test_the_fixture_final_matches_its_recorded_lint_run():
     assert (rec['sha256'], rec['lines']) == (writer.text_hash((ARTICLE / 'final.md').read_text()), [])
 
 
+def test_the_fixture_research_matches_its_recorded_quote_check():
+    """G1 reads the record and the guard refuses a verdict against another version of the research; a stale one would make g1-pass block."""
+    rec = json.loads((ARTICLE / '.quote-check.json').read_text())
+    assert rec['sha256'] == writer.text_hash((ARTICLE / 'research.md').read_text())
+    assert set(rec['rows']) == {r['id'] for r in writer.fact_rows((ARTICLE / 'research.md').read_text())}
+
+
+def test_a_seeded_research_comes_with_its_own_quote_record():
+    for c in CASES:
+        research = c / 'seed' / 'articles' / 'http-caching' / 'research.md'
+        if research.exists():
+            rec = json.loads((research.parent / '.quote-check.json').read_text())
+            assert rec['sha256'] == writer.text_hash(research.read_text()), c.name
+
+
 def case_env(case):
     return dict(line.split('=', 1) for line in (case / 'case.env').read_text().split())
 
@@ -67,7 +82,7 @@ def overridden(case, rel):
 
 @pytest.mark.parametrize('case', [c for c in CASES if '-block-' in c.name], ids=lambda c: c.name)
 def test_every_block_case_seeds_a_real_change_to_what_it_overrides(case):
-    seeds = [p for p in (case / 'seed').rglob('*') if p.is_file() and p.name != '.prose-lint.json']
+    seeds = [p for p in (case / 'seed').rglob('*') if p.is_file() and p.name not in ('.prose-lint.json', '.quote-check.json')]
     assert seeds, f'{case.name}: a BLOCK case seeds its defect'
     for p in seeds:
         rel = p.relative_to(case / 'seed')
