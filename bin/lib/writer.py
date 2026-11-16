@@ -13,6 +13,7 @@ import re
 import shlex
 import sys
 import tempfile
+import unicodedata
 from typing import Callable, Dict, List, Optional, Tuple
 
 for _stream in (sys.stdin, sys.stdout, sys.stderr):
@@ -237,6 +238,16 @@ def lint_record(root: str, slug: str) -> Optional[Dict[str, object]]:
     """The run recorded by `prose-lint.py --record` beside the final, or None when absent or unreadable."""
     try:
         with open(os.path.join(article_dir(root, slug), '.prose-lint.json'), encoding='utf-8') as fh:
+            data = json.load(fh)
+        return data if isinstance(data, dict) else None
+    except (OSError, ValueError):
+        return None
+
+
+def quote_record(root: str, slug: str) -> Optional[Dict[str, object]]:
+    """The run recorded by `quote-check.py --record` beside the research dossier, or None when absent or unreadable (ADR-015)."""
+    try:
+        with open(os.path.join(article_dir(root, slug), '.quote-check.json'), encoding='utf-8') as fh:
             data = json.load(fh)
         return data if isinstance(data, dict) else None
     except (OSError, ValueError):
@@ -596,3 +607,80 @@ def doc_copy(root: str, slug: str, stage: str) -> Dict[str, object]:
     return {'text': shown, 'sha256': text_hash(text), 'text_sha256': shown_sha, 'rev': rev, 'publish_ready': ready,
             'title': title, 'skip': skip, 'existing_url': last.get('url') if skip else None,
             'folder_path': drive_folder_path(root, slug), 'folder_id': recorded_folder_id(root, slug)}
+
+
+# ---------------- the fact bank and verbatim quotes (ADR-015) ----------------
+_FACT_ROW = re.compile(r'^\s*\|\s*(F\d+)\s*\|')
+_URL = re.compile(r'https?://[^\s<>)\]|]+')
+_ELLIPSIS = re.compile(r'\s*(?:\[\.\.\.\]|\.\.\.|\u2026)\s*')
+
+
+def fact_rows(text: str) -> List[Dict[str, str]]:
+    """The Fact bank rows of research.md as {id, url, quote}. A row is a table line whose first cell is F<number>; the quote is the
+    seventh cell (a stray `|` inside it is kept) with one pair of surrounding double quotation marks removed."""
+    rows = []
+    for line in text.replace('\r\n', '\n').split('\n'):
+        m = _FACT_ROW.match(line)
+        if not m:
+            continue
+        cells = [c.strip() for c in line.strip().strip('|').split('|')]
+        if len(cells) < 7:
+            continue
+        found = _URL.search(cells[2])
+        quote = '|'.join(cells[6:]).strip()
+        if len(quote) >= 2 and (quote[0], quote[-1]) in (('"', '"'), ('\u201c', '\u201d')):
+            quote = quote[1:-1].strip()
+        rows.append({'id': m.group(1), 'url': found.group(0) if found else cells[2], 'quote': quote})
+    return rows
+
+
+_QUOTE_MARKS = str.maketrans({'\u2018': "'", '\u2019': "'", '\u201a': "'", '\u201b': "'", '\u201c': '"', '\u201d': '"',
+                              '\u201e': '"', '\u201f': '"', '\u2013': '-', '\u2014': '-', '\u2012': '-', '\u2015': '-'})
+_INVISIBLE = dict.fromkeys(map(ord, '\u00ad\u200b\u200c\u200d\ufeff'))
+
+
+def normalize_text(text: str) -> str:
+    """Only what typesetting changes: compatibility forms, curly quotes, dashes, soft hyphens and runs of whitespace. Case and wording stay."""
+    text = unicodedata.normalize('NFKC', text).translate(_INVISIBLE).translate(_QUOTE_MARKS)
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+MAX_ELISION = 300  # characters of page text an ellipsis may stand for; further apart than this the pieces are not one quote
+
+
+def _bounded_hits(page: str, seg: str, start: int):
+    """Every place `seg` occurs in `page` from `start` that is not the middle of a longer word or number."""
+    i = page.find(seg, start)
+    while i >= 0:
+        j = i + len(seg)
+        left = page[i - 1] if i else ''
+        right = page[j] if j < len(page) else ''
+        inside_word = (seg[0].isalnum() and left.isalnum()) or (seg[-1].isalnum() and right.isalnum())
+        inside_number = seg[-1].isdigit() and right in ('.', ',') and j + 1 < len(page) and page[j + 1].isdigit()
+        if not (inside_word or inside_number):
+            yield i, j
+        i = page.find(seg, i + 1)
+
+
+def _match(page: str, segments: List[str], pos: int, prev_end: Optional[int]) -> bool:
+    if not segments:
+        return True
+    for i, j in _bounded_hits(page, segments[0], pos):
+        if prev_end is not None and i - prev_end > MAX_ELISION:
+            return False  # hits only get further away
+        if _match(page, segments[1:], j, j):
+            return True
+    return False
+
+
+def quote_status(page_text: str, quote: str) -> str:
+    """`found` (one piece, on the page), `found-elided` (several pieces, close together and in order: what the ellipsis hid still needs
+    reading) or `not-found`. `page_text` is already normalised. Closing marks on the last piece are ignored (ADR-015)."""
+    segments = [normalize_text(seg) for seg in _ELLIPSIS.split(quote)]
+    segments = [seg for seg in segments if seg]
+    if segments:  # a quote cut mid-sentence may close with a mark the page does not have there; inner marks still count
+        segments[-1] = segments[-1].rstrip(' .,;:')
+    segments = [seg for seg in segments if seg]
+    if not segments or not _match(page_text, segments, 0, None):
+        return 'not-found'
+    return 'found' if len(segments) == 1 else 'found-elided'

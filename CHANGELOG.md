@@ -8,6 +8,9 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- New script `quote-check.py` checks each fact-bank quote against the raw text of its source page. The research stage records the result in
+  `.quote-check.json`; G1 reads it and blocks a `not-found` quote as FACT-3 without a model's judgement; the guard refuses a G1 verdict
+  without a matching record (FT-3, ADR-015). No gate gets a shell. The two G1 eval cases carry a record.
 - The research stage tries a fallback for a blocked source (retry, then another page that states the claim) before a question becomes an
   Open gap, asks WebFetch for quotes word for word, and reports the sources that stayed blocked (FT-3).
 - G1 blocks a research dossier that answers fewer than half of the brief's questions (FACT-6 coverage floor, ADR-014). Before, nine of ten

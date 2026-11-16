@@ -194,6 +194,33 @@ def test_research_tries_fallbacks_for_a_blocked_source_and_reports_what_stayed_b
     assert text.index('retry it once') < text.index('Open gaps'), 'the fallbacks come before a question moves to Open gaps'
 
 
+QUOTE_CHECK_RULE = 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py *)'
+
+
+def test_research_stage_records_the_quote_check_last_and_never_writes_the_record():
+    text = flat('research')
+    front = skill_text('research').split('---', 2)[1]
+    assert QUOTE_CHECK_RULE in front, 'the exact rule form; a leading wildcard is flagged by Claude Code'
+    assert 'quote-check.py <slug>`' in text and 'quote-check.py --record <slug>`' in text and 'last action on `research.md`' in text
+    assert 'quote-check.py articles/' not in text, 'the script takes the slug, not a path'
+    assert 'Write nothing to `research.md` between this run and the gate' in text
+    assert 'Never write `.quote-check.json` yourself' in text
+    assert '`not-found`' in text and 'word for word' in text
+    assert 'Bash' not in ''.join(l for l in front.split('\n') if l.startswith('allowed-tools:')).replace(QUOTE_CHECK_RULE, '')
+
+
+def test_g1_reads_the_recorded_quote_check_and_has_no_shell():
+    gate = skill_text('check-research')
+    front = gate.split('---', 2)[1]
+    assert 'Bash' not in front and 'WebFetch' in front and 'Write' not in front
+    text = flat('check-research')
+    assert '.quote-check.json' in text and 'You cannot run the quote-check script' in text
+    check = checklist_text('check-research')
+    for needle in ('## Recorded quote check', '`found-elided`', '`not-found`', 'blocking FACT-3', '`unreachable`', '`unreadable`', 'no record'):
+        assert needle in check, f'G1 checklist lost: {needle}'
+    assert 'Bash' not in (ROOT / 'agents' / 'fact-gate.md').read_text(encoding='utf-8').split('---', 2)[1]
+
+
 def test_g1_prints_and_the_research_stage_reports_coverage():
     gate = skill_text('check-research')
     lines = gate.split('\n')

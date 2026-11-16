@@ -2,7 +2,7 @@
 name: research
 description: Stage 1 actor. Use after the brief gate has passed, to research the brief's questions on the web and write research.md - sources, a fact bank with verbatim quotes, competitor coverage and the gap - then run the research gate.
 argument-hint: "[article slug, defaults to the most recently changed brief]"
-allowed-tools: Read, Write, Edit, Glob, Grep, Skill, WebSearch, WebFetch
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill, WebSearch, WebFetch, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py *)
 ---
 
 # Research stage
@@ -61,8 +61,16 @@ read it for the age limit on statistics and any source preferences; if not, say 
 
 Write the result to `articles/<slug>/research.md`.
 
-## Step 4 — Run the gate and save the verdict
+## Step 4 — Check the quotes, then run the gate and save the verdict
 
+0. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py <slug>` **without** `--record` (the argument is the slug, not a path). It fetches each source and looks
+   for each quote word for word in the page's text. A row it prints as `not-found` has a quote that is not on the page: fetch the
+   page again and copy the page's real words, or drop the row; never edit a quote to make the check pass without reading the page.
+   A `found-elided` row passes the check but is not settled: read what the `...` hides on the page and make sure it does not change the meaning.
+   `unreachable` and `unreadable` rows are not a verdict on the quote (the page could not be read as text); the gate judges them.
+   Then run it **with** `--record` as the **last action on `research.md`**: `python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py --record <slug>`.
+   Write nothing to `research.md` between this run and the gate: the guard refuses a gate verdict saved against a record made for
+   another version of the file, and the gate reads its statuses from that record. Never write `.quote-check.json` yourself; only the script does.
 1. Invoke the skill `writer-plugin:check-research` with the slug through the Skill tool and wait for its verdict.
 2. Check that line 1 matches
    `^## G1 research gate: (PASS \(0 blocking|BLOCK \([1-9][0-9]* blocking), [0-9]+ advisory\)$`. If it does not, treat
@@ -72,7 +80,7 @@ Write the result to `articles/<slug>/research.md`.
 ## Step 5 — On BLOCK
 
 Fix only what the findings name, in `research.md`: re-fetch and correct the quote, replace a dead source, or drop the
-row. A row you cannot repair is removed, and its question moves to Open gaps with the marker. Before you repeat Step 4, read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4. After the second
+row. A row you cannot repair is removed, and its question moves to Open gaps with the marker. Before you repeat Step 4 (which runs the quote check again, with `--record` last), read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4. After the second
 BLOCK on disk, stop as in Step 2.
 
 ## Step 6 — On PASS
