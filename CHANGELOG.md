@@ -8,6 +8,8 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- The research stage tries a fallback for a blocked source (retry, then another page that states the claim) before a question becomes an
+  Open gap, asks WebFetch for quotes word for word, and reports the sources that stayed blocked (FT-3).
 - G1 blocks a research dossier that answers fewer than half of the brief's questions (FACT-6 coverage floor, ADR-014). Before, nine of ten
   questions could sit under Open gaps and pass. The research stage is told the floor.
 - `prose-lint.py` SEO-1 reads the keyword as the phrase before the first `(`, `;` or `. ` on the brief's `**Primary keyword:**` line, so

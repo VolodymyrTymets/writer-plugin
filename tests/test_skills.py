@@ -186,6 +186,14 @@ def test_g1_blocks_a_dossier_below_the_coverage_floor_and_research_knows_it():
     assert 'Coverage floor' in skill_text('check-research'), 'the gate skill must show a BLOCK example for the floor'
 
 
+def test_research_tries_fallbacks_for_a_blocked_source_and_reports_what_stayed_blocked():
+    text = flat('research')
+    for needle in ('fetch fails or is blocked', 'retry it once', 'another page that states the same claim',
+                   'word for word', 'never from a search snippet', 'tried', 'Blocked sources'):
+        assert needle in text, f'research stage lost: {needle}'
+    assert text.index('retry it once') < text.index('Open gaps'), 'the fallbacks come before a question moves to Open gaps'
+
+
 def test_g1_prints_and_the_research_stage_reports_coverage():
     gate = skill_text('check-research')
     lines = gate.split('\n')
