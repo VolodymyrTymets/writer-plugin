@@ -13,6 +13,7 @@ import re
 import shlex
 import sys
 import tempfile
+import unicodedata
 from typing import Callable, Dict, List, Optional, Tuple
 
 for _stream in (sys.stdin, sys.stdout, sys.stderr):
@@ -596,3 +597,52 @@ def doc_copy(root: str, slug: str, stage: str) -> Dict[str, object]:
     return {'text': shown, 'sha256': text_hash(text), 'text_sha256': shown_sha, 'rev': rev, 'publish_ready': ready,
             'title': title, 'skip': skip, 'existing_url': last.get('url') if skip else None,
             'folder_path': drive_folder_path(root, slug), 'folder_id': recorded_folder_id(root, slug)}
+
+
+# ---------------- the fact bank and verbatim quotes (ADR-015) ----------------
+_FACT_ROW = re.compile(r'^\s*\|\s*(F\d+)\s*\|')
+_URL = re.compile(r'https?://[^\s<>)\]|]+')
+_ELLIPSIS = re.compile(r'\s*(?:\[\.\.\.\]|\.\.\.|\u2026)\s*')
+
+
+def fact_rows(text: str) -> List[Dict[str, str]]:
+    """The Fact bank rows of research.md as {id, url, quote}. A row is a table line whose first cell is F<number>; the quote is the
+    seventh cell (a stray `|` inside it is kept) with one pair of surrounding double quotation marks removed."""
+    rows = []
+    for line in text.replace('\r\n', '\n').split('\n'):
+        m = _FACT_ROW.match(line)
+        if not m:
+            continue
+        cells = [c.strip() for c in line.strip().strip('|').split('|')]
+        if len(cells) < 7:
+            continue
+        found = _URL.search(cells[2])
+        quote = '|'.join(cells[6:]).strip()
+        if len(quote) >= 2 and (quote[0], quote[-1]) in (('"', '"'), ('\u201c', '\u201d')):
+            quote = quote[1:-1].strip()
+        rows.append({'id': m.group(1), 'url': found.group(0) if found else cells[2], 'quote': quote})
+    return rows
+
+
+_QUOTE_MARKS = str.maketrans({'\u2018': "'", '\u2019': "'", '\u201a': "'", '\u201b': "'", '\u201c': '"', '\u201d': '"',
+                              '\u201e': '"', '\u201f': '"', '\u2013': '-', '\u2014': '-', '\u2012': '-', '\u2015': '-'})
+_INVISIBLE = dict.fromkeys(map(ord, '\u00ad\u200b\u200c\u200d\ufeff'))
+
+
+def normalize_text(text: str) -> str:
+    """Only what typesetting changes: compatibility forms, curly quotes, dashes, soft hyphens and runs of whitespace. Case and wording stay."""
+    text = unicodedata.normalize('NFKC', text).translate(_INVISIBLE).translate(_QUOTE_MARKS)
+    return re.sub(r'\s+', ' ', text).strip()
+
+
+def quote_present(page_text: str, quote: str) -> bool:
+    """True when every segment of the quote (split at an ellipsis) is on the page, in order. `page_text` is already normalised."""
+    segments = [normalize_text(seg) for seg in _ELLIPSIS.split(quote)]
+    segments = [seg for seg in segments if seg]
+    pos = 0
+    for seg in segments:
+        i = page_text.find(seg, pos)
+        if i < 0:
+            return False
+        pos = i + len(seg)
+    return bool(segments)
