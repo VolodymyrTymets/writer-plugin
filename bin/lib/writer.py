@@ -639,6 +639,9 @@ def quote_present(page_text: str, quote: str) -> bool:
     """True when every segment of the quote (split at an ellipsis) is on the page, in order. `page_text` is already normalised."""
     segments = [normalize_text(seg) for seg in _ELLIPSIS.split(quote)]
     segments = [seg for seg in segments if seg]
+    if segments:  # a quote cut mid-sentence may close with a mark the page does not have there (ADR-015); inner marks still count
+        segments[-1] = segments[-1].rstrip(' .,;:')
+    segments = [seg for seg in segments if seg]
     pos = 0
     for seg in segments:
         i = page_text.find(seg, pos)

@@ -38,6 +38,7 @@ PAGES = {
     '/shell': ('text/html', f'<body><div id="app"></div><p>{filler(50)}</p></body>', 200),
     '/md': ('text/markdown', f'# Title\n\nThe cache MUST NOT store the response. {filler(250)}', 200),
     '/md2': ('text/markdown', f'## Limits\n\n- While **Gmail/Microsoft Outlook** accounts work, see [the help page](https://x.test/a) and `code`.\n> A __quoted__ line.\n\n{filler(250)}', 200),
+    '/clause': ('text/html', f'<body><p>While the account is linked, our team works on more accounts as well.</p><p>{filler(250)}</p></body>', 200),
     '/pdf': ('application/pdf', '%PDF-1.4 ' + QUOTE, 200),
     '/gone': ('text/html', 'not here', 404),
     '/blocked': ('text/html', 'denied', 403),
@@ -154,6 +155,18 @@ def test_a_plain_text_or_markdown_page_is_read_as_text(server, tmp_path):
                          ids=['bold-link-code', 'blockquote-underscores'])
 def test_markdown_syntax_is_not_part_of_the_words(server, tmp_path, quote):
     assert statuses(run(tmp_path, [(server + '/md2', quote)])) == {'F1': 'found'}
+
+
+@pytest.mark.parametrize('quote,expected', [
+    ('While the account is linked.', 'found'),
+    ('While the account is linked,', 'found'),
+    ('While the account is linked;:.', 'found'),
+    ('While the account is unlinked.', 'not-found'),
+    ('While the account. is linked', 'not-found'),
+    ('.', 'not-found'),
+], ids=['full-stop', 'comma', 'mixed', 'word-changed', 'inner-punctuation-kept', 'only-punctuation'])
+def test_closing_punctuation_on_a_cut_quote_is_not_a_difference(server, tmp_path, quote, expected):
+    assert statuses(run(tmp_path, [(server + '/clause', quote)])) == {'F1': expected}
 
 
 def test_a_page_with_almost_no_text_is_unreadable_not_a_miss(server, tmp_path):
