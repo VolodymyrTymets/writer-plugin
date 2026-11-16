@@ -15,6 +15,17 @@ For each row of the fact bank, fetch the source URL, then decide in this order:
 | The page's published date differs from the row's published column | blocking when it changes the age check, otherwise advisory | FACT-2 |
 | Publisher, published date or accessed date is empty or still a `{{placeholder}}` (a published date of `n/a (live page)` is judged by the section below) | blocking | FACT-2 |
 
+## Recorded quote check
+`.quote-check.json` beside `research.md` holds one status per fact row, from a script that fetched the raw page and looked for the
+quote word for word (ADR-015). It settles the verbatim question; you still open every source for the claim, the date and the other checks.
+
+| Status in `rows` | What it settles | Finding |
+|------------------|-----------------|---------|
+| `found` | The quote is on the page. Do not compare it again | none for FACT-3; still judge FACT-5 (claim vs quote) and the attribution |
+| `not-found` | The page was read, it has real text and the quote is not in it | blocking FACT-3 for that row, citing the record; fix: copy the page's real words or drop the row. Do not overrule it from a fetch summary |
+| `unreachable`, `unreadable` | Nothing about the quote: the page could not be read as text | none from the record; judge the row yourself as in the table above, through the page you open |
+| the file or a row is missing (no record) | The check was not run on this dossier | one blocking FACT-3 finding for the record ("run `quote-check.py --record` on the research"); list the quotes under Not checked |
+
 ## `n/a (live page)` in the published column
 Allowed only when **all** of these hold; if any fails, the `n/a` is blocking (FACT-2):
 1. The publisher column names the vendor, and the claim's subject is that vendor (not another vendor).

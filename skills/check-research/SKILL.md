@@ -24,12 +24,13 @@ Name the file on line 2 of your output (`Artifact:`, as a path relative to the w
 In that case line 3 is `Coverage: n/a`.
 
 ## Inputs
-`research.md`; `brief.md` next to it (for the questions); the workspace `.claude/rules/style.md` if present (for the
+`research.md`; `.quote-check.json` beside it (the recorded quote check); `brief.md` next to it (for the questions); the workspace `.claude/rules/style.md` if present (for the
 statistic age limit); the workspace `CLAUDE.md` if present. If the style guide is absent, say so under Not checked.
 
 ## Checks
 Work through @references/checklist.md. **Open every source URL in the fact bank** and compare; never judge a fact from
-memory. For each finding record the rule ID, the offending row and the concrete fix.
+memory. You cannot run the quote-check script: you read the statuses it recorded, and the checklist says what each one
+settles. For each finding record the rule ID, the offending row and the concrete fix.
 
 ## Verdict format
 
