@@ -4,7 +4,7 @@
 
 ## What this product is
 A Claude Code plugin that takes an article brief to a publish-ready English blog post through actors that write one artifact
-each and read-only gates that judge it, with a human approving the outline and signing off the final.
+each and read-only gates that judge it, with a human approving every stage, in its Google Doc, and signing off the final.
 
 ## Ranked goals
 1. **Correct gates.** A gate that passes a wrong fact, or blocks on noise, defeats the plugin. Verdict correctness and mechanical
@@ -15,7 +15,7 @@ each and read-only gates that judge it, with a human approving the outline and s
 ## Non-negotiables (never trade these for speed)
 - No client-specific knowledge in this repo (PLG-1).
 - Gates never edit (FLOW-4); a decision not written to disk does not count.
-- No draft without `Approved-by:` on the outline, no publish-ready final without `Signed-off-by:`.
+- No stage starts before the previous artifact carries its `Approved-by:`, no publish-ready final without `Signed-off-by:`.
 - Hooks and scripts stay stdlib-only; a hook change ships with a test.
 
 ## Explicitly out of scope (this phase)

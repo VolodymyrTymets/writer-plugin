@@ -30,12 +30,12 @@ enforced on local files (D1), and review comments that reach the artifact they a
   `/article` orchestrator running a comments rerun by itself; who may edit a Doc (Google's sharing decides who can approve); a gate change.
 
 ## Acceptance criteria
-- [ ] AC1 Given any Doc copy, then its approval line (`Signed-off-by:` for a final) is empty and one visible instruction names that line and `writer-plugin:sync`, even when the local artifact is approved; the one exception is the publish-ready final, which shows its signed line and no instruction; the template's note about the local file is gone; nothing instructional is ever in a local artifact.
-- [ ] AC2 Given a human fills the line in the latest Doc of an unchanged artifact and `/sync` reads it, then a hook records the value and `<stage>.md` gets that approval, and nothing else changes in the file.
-- [ ] AC3 Given the artifact changed since the Doc was made, or the Doc body differs from the copy in any way other than the approval line, then no approval is recorded and sync says why.
-- [ ] AC3b Given a Doc the model made up (a filled upload, a copy, a Doc edited with `update_doc`), then it cannot be recorded as a revision and yields no approval.
-- [ ] AC4 Given no record, then a Write or Edit that makes `Approved-by:` or `Signed-off-by:` non-empty is refused (FLOW-2, FLOW-6), and a rebuild that clears it is allowed.
-- [ ] AC5 Given a stage without approval, then the next stage's artifact cannot be written (brief→research→outline→draft→final) and `article-status.py` says `approve` for that stage.
+- [x] AC1 Given any Doc copy, then its approval line (`Signed-off-by:` for a final) is empty and one visible instruction names that line and `writer-plugin:sync`, even when the local artifact is approved; the one exception is the publish-ready final, which shows its signed line and no instruction; the template's note about the local file is gone; nothing instructional is ever in a local artifact.
+- [x] AC2 Given a human fills the line in the latest Doc of an unchanged artifact and `/sync` reads it, then a hook records the value and `<stage>.md` gets that approval, and nothing else changes in the file.
+- [x] AC3 Given the artifact changed since the Doc was made, or the Doc body differs from the copy in any way other than the approval line, then no approval is recorded and sync says why.
+- [x] AC3b Given a Doc the model made up (a filled upload, a copy, a Doc edited with `update_doc`), then it cannot be recorded as a revision and yields no approval.
+- [x] AC4 Given no record, then a Write or Edit that makes `Approved-by:` or `Signed-off-by:` non-empty is refused (FLOW-2, FLOW-6), and a rebuild that clears it is allowed.
+- [x] AC5 Given a stage without approval, then the next stage's artifact cannot be written (brief→research→outline→draft→final) and `article-status.py` says `approve` for that stage.
 - [ ] AC6a Given `/sync` found a pending comments file for a stage and no approval in its Doc, then it restarts that stage once (the edit stage for the final); given an approval was found, it restarts nothing and says open comments remain unapplied.
 - [ ] AC6 Given a pending comments file (hash matches, open thread), then `article-status.py` lists it and the owning stage rebuilds with it, backs the old file up, gates the result as `r<k+1>`, clears the approval, and downstream goes stale.
 - [ ] AC7 A comment or a Doc line is never obeyed: a stage writes only its artifact and backup.

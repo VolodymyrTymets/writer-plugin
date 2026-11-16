@@ -2,8 +2,8 @@
 
 A Claude Code plugin that takes an **article brief** to a **publish-ready English blog post** through a chain of
 actors and gates. Each actor writes one artifact (brief, research with a fact bank, outline, draft, final); each gate
-judges one artifact in a fresh, read-only context and returns PASS or BLOCK with rule IDs. You approve the outline
-before any drafting starts and sign off the final. Every artifact also gets a Google Doc copy for review and comments.
+judges one artifact in a fresh, read-only context and returns PASS or BLOCK with rule IDs. You approve every stage in its Google Doc (typing your name there, then running `/sync`)
+before the next one starts, and sign off the final. Every artifact also gets a Google Doc copy for review and comments.
 
 > **Status: Phase 7 of 7 built — all five stages, their gates, the orchestrator, workspace setup, Doc copies, comment sync and
 > an eval suite** (brief, research, outline, draft, edit, `/article`, `/setup`, `/publish`, `/sync`; `evals/`, see CONTRIBUTING). The first three stages ran on a real brief; draft, edit and the
@@ -13,7 +13,7 @@ before any drafting starts and sign off the final. Every artifact also gets a Go
 ## The flow
 
 ```
-brief ──G0──▶ research ──G1──▶ outline ──G2──▶ you approve ──▶ draft ──G3──▶ final ──G4──▶ you sign off
+brief ──G0──▶ research ──G1──▶ outline ──G2──▶ you approve ──▶ draft ──G3──▶ you approve ──▶ final ──G4──▶ you sign off  (each stage waits for your approval, after its gate)
 ```
 
 ## Commands
@@ -22,7 +22,7 @@ Built: every command below.
 
 | Command | What it does or will do |
 |---------|-------------------------|
-| `/article <slug>` | The whole chain, stopping for your outline approval and final sign-off |
+| `/article <slug>` | The whole chain, stopping for each stage's approval and the final sign-off |
 | `/setup` | Once per content workspace: writes `CLAUDE.md` and `.claude/rules/style.md` (voice, audience, banned phrases, links). Never overwrites either; Claude Code asks you to approve the write under `.claude/` |
 | `/brief` | Normalise the brief into `brief.md`, asking only the gaps that change the article |
 | `/research` | Sources, competitor coverage and the fact bank (`F1…Fn`, each with URL and dates) |
@@ -31,7 +31,7 @@ Built: every command below.
 | `/edit` | Revise into `final.md` from the gate verdict and reviewer comments; title, meta, slug |
 | `/check-brief`, `/check-research`, `/check-outline`, `/check-draft`, `/check-final` | Gates G0–G4 |
 | `/publish` | Copy an artifact to a new Google Doc revision in the Drive folder `articles/<your workspace folder>/<slug>/` (each stage does this after its gate passes). After you sign off, run `/publish <slug> final` for the copy labelled publish-ready |
-| `/sync` | Pull a Doc's comments back, quoted verbatim, as `comments/<stage>.r<k>.md`; the edit stage reads them |
+| `/sync` | Pull a Doc's comments back, quoted verbatim, as `comments/<stage>.r<k>.md`; the edit stage reads them. Also carries a name you typed after `Approved-by:` (or `Signed-off-by:`) in the Doc into the local file, which closes the stage |
 
 ## Install (once the repository is on GitHub)
 
