@@ -8,6 +8,8 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- `prose-lint.py` SEO-1 reads the keyword as the phrase before the first `(`, `;` or `. ` on the brief's `**Primary keyword:**` line, so
+  volumes and usage notes on that line no longer cause false findings (FT-1). The brief template says to keep the phrase bare.
 - `docs/DESIGN.md` records a field test on one real brief (FT-1 to FT-14, all open) and updates the Phase 5 and 6 rows.
   No plugin behaviour changed.
 - Each stage actor makes its Google Doc copy after its gate passes, through the copy skill, instead of saying "Doc copy: not yet

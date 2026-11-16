@@ -179,7 +179,8 @@ def lint(path: str, brief_path: Optional[str], style_path: Optional[str]) -> Tup
             add('SEO-3', 0, f'meta description is {len(meta)} characters, it must be 120 to 155')
         brief_text = read(brief_path or os.path.join(os.path.dirname(os.path.abspath(path)), 'brief.md'))
         km = re.search(r'\*\*Primary keyword:\*\*\s*(.+)', brief_text or '')
-        keyword = km.group(1).strip().lower() if km else None
+        # The brief line may carry volumes and usage notes after the phrase; the keyword ends at the first "(", ";" or ". ".
+        keyword = re.split(r'\(|;|\.(?:\s|$)', km.group(1), maxsplit=1)[0].strip().lower() if km else None
         if keyword and '{{' not in keyword:
             if title and keyword not in title.lower():
                 add('SEO-1', 0, f'the primary keyword "{keyword}" is not in the title')
