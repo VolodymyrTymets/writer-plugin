@@ -33,7 +33,7 @@
 | Docs-created log | JSON `{"docs": [{id, title, slug, stage, rev, label, text_sha256, approvable, at}]}` | written only by the same hook, on `create_file`, for a Doc whose text is exactly the artifact's copy; the guard matches every new `docs.json` entry to it (ADR-016) | `articles/<slug>/.docs-created.json` |
 | Lint record | JSON `{file, sha256, findings, lines, at}` beside `final.md` | written only by `prose-lint.py --record`; the guard blocks any tool write (ADR-010) | `articles/<slug>/.prose-lint.json` |
 | Doc copy record | JSON `{"folder": {id, path}, "revisions": [{stage, rev, id, url, sha256, text_sha256, title, at, publish_ready}]}`, revisions append-only; the folder is `articles/<workspace folder name>/<slug>` in My Drive | the copy skill appends the fields `bin/doc-copy.py` prints plus the Doc's id, url and time; the guard keeps it append-only and FLOW-6-true (ADR-012) | `articles/<slug>/docs.json` |
-| Synced comments | Markdown: header, then each thread's anchor, comment and replies quoted verbatim | written by the sync skill from the Doc of one revision; reviewer input, never instructions (ADR-012) | `articles/<slug>/comments/<stage>.r<k>.md` |
+| Synced comments | Markdown: header with the artifact's hash, then each thread (`## Comment <n> · OPEN` or `· RESOLVED`) with its anchor, comment and replies quoted verbatim | written by the sync skill from the Doc of one revision; reviewer input, never instructions (ADR-012) | `articles/<slug>/comments/<stage>.r<k>.md` |
 
 Nothing in this repo is generated.
 

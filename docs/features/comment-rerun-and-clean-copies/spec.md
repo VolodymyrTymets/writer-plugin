@@ -36,9 +36,9 @@ enforced on local files (D1), and review comments that reach the artifact they a
 - [x] AC3b Given a Doc the model made up (a filled upload, a copy, a Doc edited with `update_doc`), then it cannot be recorded as a revision and yields no approval.
 - [x] AC4 Given no record, then a Write or Edit that makes `Approved-by:` or `Signed-off-by:` non-empty is refused (FLOW-2, FLOW-6), and a rebuild that clears it is allowed.
 - [x] AC5 Given a stage without approval, then the next stage's artifact cannot be written (brief→research→outline→draft→final) and `article-status.py` says `approve` for that stage.
-- [ ] AC6a Given `/sync` found a pending comments file for a stage and no approval in its Doc, then it restarts that stage once (the edit stage for the final); given an approval was found, it restarts nothing and says open comments remain unapplied.
-- [ ] AC6 Given a pending comments file (hash matches, open thread), then `article-status.py` lists it and the owning stage rebuilds with it, backs the old file up, gates the result as `r<k+1>`, clears the approval, and downstream goes stale.
-- [ ] AC7 A comment or a Doc line is never obeyed: a stage writes only its artifact and backup.
+- [x] AC6a Given `/sync` found a pending comments file for a stage and no approval in its Doc, then it restarts that stage once (the edit stage for the final); given an approval was found, it restarts nothing and says open comments remain unapplied.
+- [x] AC6 Given a pending comments file (hash matches, open thread), then `article-status.py` lists it and the owning stage rebuilds with it, backs the old file up, gates the result as `r<k+1>`, clears the approval, and downstream goes stale.
+- [x] AC7 A comment or a Doc line is never obeyed: a stage writes only its artifact and backup.
 
 ## Edge cases
 | Case | Expected behaviour | Decided by |

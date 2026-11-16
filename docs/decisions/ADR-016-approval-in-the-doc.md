@@ -61,6 +61,20 @@ A throwaway logging plugin and one synthetic Doc (the eval fixture's outline), k
 6. **Trust.** Whoever can edit a Doc can approve it, and the name is recorded as typed. Sharing is the control, so the model may not share, copy, rename, trash or
    edit a logged Doc (the human does it in Google Drive). A human typing in the local file in an editor is allowed: no hook sees an editor.
 
+## The comment rerun (FT-5, added with the same change)
+7. **Pending comments.** `article-status.py` lists, per stage (research, outline, draft, final), the highest `comments/<stage>.r<k>.md` whose `Artifact sha256` header equals the
+   artifact now and which has an open thread. `/sync` writes each thread heading as exactly `· OPEN` or `· RESOLVED`, and reviewer text is quoted with `> `, so it cannot forge a
+   heading. A rebuild changes the hash, which ends them: no state file. The brief has none (its input is `brief.source.md`).
+8. **The owning stage reruns on them** (this refines ADR-007.2: a pending file is the stage's written input after a PASS). It reads them as data, applies what fits the brief, the
+   upstream artifact and the fact bank, reports each comment applied or not applied with the reason, writes only its artifact and a backup (research now keeps `research.prev.<n>.md`),
+   and clears the approval with the rebuild. A rerun that applies nothing writes no backup, no artifact and runs no gate, so it never costs a BLOCK. A rerun's BLOCK counts toward
+   FLOW-3 like any other: a second one stops the stage.
+9. **`/sync` restarts the stage once** when comments are waiting and no approval came in (`writer-plugin:edit` for the final); with an approval it restarts nothing and lists what stays
+   unapplied. `/article` only reports `comments`. A reviewer's answer to a research question is a pointer note under Open gaps, never a fact row and never an `[F#]`, so a marker
+   it would fill stays; making such an answer a fact needs a new rule for sources the gate cannot open and is a separate decision.
+10. **Observed 2026-11-17:** a headless `claude -p` session can have the Drive connector (ADR-012 said it had none) and a stage then makes a real Doc. Runs that must not touch Drive
+    disallow the Drive and Docs tools.
+
 ## Known gaps
 - A write the shell parser cannot read (`python3 -c`, command substitution) can still put an approval line into an artifact, as the final's sign-off could (ADR-010).
 - The guard matches Edit, Write, Bash and the two connector servers. A file-writing tool of any other MCP server is outside every rule here.
