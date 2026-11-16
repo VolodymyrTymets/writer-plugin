@@ -31,6 +31,14 @@ read it for the age limit on statistics and any source preferences; if not, say 
 1. One row in the Questions table per question in the brief (Q1..Qn, same order).
 2. Search the web for each question. **Fetch every page you cite with WebFetch yourself.** A fact is a row only if you
    read the page and copied the quote from it. Never write a quote from memory or from a search snippet.
+   WebFetch returns a processed summary of the page, not its raw text, so ask it for the sentence **word for word**
+   ("quote the exact sentence about X, without changes"). If what comes back is paraphrased (it has ellipses or square
+   brackets, or the wording is not the page's own), fetch again with a narrower request; a quote you cannot get exactly is
+   not a fact row.
+   **When a fetch fails or is blocked** (HTTP 403, a timeout, an empty page): retry it once; then look for another page
+   that states the same claim on a source the gate can open (the same publisher's docs or help page, or another authoritative
+   publisher), found with WebSearch and then fetched yourself, never from a search snippet. A page that stays blocked is not a fact row, because the gate meets
+   the same block and blocks the row. Only after those steps does its question move to Open gaps, and the marker's reason names what you tried.
 3. Fact bank: one row per usable fact, `F1`, `F2`, ... with all seven columns. The quote is the page's exact words.
    Published date comes from the page; use the date the page shows, including an "updated" date. Only a **first-party
    vendor page** (the vendor's own pricing, feature, help or docs page, on the vendor's own domain, used for a claim
@@ -70,7 +78,7 @@ BLOCK on disk, stop as in Step 2.
 ## Step 6 — On PASS
 
 Report in a few lines: the research path, the verdict path, the gate's `Coverage:` line as it printed it (a PASS does
-not mean the brief is answered), how many facts and sources, the open gaps, and that the
+not mean the brief is answered), how many facts and sources, the open gaps, a **Blocked sources** line (each URL that stayed blocked, with what you tried, so the human can open it by hand), and that the
 next stage is the outline stage. Then invoke `writer-plugin:publish <slug> research` through the Skill tool for the review copy, and report the Doc URL it gives, or its one line saying there is no Google Drive connection. Do not start the outline yourself.
 
 ## After the gate
