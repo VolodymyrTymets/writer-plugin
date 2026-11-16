@@ -46,7 +46,9 @@ read it for the age limit on statistics and any source preferences; if not, say 
    (FACT-6). Whatever you cannot find or prove is not a fact row. Put it under Open gaps with the marker
    `<Can't be verified. Reason: reason sentence here>`, what is needed and where a human could get it. The reason says why it could not be verified and
    what a human would need, never the claim itself, and holds no `<`, `>` or `|`. You never invent a claim or soften one to
-   fit; a marker lets the flow go on without one.
+   fit; a marker lets the flow go on without one. The gate blocks a dossier that answers fewer than half of the brief's
+   questions (FACT-6), so before you move a question to Open gaps try another source for it (a search result, another
+   copy of the page), and say plainly which questions still need the human's material.
 7. Leave no `{{placeholder}}`.
 
 Write the result to `articles/<slug>/research.md`.

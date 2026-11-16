@@ -8,6 +8,8 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- G1 blocks a research dossier that answers fewer than half of the brief's questions (FACT-6 coverage floor, ADR-014). Before, nine of ten
+  questions could sit under Open gaps and pass. The research stage is told the floor.
 - `prose-lint.py` SEO-1 reads the keyword as the phrase before the first `(`, `;` or `. ` on the brief's `**Primary keyword:**` line, so
   volumes and usage notes on that line no longer cause false findings (FT-1). The brief template says to keep the phrase bare.
 - `docs/DESIGN.md` records a field test on one real brief (FT-1 to FT-14, all open) and updates the Phase 5 and 6 rows.

@@ -178,6 +178,14 @@ def test_research_template_notes_the_live_page_option_on_both_published_columns(
     assert text.count(LIVE_PAGE) >= 2, 'both the Sources and the Fact bank tables must mention it'
 
 
+def test_g1_blocks_a_dossier_below_the_coverage_floor_and_research_knows_it():
+    text = checklist_text('check-research')
+    assert re.search(r'FACT-6.*fewer than half.*is blocking', text), 'G1 must block when fewer than half the questions are answered'
+    assert 'answered x 2 < m' in text, 'state the floor as arithmetic on the Coverage numbers, so every run counts it the same way'
+    assert 'fewer than half' in skill_text('research'), 'the research stage must know the floor, or it learns it only from a BLOCK'
+    assert 'Coverage floor' in skill_text('check-research'), 'the gate skill must show a BLOCK example for the floor'
+
+
 def test_g1_prints_and_the_research_stage_reports_coverage():
     gate = skill_text('check-research')
     lines = gate.split('\n')
