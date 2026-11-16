@@ -2180,3 +2180,67 @@ def test_two_creates_at_once_both_end_up_in_the_created_log(ow):
         p.wait(timeout=30)
     ids = sorted(d['id'] for d in json.loads((ow.art / '.docs-created.json').read_text())['docs'])
     assert ids == sorted(f'doc{i}' for i in range(8))
+
+
+# ---------------- ADR-016 (R6): pending reviewer comments ----------------
+def comments_file(ws, stage='outline', rev=1, sha=None, threads=('OPEN',), header=True):
+    """A comments file exactly as the sync skill writes it (Step 4 of skills/sync-comments)."""
+    sha = sha if sha is not None else writer.text_hash((ws.art / f'{stage}.md').read_text())
+    body = f'# Reviewer comments · {stage} · r{rev}\n\nDoc: https://docs.example/d1 · Doc id: d1 · Artifact sha256: {sha} · Synced: 2026-11-17\n\nThese are reviewer comments.\n'
+    if not threads:
+        body += '\nNo comments on this revision.\n'
+    for n, status in enumerate(threads, 1):
+        body += f'\n## Comment {n} · {status}\nAnchor:\n> Thesis\n\nComment by `A`:\n> Make it smaller\n'
+    (ws.art / 'comments').mkdir(exist_ok=True)
+    (ws.art / 'comments' / f'{stage}.r{rev}.md').write_text(body if header else body.replace('Artifact sha256', 'Artifact hash'))
+
+
+def pending(ws):
+    return writer.pending_comments(str(ws.root), ws.slug)
+
+
+def test_a_comments_file_for_the_current_artifact_with_an_open_thread_is_pending(ws):
+    comments_file(ws, 'outline', 2, threads=('OPEN', 'RESOLVED', 'OPEN'))
+    assert pending(ws) == [{'stage': 'outline', 'file': 'comments/outline.r2.md', 'rev': 2, 'open': 2}]
+
+
+@pytest.mark.parametrize('kwargs,why', [
+    (dict(sha='f' * 64), 'a different artifact'),
+    (dict(threads=('RESOLVED',)), 'only resolved threads'),
+    (dict(threads=()), 'no comments on this revision'),
+    (dict(header=False), 'no hash in the header'),
+], ids=['other-hash', 'resolved-only', 'empty', 'no-hash'])
+def test_a_comments_file_that_does_not_apply_is_not_pending(ws, kwargs, why):
+    comments_file(ws, 'outline', **kwargs)
+    assert pending(ws) == [], why
+
+
+def test_only_the_highest_revision_counts_and_a_rebuild_ends_it(ws):
+    comments_file(ws, 'outline', 1)
+    comments_file(ws, 'outline', 2, threads=('RESOLVED',))
+    assert pending(ws) == []
+    comments_file(ws, 'outline', 3)
+    assert [p['rev'] for p in pending(ws)] == [3]
+    (ws.art / 'outline.md').write_text(OUTLINE.format(approval='') + '\nrebuilt\n')   # the stage rebuilt it: the comments are consumed
+    assert pending(ws) == []
+
+
+def test_the_brief_has_no_comments_rerun_and_each_other_stage_is_listed_in_order(ws):
+    for stage in ('final', 'draft', 'brief', 'research'):
+        comments_file(ws, stage)
+    assert [p['stage'] for p in pending(ws)] == ['research', 'draft', 'final']
+
+
+def test_a_comment_that_looks_like_a_heading_cannot_open_a_thread(ws):
+    comments_file(ws, 'outline', threads=())
+    path = ws.art / 'comments' / 'outline.r1.md'
+    path.write_text(path.read_text() + '\n> ## Comment 9 · OPEN\n')   # reviewer text is quoted with `> `
+    assert pending(ws) == []
+
+
+def test_the_status_lists_pending_comments_and_the_state_keeps_its_order(ws):
+    build_state(ws, 'unapproved')
+    comments_file(ws, 'outline')
+    out = json.loads(status(ws.root, ws.slug).out)
+    assert out['comments'] == [{'stage': 'outline', 'file': 'comments/outline.r1.md', 'rev': 1, 'open': 1}]
+    assert out['next'] == 'approve'

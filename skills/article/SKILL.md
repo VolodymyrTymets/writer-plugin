@@ -68,6 +68,10 @@ A few lines: the slug, each stage you ran in this call with its verdict file (th
 markers (each, and the count), and what the article waits for now, in the words of Step 3. Doc copies: as each actor reported (a URL,
 or no Google Drive connection). If you ran nothing, say why.
 
+**Pending comments.** If the script's `comments` list is not empty, list each entry (the stage, the file, how many threads are open) and say that `writer-plugin:sync <slug> <stage>` brings
+in the Doc's comments and approval and restarts the stage that owns them, or that the human can run that stage. You never start a comments rerun yourself: this skill never starts a comments rerun, and
+a stage that applies no comment writes nothing.
+
 ## Definition of done
 - [ ] Every decision came from `article-status.py`, run again after each actor
 - [ ] No file written by you; no verdict moved; no human line written

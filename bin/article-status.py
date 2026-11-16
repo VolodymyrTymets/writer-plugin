@@ -3,7 +3,7 @@
 
     python3 bin/article-status.py [--root <workspace>] <slug>
 
-Keys: slug, stage, next, reason, markers, stale, comments (always [] until the comment rerun, ADR-016). `next` is a stage to run
+Keys: slug, stage, next, reason, markers, stale, comments (the stages with reviewer comments waiting for a rerun: stage, file, rev, open; ADR-016). `next` is a stage to run
 (brief, research, outline, draft, final), approve (`stage` passed its gate and waits for its approval),
 sign-off, stopped, stale, done or unknown. Read-only: it writes no file. It always exits 0 and prints JSON, bad arguments included, because the skill
 acts on `next`; any failure is `next: "unknown"` with the reason, so the orchestrator stops instead of guessing a stage.

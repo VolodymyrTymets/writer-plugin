@@ -387,6 +387,34 @@ SLUG = re.compile(r'(?!\.)[^/\\\x00\r\n]+\Z')
 STATE_KEYS = ('slug', 'stage', 'next', 'reason', 'markers', 'stale', 'comments')
 
 
+COMMENT_STAGES = ('research', 'outline', 'draft', 'final')  # the stages that rerun on comments; the brief's input is brief.source.md
+
+
+def pending_comments(root: str, slug: str) -> List[Dict[str, object]]:
+    """Comments waiting for the stage that owns the artifact (ADR-016): per stage, the highest `comments/<stage>.r<k>.md` whose `Artifact sha256`
+    header equals the artifact on disk now and which has an open thread. A rebuild changes the hash, so its comments stop being pending: no state file.
+    Thread headings are the ones the sync skill writes (`## Comment <n> · OPEN`); reviewer text is quoted with `> `, so it cannot forge one."""
+    out: List[Dict[str, object]] = []
+    d = os.path.join(article_dir(root, slug), 'comments')
+    try:
+        names = os.listdir(d)
+    except OSError:
+        return out
+    for stage in COMMENT_STAGES:
+        revs = sorted((int(m.group(1)), n) for n in names for m in [re.match(r'^' + stage + r'\.r(\d+)\.md$', n)] if m)
+        if not revs:
+            continue
+        rev, name = revs[-1]
+        text = read_text(os.path.join(d, name))
+        m = re.search(r'Artifact sha256: ([0-9a-f]{64})', text)
+        if not m or m.group(1) != artifact_hash(root, slug, stage):
+            continue
+        open_threads = len(re.findall(r'^## Comment \d+ · OPEN[ \t]*$', text, re.M))
+        if open_threads:
+            out.append({'stage': stage, 'file': f'comments/{name}', 'rev': rev, 'open': open_threads})
+    return out
+
+
 def unknown_state(slug: str, reason: str) -> Dict[str, object]:
     return {'slug': slug, 'stage': None, 'next': 'unknown', 'reason': reason, 'markers': [], 'stale': False,
             'summary': f'unknown: {reason}', 'stale_reason': None, 'comments': []}
@@ -449,7 +477,7 @@ def article_state(root: str, slug: str) -> Dict[str, object]:
     elif stale_reason:
         nxt, reason = 'stale', stale_reason
     return {'slug': slug, 'stage': stage, 'next': nxt, 'reason': reason, 'markers': markers, 'stale': nxt == 'stale',
-            'summary': summary, 'stale_reason': stale_reason, 'comments': []}
+            'summary': summary, 'stale_reason': stale_reason, 'comments': pending_comments(root, slug)}
 
 
 def describe_article(root: str, slug: str) -> str:
