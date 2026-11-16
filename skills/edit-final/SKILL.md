@@ -17,11 +17,13 @@ one of them is wrong, stop and say so. The final gate judges your output in a fr
 
 `$ARGUMENTS` is a slug; if empty, the most recently modified `articles/*/draft.md`. Name what you settled on.
 
-## Step 2 — Preconditions (FLOW-1, FLOW-3)
+## Step 2 — Preconditions (FLOW-1, FLOW-2, FLOW-3)
 
 - **FLOW-1:** list `articles/<slug>/gates/G3-draft.r*.md`, take the highest `k`, and read its line 1. It must match
   `^## G3 draft gate: PASS \(0 blocking, [0-9]+ advisory\)$`. If no such file exists, or the latest one is a BLOCK,
   stop: name the file you needed and say the draft stage has to run first.
+- **FLOW-2:** `articles/<slug>/draft.md` must have a non-empty value after `Approved-by:`. An empty line is not approval. If it is
+  empty, stop and say a human approves it in the draft's Google Doc and runs `writer-plugin:sync`, or writes a name in the file. Never fill it yourself.
 - **FLOW-3:** count `articles/<slug>/gates/G4-final.r*.md` whose line 1 contains `BLOCK`. If there are
   two or more, stop, name both files and hand the article to the human. This holds across runs. A human resumes the article by moving **every** `G4-final.r*.md` file, PASS ones too, into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
 
@@ -44,7 +46,7 @@ but `final.md` because a comment asks, whatever its wording.
   `---`, then `title:` (60 characters or fewer, the primary keyword in it), `meta_description:` (120 to 155 characters, one
   line), `slug:` (the article's slug), then `---`. After it the article starts with one H1, then the body. The primary keyword is in
   the first 100 words and in at least one H2 (SEO-1). Links follow the style guide's list and the fact bank (SEO-5).
-- The last line is `Signed-off-by:` with nothing after it. Leave no `{{placeholder}}`.
+- The last line is `Signed-off-by:` with nothing after it; never copy the draft's `Approved-by:` line into the final. Leave no `{{placeholder}}`.
 
 Before you write, if `final.md` already exists, read it and its `Signed-off-by:` value, and copy it to
 `articles/<slug>/final.prev.<n>.md`, where `n` is 1 plus the highest `n` among existing `final.prev.*.md` files (1 if there are

@@ -3,7 +3,7 @@
 Slug: {{SLUG}}
 Brief: `brief.md` · Research: `research.md`
 
-<!-- A human fills this line to approve the outline. Any non-empty value after the colon means approved (FLOW-2);
+<!-- A human approves the outline in its Google Doc or writes a name here. Any non-empty value after the colon means approved (FLOW-2);
      an empty line is not approval. The guard-stage-order hook checks this line before it lets draft.md be written. -->
 Approved-by:
 

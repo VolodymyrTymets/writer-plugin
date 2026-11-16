@@ -221,6 +221,28 @@ def test_g1_reads_the_recorded_quote_check_and_has_no_shell():
     assert 'Bash' not in (ROOT / 'agents' / 'fact-gate.md').read_text(encoding='utf-8').split('---', 2)[1]
 
 
+# ---------------- approval in the Doc (FT-6): every stage waits for the previous artifact's approval ----------------
+@pytest.mark.parametrize('d,previous', [('research', 'brief'), ('outline', 'research'), ('edit-final', 'draft')])
+def test_each_stage_checks_flow_2_on_the_previous_artifact_and_never_fills_it(d, previous):
+    text = flat(d)
+    assert 'FLOW-2' in text and f'`articles/<slug>/{previous}.md` must have a non-empty value after `Approved-by:`' in text
+    assert 'writer-plugin:sync' in text and 'Never fill it yourself' in text
+
+
+@pytest.mark.parametrize('d', ['intake-brief', 'research', 'draft'])
+def test_stages_write_their_own_approval_line_empty(d):
+    assert 'leave `Approved-by:` empty' in flat(d).replace('Leave', 'leave')
+
+
+def test_edit_stage_does_not_carry_the_drafts_approval_into_the_final():
+    assert "never copy the draft's `Approved-by:` line" in flat('edit-final')
+
+
+@pytest.mark.parametrize('d', ['check-brief', 'check-research'])
+def test_the_early_gates_do_not_judge_the_approval_line(d):
+    assert 'You do not judge the `Approved-by:` line' in flat(d)
+
+
 def test_g1_prints_and_the_research_stage_reports_coverage():
     gate = skill_text('check-research')
     lines = gate.split('\n')

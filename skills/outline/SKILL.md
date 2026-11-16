@@ -15,11 +15,13 @@ line** (FLOW-2): approval is the human's, and it is the cheap moment to change d
 
 `$ARGUMENTS` is a slug; if empty, the most recently modified `articles/*/research.md`. Name what you settled on.
 
-## Step 2 — Preconditions (FLOW-1, FLOW-3)
+## Step 2 — Preconditions (FLOW-1, FLOW-2, FLOW-3)
 
 - **FLOW-1:** list `articles/<slug>/gates/G1-research.r*.md`, take the highest `k`, and read its line 1. It must match
   `^## G1 research gate: PASS \(0 blocking, [0-9]+ advisory\)$`. If no such file exists, or the latest one is a BLOCK,
   stop: name the file you needed and say the research stage has to run first.
+- **FLOW-2:** `articles/<slug>/research.md` must have a non-empty value after `Approved-by:`. An empty line is not approval. If it is
+  empty, stop and say a human approves it in the research's Google Doc and runs `writer-plugin:sync`, or writes a name in the file. Never fill it yourself.
 - **FLOW-3:** count `articles/<slug>/gates/G2-outline.r*.md` whose line 1 contains `BLOCK`. If there are
   two or more, stop, name both files and hand the article to the human. This holds across runs. A human resumes the article by moving **every** `G2-outline.r*.md` file, PASS ones too, into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
 

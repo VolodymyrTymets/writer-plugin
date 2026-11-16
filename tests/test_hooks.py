@@ -1097,7 +1097,8 @@ def docs_edit(ws, old, new):
 def drive_create(ws, title):
     """A create call that uploads the final exactly as doc-copy.py prints it, so only the title and the article's state decide."""
     final = ws.art / 'final.md'
-    text = writer.doc_text(final.read_text(errors='replace')) if final.exists() else '# T\n'
+    # WHY: this helper builds the publish-ready upload, which keeps its signed line (FT-6, docs/features/comment-rerun-and-clean-copies/plan.md R1)
+    text = writer.doc_text(final.read_text(errors='replace'), 'final', keep_signoff=True) if final.exists() else '# T\n'
     return guard(ws.root, {'hook_event_name': 'PreToolUse', 'tool_name': DRIVE_CREATE,
                            'tool_input': {'title': title, 'textContent': text, 'contentMimeType': 'text/markdown'}})
 
@@ -1461,3 +1462,63 @@ def test_a_pass_that_claims_no_artifact_cannot_skip_the_record_either(ws):
     ws.chain('research')
     (ws.art / 'research.md').unlink()
     assert g1_save(ws, line=PASS['research'], artifact='none').code == 2
+
+
+# ---------------- FT-6 (approval in the Doc): a copy is always unapproved and says where to approve ----------------
+NOTE_APPROVE = 'To approve, write your name after the Approved-by label below, then run writer-plugin:sync.'
+NOTE_SIGN = 'To approve, write your name after the Signed-off-by label below, then run writer-plugin:sync.'
+HTML_NOTE = '<!-- A human fills this line to approve the outline. Any non-empty value after the colon means approved (FLOW-2);\n     an empty line is not approval. -->\n'
+
+
+@pytest.mark.parametrize('value', ['', ' Test Human 2026-11-14'], ids=['empty', 'approved'])
+def test_an_outline_copy_always_shows_an_empty_approval_line_and_the_instruction(value):
+    text = f'# Outline\n\n{HTML_NOTE}Approved-by:{value}\n\n## Thesis\nA claim [F1].\n'
+    assert writer.doc_text(text, 'outline') == f'# Outline\n\n{NOTE_APPROVE}\n\nApproved-by:\n\n## Thesis\nA claim.\n'
+
+
+def test_an_unsigned_final_copy_names_the_signoff_line():
+    text = '# T\n\nBody [F1].\n\nSigned-off-by:\n'
+    assert writer.doc_text(text, 'final') == f'# T\n\nBody.\n\n{NOTE_SIGN}\n\nSigned-off-by:\n'
+
+
+def test_a_publish_ready_final_keeps_its_signed_line_and_gets_no_instruction():
+    text = '# T\n\nBody [F1].\n\nSigned-off-by: Test Human\n'
+    out = writer.doc_text(text, 'final', keep_signoff=True)
+    assert out == '# T\n\nBody.\n\nSigned-off-by: Test Human\n' and 'writer-plugin:sync' not in out
+
+
+def test_a_copy_of_an_artifact_with_no_approval_line_gets_one_at_the_end():
+    assert writer.doc_text('# Draft\n\nBody.\n', 'draft') == f'# Draft\n\nBody.\n\n{NOTE_APPROVE}\n\nApproved-by:\n'
+
+
+def test_an_approval_word_inside_a_code_fence_is_not_an_approval_line():
+    text = '# T\n\n```\nApproved-by: Test Human\n```\n'
+    assert 'Approved-by: Test Human' in writer.doc_text(text, 'draft')
+
+
+def test_without_a_stage_the_text_is_only_stripped_as_before():
+    assert writer.doc_text('# T\n\nApproved-by: x\n') == '# T\n\nApproved-by: x\n'
+
+
+def test_the_instruction_and_the_label_are_separate_paragraphs():
+    """Google merges lines without a blank between them into one paragraph (R0), which would hide the label from `sync`."""
+    out = writer.doc_text('# T\n\nBody.\nApproved-by:\n', 'outline')
+    assert f'{NOTE_APPROVE}\n\nApproved-by:' in out and f'\n\n{NOTE_APPROVE}' in out
+
+
+def test_the_instruction_is_not_an_approval_line_for_the_hash():
+    shown = writer.doc_text('# T\n\nApproved-by:\n', 'outline')
+    assert writer.text_hash(shown) != writer.text_hash('# T\n') and 'Approved-by:' not in writer.strip_approval(shown)
+
+
+@pytest.mark.parametrize('state,stage', [('approved', 'outline'), ('unapproved', 'outline')], ids=['approved-outline', 'unapproved-outline'])
+def test_doc_copy_of_an_outline_is_unapproved_whatever_the_file_says(ws, state, stage):
+    build_state(ws, state)
+    out = json.loads(doc_copy(ws.root, ws.slug, stage).out)
+    assert NOTE_APPROVE in out['text'] and 'Approved-by: Test' not in out['text'] and out['text'].rstrip().count('Approved-by:') == 1
+
+
+def test_doc_copy_of_a_signed_final_with_a_marker_is_unapproved_and_not_labelled(ws):
+    signed_with_marker(ws)
+    out = json.loads(doc_copy(ws.root, ws.slug, 'final').out)
+    assert out['publish_ready'] is False and NOTE_SIGN in out['text'] and 'Signed-off-by: Test Human' not in out['text']

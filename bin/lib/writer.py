@@ -485,19 +485,70 @@ def strip_fact_ids(text: str) -> str:
 _FRONT_MATTER = re.compile(r'\A---\n(.*?)\n---\n', re.S)
 
 
-def doc_text(text: str) -> str:
-    """The Markdown a reviewer's Doc gets: fact tags stripped, and a leading front-matter block turned into a list. Google
-    reads raw front matter as a rule plus a heading (live run, 2026-11-14), but the title, meta description and slug are
-    things a reviewer checks, so they stay, as `- **Title:** …` lines."""
+_APPROVAL_LINE_ANY = re.compile(r'^[ \t]*(Approved-by|Signed-off-by):.*$')
+
+
+def approval_key(stage: Optional[str]) -> str:
+    """The human line a stage closes with: the final's is a sign-off (FLOW-6), every other artifact's an approval (FLOW-2)."""
+    return 'Signed-off-by' if stage == 'final' else 'Approved-by'
+
+
+def doc_note(key: str) -> str:
+    # Plain words, no backticks or colon after the label: Google drops backticks and the read-back keeps this line apart from the label (R0).
+    return f'To approve, write your name after the {key} label below, then run writer-plugin:sync.'
+
+
+def _open_approval(text: str, stage: Optional[str], keep_signoff: bool) -> str:
+    """A Doc copy is always unapproved (FT-6, ADR-016): each approval line is emptied and given the instruction, in its own paragraph,
+    and a guidance HTML comment directly above it is dropped (Google drops it anyway). An artifact with no such line gets the block at
+    its end. The one exception is the publish-ready final, which keeps its signed line and gets no instruction."""
+    out: List[str] = []
+    fenced = found = False
+    lines = text.split('\n')
+    for n, line in enumerate(lines):
+        if _FENCE.match(line):
+            fenced = not fenced
+        m = None if fenced else _APPROVAL_LINE_ANY.match(line)
+        if not m:
+            out.append(line)
+            continue
+        found = True
+        if keep_signoff and m.group(1) == 'Signed-off-by':
+            out.append(line)
+            continue
+        if out and out[-1].strip().endswith('-->'):  # the note a template puts straight above the line
+            k = len(out) - 1
+            while k >= 0 and '<!--' not in out[k]:
+                k -= 1
+            if k >= 0 and all(o.strip() for o in out[k:]):
+                del out[k:]
+        if out and out[-1].strip():
+            out.append('')
+        out += [doc_note(m.group(1)), '', f'{m.group(1)}:']
+        if n + 1 < len(lines) and lines[n + 1].strip():
+            out.append('')
+    body = '\n'.join(out)
+    if not found and stage and not (keep_signoff and stage == 'final'):
+        key = approval_key(stage)
+        body = body.rstrip('\n') + f'\n\n{doc_note(key)}\n\n{key}:\n'
+    return body
+
+
+def doc_text(text: str, stage: Optional[str] = None, keep_signoff: bool = False) -> str:
+    """The Markdown a reviewer's Doc gets: fact tags stripped, a leading front-matter block turned into a list (Google reads raw front
+    matter as a rule plus a heading, live run 2026-11-14), and, when `stage` is given, every approval line emptied with the instruction
+    (`keep_signoff` is for the publish-ready final alone). Without a stage the approval lines are left as they are."""
     m = _FRONT_MATTER.match(text)
     if not m:
-        return strip_fact_ids(text)
+        shown = strip_fact_ids(text)
+        return _open_approval(shown, stage, keep_signoff) if stage else shown
     items = []
     for line in m.group(1).split('\n'):
         key, sep, value = line.partition(':')
         if sep and key.strip():
             items.append(f'- **{key.strip().replace("_", " ").capitalize()}:** {value.strip()}')
-    return '\n'.join(items) + '\n\n' + strip_fact_ids(text[m.end():])
+    body = strip_fact_ids(text[m.end():])
+    return '\n'.join(items) + '\n\n' + (_open_approval(body, stage, keep_signoff) if stage else body)
 
 
 def docs_path(root: str, slug: str) -> str:
@@ -601,7 +652,7 @@ def doc_copy(root: str, slug: str, stage: str) -> Dict[str, object]:
     rev = next_rev(root, slug, stage)
     ready = stage == 'final' and publish_ready(root, slug)
     title = doc_title(slug, stage, rev, ready, check_gate(root, slug, stage) is None)
-    shown = doc_text(text)
+    shown = doc_text(text, stage, keep_signoff=ready)
     shown_sha = text_hash(shown)
     last = next((e for e in reversed(docs_index(root, slug)) if e.get('stage') == stage), None)
     skip = bool(last) and last.get('text_sha256') == shown_sha and \

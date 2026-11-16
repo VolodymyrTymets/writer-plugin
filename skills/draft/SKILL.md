@@ -44,6 +44,7 @@ say so in your report. Write the article from the outline's Structure table, row
 - **Links:** internal links only from the style guide's list; external links only to sources in the fact bank.
 - **The close** delivers the brief's one CTA as the outline's Call to action section says. Nothing from the brief's "must avoid"
   appears; every "must include" does. Leave no `{{placeholder}}`.
+- **Approval:** end `draft.md` with an `Approved-by:` line and leave `Approved-by:` empty; approval is the human's (FLOW-2).
 
 Before you write, if `draft.md` already exists, read it and copy it to `articles/<slug>/draft.prev.<n>.md`, where `n` is 1 plus
 the highest `n` among existing `draft.prev.*.md` files (1 if there are none). Never replace an earlier backup: a human's

@@ -167,7 +167,7 @@ def check_drive_create(root, tool_input):
         w.block('FLOW-6', f'articles/{slug}/final.md is not publish-ready (it needs a non-empty Signed-off-by on a current G4 PASS and no '
                 'unverified-claim marker), so no Doc may be labelled publish-ready.',
                 'make the copy under the title the doc-copy script prints now, which carries no publish-ready label.')
-    expected = w.doc_text(w.read_text(os.path.join(w.article_dir(root, slug), 'final.md')))
+    expected = w.doc_text(w.read_text(os.path.join(w.article_dir(root, slug), 'final.md')), 'final', keep_signoff=True)
     if tool_input.get('base64Content') is not None or tool_input.get('textContent') != expected:
         w.block('FLOW-6', f'a publish-ready Doc must carry exactly articles/{slug}/final.md as signed off (fact IDs stripped); this '
                 'upload carries other content.', 'upload the text the doc-copy script prints, as textContent, unchanged.')
