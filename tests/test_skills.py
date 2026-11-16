@@ -265,6 +265,7 @@ def test_research_backs_up_the_dossier_and_keeps_a_reviewers_answer_a_note_not_a
     text = flat('research')
     assert '`articles/<slug>/research.prev.<n>.md`' in text and 'never replace an earlier backup' in text
     assert 'never as a fact row and never with an `[F#]`' in text and 'the marker is not cleared' in text
+    assert 'pointer note' in text and 'do not copy its figures or claims into the dossier' in text, 'a copied number is a FACT-1 finding, and reviewer text stays in the comments file'
 
 
 def test_the_edit_stage_takes_only_its_own_pending_comments():
