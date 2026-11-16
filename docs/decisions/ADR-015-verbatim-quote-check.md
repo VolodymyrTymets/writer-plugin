@@ -1,7 +1,7 @@
 # ADR-015 — A script checks that each fact-bank quote is on its source page; G1 reads the record
 
 - **Date:** 2026-11-16
-- **Status:** accepted (decisions 1 to 3; the record and guard rules are added with R2 to R4)
+- **Status:** accepted
 - **Deciders:** Volodymyr Tymets
 - **Ticket:** none (`docs/features/verbatim-quote-check/plan.md`, field-test finding FT-3)
 
@@ -21,8 +21,15 @@ real quote can look alike. ADR-010 decision 3 settled that no gate gets a shell,
    page does not have there; those marks are ignored at the end of the last segment only. Marks inside the quote still count. On the
    field-test dossier this turned 4 of 4 `not-found` rows into `found` and left every real difference blocking; the cost is that a
    quote cut mid-claim passes this check, which FACT-5 still judges.
-4. **The gate reads a record, it does not run the script** (ADR-010.3 stands): the research stage runs the script with `--record`, the
-   guard ties a G1 verdict to a record that matches `research.md`, and G1 reads it. Added with R2 and R3.
+4. **The gate reads a record, it does not run the script** (ADR-010.3 stands). The research stage runs the script without `--record`,
+   fixes what it flags, then with `--record` as the last action on `research.md`. `.quote-check.json` holds `file`, the `sha256` of
+   `research.md` (approval lines ignored), `rows` (fact ID to status), the printed `lines` and `at`.
+5. **Two guard rules, mirrors of ADR-010.4:** a G1 verdict, PASS or BLOCK, is saved only against a record whose hash equals
+   `research.md`; the one exception is G1's BLOCK for `Artifact: none` while `research.md` does not exist. No tool writes
+   `.quote-check.json`; only the script does (a hook sees tool calls, not the script's own write: the same known gap as `prose-lint.py`).
+6. **What G1 does with a status:** `found` settles FACT-3's verbatim question (FACT-5 and attribution are still judged); `not-found`
+   is a blocking FACT-3 finding that the gate may not overrule from a fetch summary; `unreachable` and `unreadable` settle nothing and
+   the row is judged through the page as before; a missing record is a blocking finding.
 
 ## Rejected alternatives
 | Alternative | Why not |
@@ -34,3 +41,6 @@ real quote can look alike. ADR-010 decision 3 settled that no gate gets a shell,
 ## Consequences
 - A `found` row needs no quote comparison by the gate; `unreachable` and `unreadable` rows are judged as before.
 - On the field-test dossier 21 of 25 rows were `found` and 4 `unreachable` (3 TLS rejections by the local system Python, 1 HTTP 404).
+- Known gaps: a shell write by the script is invisible to the guard; an `unreachable` row is no better checked than before; a page that
+  differs for a script and for a browser can give a false `not-found` (the research stage then re-reads the page or drops the row).
+- `evals/` fixtures carry a record written by the script, with a test that pins its hash to the research beside it.
