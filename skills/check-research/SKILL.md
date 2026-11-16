@@ -58,6 +58,9 @@ Coverage: 2 answered, 1 open (of 3)
 2. [FACT-2] F5: the URL returns 404. Fix: find a live source for the claim or drop the row.
 ```
 
+Coverage floor: when fewer than half the questions are answered, add `[FACT-6] Coverage floor: 1 of 10 questions answered
+(open: Q2 to Q10). Fix: ...` as a blocking finding, with the counting rule in the checklist.
+
 A BLOCK is actionable: every item names the fix. Never pad with advisory findings. List the sources you opened and
 the ones you did not under Not checked. Do not write any file; the caller saves the verdict.
 

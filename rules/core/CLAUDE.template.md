@@ -27,7 +27,7 @@ Style guide for this workspace: `{{STYLE_GUIDE_PATH}}`. Every gate cites a rule 
 - **FACT-4** A statistic older than the style guide's age limit is flagged, not silently used. A fact from a live page is
   aged by its accessed date, and any later statement of it says "checked <month year>".
 - **FACT-5** No claim is stronger than its source.
-- **FACT-6** Every question the brief raises is answered by a fact or listed under Open gaps.
+- **FACT-6** Every question the brief raises is answered by a fact or listed under Open gaps, and at least half are answered.
 
 ## STR — structure
 
