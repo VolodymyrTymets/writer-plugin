@@ -8,6 +8,9 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- `prose-lint.py` FACT-1 no longer flags numbers that make no claim: marker reasons ("HTTP 403"), image paths, numbered labels ("Screenshot 2",
+  "Step 3"), "checked in <month year>", and names with a digit (G2, B2B). A fact list `[F5, F14]` counts as one tag, here and in the word count;
+  the lint and the Doc copy now share one tag pattern (FT-4).
 - New script `quote-check.py` checks each fact-bank quote against the raw text of its source page. The research stage records the result in
   `.quote-check.json`; G1 reads it and blocks a `not-found` quote as FACT-3 without a model's judgement; the guard refuses a G1 verdict
   without a matching record (FT-3, ADR-015). No gate gets a shell. The two G1 eval cases carry a record.

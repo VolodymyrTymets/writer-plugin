@@ -3,6 +3,7 @@
 Fixtures are neutral synthetic articles built under tmp_path (PLG-1). The checks and their rule IDs are the contract in
 docs/decisions/ADR-009 and docs/DESIGN.md.
 """
+import importlib.util
 import json
 import re
 import subprocess
@@ -103,6 +104,57 @@ def test_each_rule_fires_on_its_own_case(ws, kwargs, rule):
 def test_a_number_with_a_fact_id_in_the_same_sentence_is_fine(ws):
     (ws / 'final.md').write_text(final_text(extra='The desk weighs 40 kilograms [F3].'))
     assert 'FACT-1' not in rules(lint(ws / 'final.md'))
+
+
+# FT-4: 36 of 69 recorded lines on a real final were noise. Each is a form that makes no claim a fact ID could source.
+NOISE = [
+    "<Can't be verified. Reason: the page returned HTTP 403 to the fetch tool, so no price was read.>",
+    "The review sites could not be read. <Can't be verified. Reason: G2 returned HTTP 403 after 2 tries.>",
+    'The dashboard looks like this.\n\n![Screenshot 1: the dashboard](shots/one.png)',
+    '![Screenshot of the settings page](shots/step-2.png)',
+    'Screenshot 2 shows the settings page.',
+    'Figure 3 and Table 4 sum it up.',
+    'Step 2 is to measure the room.',
+    "**G2 rating:** <Can't be verified. Reason: G2 returned HTTP 403.>",
+    'B2B teams read the H2 headings on G2.',
+    'Data checked in November 2026.',
+    'Prices checked on 3 November 2026.',
+    'The desk weighs less than the chair [F5, F14].',
+    'The desk weighs less than the chair [F5,F14,F15].',
+]
+
+
+@pytest.mark.parametrize('extra', NOISE, ids=['marker-reason', 'marker-reason-inline', 'image-label', 'image-path-digits', 'screenshot-label', 'figure-and-table',
+                                              'step-label', 'name-with-a-digit-beside-a-marker', 'names-with-digits', 'checked-in-month-year', 'checked-on-date', 'fact-list', 'fact-list-no-spaces'])
+def test_forms_that_make_no_claim_are_not_flagged_by_the_number_check(ws, extra):
+    (ws / 'final.md').write_text(final_text(extra='\n' + extra + '\n'))
+    r = lint(ws / 'final.md')
+    assert 'FACT-1' not in rules(r), r.out
+
+
+@pytest.mark.parametrize('extra', [
+    'The desk weighs 40 kilograms.',
+    "The desk weighs 40 kilograms. <Can't be verified. Reason: the page returned HTTP 403.>",
+    'Screenshot 2 shows that 45% of buyers return the desk.',
+    'Data checked in November 2026 shows 45% growth.',
+    'Step 2 costs 30 dollars.',
+    'G2 lists 45 tools.',
+    'Revenue in Q3 grew 45%.',
+    'The desk weighs 40 kilograms [F5, X14].',
+    'In 2025, 40% of desks were returned [F5]. Also 3 of 4 buyers said so.',
+], ids=['plain-number', 'number-beside-a-marker', 'number-after-a-label', 'number-after-a-checked-date', 'number-after-a-step', 'number-beside-a-name', 'number-after-a-quarter',
+        'broken-list', 'second-sentence-has-no-id'])
+def test_a_real_unsourced_number_is_still_flagged(ws, extra):
+    (ws / 'final.md').write_text(final_text(extra='\n' + extra + '\n'))
+    assert 'FACT-1' in rules(lint(ws / 'final.md')), extra
+
+
+def test_a_fact_list_is_not_counted_as_prose_words():
+    """`[F5, F14]` is a tag, like `[F5]`: counting its pieces as words moved an article across its length bound."""
+    spec = importlib.util.spec_from_file_location('prose_lint', SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    assert len(mod.prose_words('A claim [F5, F14, F15].')) == len(mod.prose_words('A claim [F5].')) == 2
 
 
 @pytest.mark.parametrize('extra', ['See https://example.com/page2 for more.', '1. A list item.', '## Step 2 of the plan [F1]'],
