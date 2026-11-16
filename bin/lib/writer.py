@@ -82,7 +82,10 @@ def rel_path(root: str, path: str, cwd: Optional[str] = None) -> Optional[str]:
     base = os.path.normpath(root)
     if full != base and not full.startswith(base + os.sep):
         return None
-    return os.path.relpath(full, base).replace(os.sep, '/')
+    lexical = os.path.relpath(full, base).replace(os.sep, '/')
+    # A symlink inside the workspace (`art2 -> articles`) names the same file: judge the resolved path when it stays inside the workspace.
+    resolved = os.path.relpath(os.path.realpath(full), os.path.realpath(base)).replace(os.sep, '/')
+    return lexical if resolved.startswith('..') else resolved
 
 
 # ---------------- articles, gates, verdicts ----------------
@@ -274,7 +277,7 @@ def resulting_text(root: str, rel: str, tool: str, tool_input: dict) -> Optional
 
 
 # ---------------- which paths the guard cares about ----------------
-ARTICLE_PATH = re.compile(r'^articles/([^/]+)/(.+)$')
+ARTICLE_PATH = re.compile(r'^articles/([^/]+)/(.+)$', re.I)  # the default macOS filesystem ignores case: `Articles/` is the same folder
 
 
 def split_article(rel: str) -> Optional[Tuple[str, str]]:
@@ -330,7 +333,7 @@ def bash_targets(command: str) -> List[Tuple[str, str]]:
             args = [t for t in tokens[1:] if not t.startswith('-')]
             if prog in _WRITERS:
                 targets.extend(('write', a) for a in args)
-            elif prog in ('sed', 'perl') and any(t.startswith('-i') for t in tokens[1:]):
+            elif prog in ('sed', 'perl') and any(re.match(r'^-[A-Za-z]*i', t) or t == '--in-place' for t in tokens[1:]):  # -i, -pi, -ni, --in-place
                 targets.extend(('write', a) for a in args[1:])
     return targets
 
@@ -520,7 +523,8 @@ def _open_approval(text: str, stage: Optional[str], keep_signoff: bool) -> str:
             k = len(out) - 1
             while k >= 0 and '<!--' not in out[k]:
                 k -= 1
-            if k >= 0 and all(o.strip() for o in out[k:]):
+            # only a comment that opens its own line: text before `<!--` on that line is the article's and stays
+            if k >= 0 and out[k].lstrip().startswith('<!--') and all(o.strip() for o in out[k:]):
                 del out[k:]
         if out and out[-1].strip():
             out.append('')
@@ -728,8 +732,10 @@ def _doc_words(text: str, stage: str) -> List[str]:
     key = approval_key(stage)
     text = _HTML_COMMENT.sub('', _COMMENT_TAG.sub('', text))
     text = re.sub(r'^[ \t]*(?:Approved-by|Signed-off-by):.*$', '', text, flags=re.M)
-    text = text.replace(doc_note(key), '')
-    return re.findall(r'\w+', text.lower())
+    text = text.replace(doc_note(key), '').lower()
+    text = re.sub(r'\\([^\w\s])', r'\1', text)  # markdown escapes (`\*`, `\_`) are Google's, not the author's
+    # Numbers keep their sign, currency, decimal mark and percent, and the comparison operators stay: an edit that flips only one of them is an edit.
+    return re.findall(r'[-+±$€£]?\d[\d.,]*\d%?|[-+±$€£]?\d%?|[^\W_]+|(?<=\s)[<>=±≤≥](?=\s)', text)
 
 
 def doc_equals_artifact(root: str, slug: str, stage: str, file_content: str) -> bool:

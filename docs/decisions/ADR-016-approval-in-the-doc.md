@@ -41,7 +41,8 @@ A throwaway logging plugin and one synthetic Doc (the eval fixture's outline), k
    - on read of a logged Doc that is the latest revision of its stage, it writes `approvals/<stage>.r<rev>.json` `{doc_id, rev, artifact_sha256, value, reason, at}`:
      `value` is the name after the label (first label line outside a fence, trimmed, at most 120 characters, comment anchors stripped), or null with a `reason` (no
      name; an older Doc; the artifact changed since the Doc was made; the Doc text was edited in the Doc). The body must equal the artifact's copy by word
-     sequence, ignoring the approval line and the instruction. A later read without a name clears the earlier approval. The recorder fails open.
+     sequence (numbers keep their sign, decimal mark, currency and percent; `<`, `>`, `=` and `±` count; markdown escapes and underscores do not), ignoring
+     the approval line and the instruction. A later read without a name clears the earlier approval. The recorder fails open.
 4. **The guard fails closed for these rules** (ADR-012.5: a false allow would skip a human checkpoint), in a wrapper outside `fail_open`, with a test seam
    `WRITER_GUARD_TEST_FAULT` (like `QUOTE_CHECK_ALLOW_LOOPBACK`):
    - writing a stage's file needs the previous artifact approved;
@@ -50,7 +51,10 @@ A throwaway logging plugin and one synthetic Doc (the eval fixture's outline), k
    - no tool writes `approvals/` or `.docs-created.json`;
    - a `create_file` never carries a filled approval line (the exact publish-ready final excepted), and a Doc titled as an article's copy is exactly that copy;
    - a new `docs.json` entry matches a logged Doc (id, title, text hash) and the artifact's hash;
-   - a connector call on a logged Doc is refused unless it is on a read list; a write tool that names no Doc is refused; unknown tools are refused on a logged Doc.
+   - a connector call on a logged Doc is refused unless it is on a read list: the Doc id is looked for in every string of the tool input, at any depth and inside
+     a URL, so a tool added later is caught whatever key it uses; a write tool that names no Doc is refused.
+   - a shell command that names an approval label and writes an artifact is refused (the parser sees the target, not the content);
+     an `articles/` path is read case-insensitively and through symlinks (the default macOS filesystem ignores case).
      A missing log means "nothing protected yet"; only a log that exists but cannot be read refuses. The Drive and Docs server prefixes are matched.
 5. **`/sync` carries the approval in.** It reads the record, never the Doc text or a comment, and writes only the approval line, with Edit; it never overwrites a
    different local value, and it reports the guard's refusal as it is.
@@ -58,7 +62,8 @@ A throwaway logging plugin and one synthetic Doc (the eval fixture's outline), k
    edit a logged Doc (the human does it in Google Drive). A human typing in the local file in an editor is allowed: no hook sees an editor.
 
 ## Known gaps
-- A shell write of an approval line into an artifact is invisible to the guard (as the final's sign-off already was, ADR-010).
+- A write the shell parser cannot read (`python3 -c`, command substitution) can still put an approval line into an artifact, as the final's sign-off could (ADR-010).
+- The guard matches Edit, Write, Bash and the two connector servers. A file-writing tool of any other MCP server is outside every rule here.
 - A connector outside the two matched servers that can edit a Doc body is not covered. Within them, an unknown tool is refused only on a logged Doc id.
 - Whether a pending (unaccepted) suggestion could show as text was not observed.
 - The recorder trusts `tool_response` as the connector returned it.

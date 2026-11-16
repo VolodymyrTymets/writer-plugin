@@ -706,9 +706,18 @@ def test_an_edit_that_cannot_be_resolved_is_allowed_and_says_so(ws):
     assert r.code == 0 and 'sign-off check was skipped' in r.err
 
 
-def test_a_shell_write_to_final_is_allowed_by_the_sign_off_rule_a_stated_gap(ws):
+def test_a_shell_write_of_the_signoff_label_into_the_final_is_refused(ws):
+    # WHY: this was the stated gap (ADR-010). The shell command that names an approval label and writes an artifact is now refused (ADR-016);
+    # what stays a gap is a write the parser cannot see, pinned below.
     final_ready(ws)
-    assert guard(ws.root, bash_payload("sed -i '' 's/Signed-off-by:/Signed-off-by: X/' articles/demo/final.md")).code == 0
+    r = guard(ws.root, bash_payload("sed -i '' 's/Signed-off-by:/Signed-off-by: X/' articles/demo/final.md"))
+    assert r.code == 2 and 'FLOW-6' in r.err
+
+
+def test_a_write_the_shell_parser_cannot_see_stays_a_stated_gap(ws):
+    final_ready(ws)
+    cmd = "python3 -c \"open('articles/demo/final.md','a').write('Signed-off-by: X')\""
+    assert guard(ws.root, bash_payload(cmd)).code == 0
 
 
 # ---------------- Phase 6 (ADR-011): one article state for the briefing and the orchestrator ----------------
@@ -2055,3 +2064,119 @@ def test_an_invalid_slug_still_prints_unknown_with_an_empty_comments_list(ws, sl
     args = [slug] if slug else []
     out = json.loads(subprocess.run([sys.executable, str(BIN / 'article-status.py'), '--root', str(ws.root), *args], capture_output=True, text=True).stdout)
     assert (out['next'], out['comments']) == ('unknown', [])
+
+
+# ---------------- ADR-016 self-review findings ----------------
+FILLED_OUTLINE = '# O\n\nApproved-by: Mallory\n'
+
+
+@pytest.mark.parametrize('rel', ['Articles/demo/outline.md', 'ARTICLES/demo/outline.md', 'articles/demo/OUTLINE.md'], ids=['Articles', 'ARTICLES', 'OUTLINE'])
+def test_the_guard_reads_the_articles_path_case_insensitively(ws, rel):
+    """The default macOS filesystem treats these as the same file, so they must meet the same rules."""
+    ws.chain('final')
+    (ws.art / 'outline.md').write_text('# O\n\nApproved-by:\n')
+    r = guard(ws.root, write_payload(rel, FILLED_OUTLINE))
+    assert r.code == 2 and 'FLOW-2' in r.err
+
+
+def test_a_symlink_to_the_articles_folder_is_guarded_like_the_folder(ws):
+    ws.chain('final')
+    (ws.art / 'outline.md').write_text('# O\n\nApproved-by:\n')
+    os.symlink(ws.root / 'articles', ws.root / 'art2')
+    r = guard(ws.root, write_payload('art2/demo/outline.md', FILLED_OUTLINE))
+    assert r.code == 2 and 'FLOW-2' in r.err
+
+
+@pytest.mark.parametrize('command', [
+    "sed -i '' 's/^Approved-by:.*$/Approved-by: Mallory/' articles/demo/outline.md",
+    "echo 'Approved-by: Mallory' >> articles/demo/outline.md",
+    "printf 'Signed-off-by: Mallory\\n' >> articles/demo/final.md",
+    "tee -a articles/demo/draft.md <<< 'approved-by: Mallory'",
+    "perl -pi -e 's/^Approved-by:/Approved-by: M/' articles/demo/research.md",
+], ids=['sed', 'echo-append', 'printf-signoff', 'tee', 'perl'])
+def test_a_shell_command_that_writes_an_approval_label_into_an_artifact_is_refused(ws, command):
+    ws.chain('final')
+    r = guard(ws.root, bash_payload(command))
+    assert r.code == 2 and 'Write tool' in r.err and ('FLOW-2' in r.err or 'FLOW-6' in r.err)
+
+
+@pytest.mark.parametrize('command', [
+    "echo 'Approved-by: someone' > articles/demo/notes.md",
+    "git commit -m 'Signed-off-by: A'",
+    "grep -n 'Approved-by' articles/demo/outline.md",
+], ids=['other-file', 'no-target', 'a-read'])
+def test_a_shell_command_that_does_not_write_an_artifact_is_not_caught_by_the_label_rule(ws, command):
+    ws.chain('final')
+    assert guard(ws.root, bash_payload(command)).code == 0
+
+
+@pytest.mark.parametrize('ti', [
+    {'ids': ['docL']}, {'target': {'doc': 'docL'}}, {'url': 'https://docs.google.com/document/d/docL/edit'}, {'fileIds': ['x', 'docL']},
+], ids=['list', 'nested', 'url', 'second-item'])
+def test_an_unknown_tool_is_refused_whatever_key_carries_a_logged_doc_id(ws, ti):
+    logged(ws)
+    assert doc_tool(ws, 'Docs__tool_added_later', **ti).code == 2
+    assert doc_tool(ws, 'Docs__tool_added_later', **{k: 'someone elses doc' for k in ti}).code == 0
+
+
+def test_a_read_tool_may_carry_a_logged_id_under_any_key(ws):
+    logged(ws)
+    assert doc_tool(ws, 'Drive__search_files', query='docL').code == 0
+
+
+def test_a_text_line_that_ends_in_an_html_comment_is_not_deleted_from_the_copy():
+    text = '# T\n\nKeep TTL under 200 ms. <!-- see F3 -->\nApproved-by:\n'
+    out = writer.doc_text(text, 'outline')
+    assert 'Keep TTL under 200 ms.' in out and f'{NOTE_APPROVE}\n\nApproved-by:' in out
+
+
+def test_a_multi_line_guidance_comment_directly_above_the_line_is_still_dropped():
+    out = writer.doc_text('# T\n\n<!-- one\n     two -->\nApproved-by:\n', 'outline')
+    assert 'one' not in out and 'two' not in out
+
+
+@pytest.mark.parametrize('old,new', [('10.5%', '-10,5%'), ('x < 5', 'x > 5'), ('a = b', 'a ± b'), ('costs $5', 'costs 5'), ('3.14', '314')],
+                         ids=['sign-and-decimal', 'less-greater', 'equals-plusminus', 'currency', 'decimal-point'])
+def test_an_edit_that_changes_only_a_number_or_an_operator_is_still_an_edit(ow, old, new):
+    (ow.art / 'outline.md').write_text(OUTLINE_BODY.replace('A thesis', f'A thesis with {old}'))
+    shown, _ = created(ow)
+    read(ow, readback(shown, 'Test Human').replace(old, new))
+    rec = approval(ow)
+    assert rec['value'] is None and 'differs' in rec['reason']
+
+
+@pytest.mark.parametrize('word', ['max_age', 'a_b_c'])
+def test_an_underscore_escaped_by_google_is_not_an_edit(ow, word):
+    (ow.art / 'outline.md').write_text(OUTLINE_BODY.replace('A thesis', f'A {word} thesis'))
+    shown, _ = created(ow)
+    read(ow, readback(shown, 'Test Human').replace(word, word.replace('_', '\\_')))
+    assert approval(ow)['value'] == 'Test Human'
+
+
+def test_a_stage_whose_previous_artifact_cannot_be_read_is_refused_not_allowed(ws):
+    ws.chain('outline')
+    (ws.art / 'research.md').write_bytes(b'\xff\xfe broken \xff\nApproved-by:\n')
+    r = guard(ws.root, write_payload(ws.rel('outline.md')))
+    assert r.code == 2 and 'could not be checked' in r.err
+
+
+def test_the_stage_rule_blocks_when_it_hits_an_unexpected_error(ws):
+    ws.chain('outline')
+    r = guard(ws.root, write_payload(ws.rel('outline.md')), env={'WRITER_GUARD_TEST_FAULT': 'stage'})
+    assert r.code == 2 and 'RuntimeError' in r.err
+
+
+def test_two_creates_at_once_both_end_up_in_the_created_log(ow):
+    shown = writer.doc_text(OUTLINE_BODY, 'outline')
+    env = dict(os.environ, CLAUDE_PROJECT_DIR=str(ow.root))
+    procs = []
+    for i in range(8):
+        payload = drive_post(DRIVE_CREATE, {'title': f'demo · outline · r{i + 1}', 'textContent': shown}, json.dumps({'id': f'doc{i}'}))
+        procs.append(subprocess.Popen([sys.executable, str(BIN / 'record-approval.py')], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                                      stderr=subprocess.PIPE, text=True, env=env, cwd=str(ow.root)))
+        procs[-1].stdin.write(json.dumps(dict(payload, cwd=str(ow.root))))
+        procs[-1].stdin.close()
+    for p in procs:
+        p.wait(timeout=30)
+    ids = sorted(d['id'] for d in json.loads((ow.art / '.docs-created.json').read_text())['docs'])
+    assert ids == sorted(f'doc{i}' for i in range(8))

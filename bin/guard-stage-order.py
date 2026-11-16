@@ -2,7 +2,7 @@
 """Stage order, mechanical (FLOW-1, FLOW-2, FLOW-3, FLOW-4). PreToolUse: Edit|Write|Bash and the Drive and Docs connector tools.
 
 ADR-016 adds, and these rules FAIL CLOSED (any error blocks; a false allow would skip a human checkpoint, as ADR-012.5): no stage starts before the
-previous artifact is approved (FLOW-2, brief to draft; the final closes with a sign-off); a tool writes an approval line only against an approval
+previous artifact is approved (FLOW-2, brief to draft; the final closes with a sign-off); a Write or Edit fills an approval line only against an approval
 record that matches the content (a name is typed in the Google Doc and carried over by sync); no tool writes `approvals/` or `.docs-created.json`;
 a Doc upload never carries a filled approval line and an article Doc is exactly the artifact's copy; a `docs.json` entry matches a Doc the create hook
 logged; no connector tool outside the read list touches a logged Doc.
@@ -16,14 +16,16 @@ and never beside an unverified-claim marker (FLOW-6).
 
 Path-based, so it needs no branch or ticket: it acts only on `articles/<slug>/...` inside the workspace.
 - Writing research.md, outline.md, draft.md or final.md needs the previous gate's latest verdict to be a PASS on what is on disk
-  (FLOW-1, with stale verdicts caught through the sidecar, ADR-009); draft.md also needs a non-empty `Approved-by:` (FLOW-2).
+  (FLOW-1, with stale verdicts caught through the sidecar, ADR-009); every stage after the brief also needs the previous artifact approved (FLOW-2, ADR-016).
 - A stage whose own gate has two BLOCK verdicts is stopped until a human archives them (FLOW-3).
 - Verdict files are immutable and are created only by the Write tool with a valid line 1 and the next number (FLOW-4, ADR-004);
   no tool writes a sidecar and Bash cannot touch gates/ at all.
 Phase 7b adds (ADR-012), FLOW-6 on the Doc copies: `docs.json` is append-only, valid JSON, never written by Bash, and an entry
 says publish_ready only for a publish-ready final on its exact hash; the Drive create call (`DRIVE_CREATE`) may title a Doc
 publish-ready only for such a final carrying exactly its text, and the update call (`DRIVE_UPDATE`) never renames onto the label.
-An unexpected error allows the action (see lib/writer.fail_open).
+An unexpected error allows the action (see lib/writer.fail_open) for the older rules; the ADR-016 rules above are wrapped by `fail_closed` and refuse instead.
+A shell command is judged by the paths it writes and, for an artifact, by whether it names an approval label (it cannot be judged by what it writes); a
+write the parser cannot read (`python -c`) and the file-writing tools of other MCP servers are outside this guard (ADR-016, known gaps).
 """
 import json
 import os
@@ -252,13 +254,17 @@ def check_doc_tool(root, tool, tool_input):
     name = tool[len(prefix):]
     if name in DOC_READ_TOOLS or name == 'create_file' or not os.path.isdir(os.path.join(root, 'articles')):
         return
+    logged_ids = w.logged_doc_ids(root)
+    if any(i in s for s in _strings(tool_input) for i in logged_ids):  # any key, any depth, a URL: a tool added later may name a Doc differently
+        w.block('FLOW-6', f'{name} names a review Doc the copy skill created: only a human edits, shares or removes it, and approval is typed there.',
+                'ask the human to do it in Google Docs; a new revision is a new copy made by the copy skill.')
     doc_id = tool_input.get(DOC_PREFIXES[prefix])
     if not isinstance(doc_id, str) or not doc_id:
         if name in DOC_WRITE_TOOLS:
             w.block('FLOW-6', f'{name} must name the Doc it changes (`{DOC_PREFIXES[prefix]}`); this call does not, so it cannot be checked.',
                     'pass the Doc id.')
         return
-    if doc_id in w.logged_doc_ids(root):
+    if doc_id in logged_ids:
         w.block('FLOW-6', f'{name} would change or share a review Doc the copy skill created ({doc_id[:12]}…): only a human edits, shares or '
                 'removes it, and approval is typed there.', 'ask the human to do it in Google Docs; a new revision is a new copy made by the copy skill.')
 
@@ -296,7 +302,21 @@ def check_drive_update(tool_input):
                 'run the copy skill on the final; it uploads a new revision under the publish-ready title when the final qualifies.')
 
 
+def _strings(value):
+    """Every string inside a tool input, at any depth."""
+    if isinstance(value, str):
+        yield value
+    elif isinstance(value, dict):
+        for v in value.values():
+            yield from _strings(v)
+    elif isinstance(value, (list, tuple)):
+        for v in value:
+            yield from _strings(v)
+
+
+@fail_closed('FLOW-2', 'a stage start')
 def check_stage(root, slug, stage):
+    fault('stage')
     gate = w.gate_name(stage)
     if w.block_count(root, slug, stage) >= 2:
         w.block('FLOW-3', f'{gate} has two BLOCK verdicts for articles/{slug}, so the {stage} stage is stopped.',
@@ -337,6 +357,9 @@ def check_target(root, rel, tool, tool_input):
         w.block('FLOW-4', f'articles/{slug}/{rest} is written by the record-approval hook from what the Google Doc says; a tool may not write it.',
                 'a human writes their name in the Doc and runs writer-plugin:sync; the hook records it.')
     elif low in ('brief.md', 'research.md', 'outline.md', 'draft.md', 'final.md'):
+        if tool == 'Bash' and re.search(r'approved-by|signed-off-by', str(tool_input.get('command') or ''), re.I):
+            w.block('FLOW-6' if low == 'final.md' else 'FLOW-2', f'a shell command that names an approval label may not write articles/{slug}/{low}: the guard cannot see what it writes.',
+                    'the human writes their name in the Doc and runs writer-plugin:sync, or types it in the file; stage actors write with the Write tool.')
         check_stage(root, slug, low[:-3])
         if low == 'final.md' and tool in ('Write', 'Edit'):
             text = w.resulting_text(root, rel, tool, tool_input)

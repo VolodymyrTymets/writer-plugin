@@ -7,6 +7,7 @@ approval. On `read_file_content` of a logged Doc that is the latest revision of 
 `articles/<slug>/approvals/<stage>.r<rev>.json` with the name typed after the approval label, or with the reason there is none. The model never
 parses a Doc: this hook reads what the connector returned. Only this script writes either file; the guard refuses a tool write (ADR-016).
 """
+import contextlib
 import datetime
 import json
 import os
@@ -20,6 +21,19 @@ DRIVE_READ = 'mcp__claude_ai_Google_Drive__read_file_content'
 
 def now() -> str:
     return datetime.datetime.now(datetime.timezone.utc).isoformat(timespec='seconds')
+
+
+@contextlib.contextmanager
+def locked(path: str):
+    """Two creates at once must both reach the log: an exclusive lock around read-modify-replace (POSIX; elsewhere it is a no-op)."""
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path + '.lock', 'w') as fh:
+        try:
+            import fcntl
+            fcntl.flock(fh, fcntl.LOCK_EX)
+        except ImportError:
+            pass
+        yield
 
 
 def write_json(path: str, data: dict) -> None:
@@ -44,11 +58,12 @@ def log_created(root: str, tool_input: dict, response: object) -> None:
     uploaded = tool_input.get('textContent')
     if uploaded != w.doc_text(artifact, stage, keep_signoff=ready):
         return
-    docs = w.created_log(root, slug)
-    docs = [d for d in docs if d.get('id') != doc_id] + [{
-        'id': doc_id, 'title': tool_input.get('title'), 'slug': slug, 'stage': stage, 'rev': parts['rev'], 'label': parts['label'],
-        'text_sha256': w.text_hash(uploaded), 'approvable': not ready, 'at': now()}]
-    write_json(os.path.join(w.article_dir(root, slug), w.CREATED_LOG), {'docs': docs})
+    log_path = os.path.join(w.article_dir(root, slug), w.CREATED_LOG)
+    with locked(log_path):
+        docs = [d for d in w.created_log(root, slug) if d.get('id') != doc_id] + [{
+            'id': doc_id, 'title': tool_input.get('title'), 'slug': slug, 'stage': stage, 'rev': parts['rev'], 'label': parts['label'],
+            'text_sha256': w.text_hash(uploaded), 'approvable': not ready, 'at': now()}]
+        write_json(log_path, {'docs': docs})
 
 
 def find_logged(root: str, doc_id: str) -> Optional[Tuple[str, dict]]:
