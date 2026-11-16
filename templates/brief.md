@@ -13,7 +13,7 @@ Source: `brief.source.md` (the brief as it was supplied, kept unchanged)
 - **CTA:** {{the one action the close asks for, with its URL if there is one}}
 
 ## Keyword and search intent (BRF-3)
-- **Primary keyword:** {{keyword}}
+- **Primary keyword:** {{the bare phrase only; search volumes and usage notes go under Must include}}
 - **Search intent:** {{informational | comparison | how-to | ...}}
 - **Secondary keywords:** {{optional, comma separated}}
 

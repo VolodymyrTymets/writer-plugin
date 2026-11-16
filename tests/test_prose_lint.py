@@ -119,6 +119,26 @@ def test_the_keyword_must_be_in_the_first_100_words_and_in_an_h2(ws):
     assert 'SEO-1' in rules(r) and 'first 100 words' in r.out and 'H2' in r.out
 
 
+@pytest.mark.parametrize('line,keyword', [
+    ('standing desk (150 US / 250 global searches a month, Ahrefs, October 2026). Use 14 to 20 exact uses.', 'standing desk'),
+    ('standing desk; 150 searches a month', 'standing desk'),
+    ('standing desk. Use it 14 to 20 times.', 'standing desk'),
+    ('standing desk', 'standing desk'),
+], ids=['parenthesis-and-notes', 'semicolon', 'full-stop-notes', 'bare'])
+def test_the_keyword_is_the_bare_phrase_before_notes_in_the_brief_line(ws, line, keyword):
+    (ws / 'brief.md').write_text(f'# Brief\n\n- **Primary keyword:** {line}\n- **Target length:** 200 words\n')
+    (ws / 'final.md').write_text(final_text())
+    r = lint(ws / 'final.md')
+    assert 'SEO-1' not in rules(r), r.out
+
+
+def test_a_keyword_missing_from_the_title_is_still_reported_when_the_brief_line_has_notes(ws):
+    (ws / 'brief.md').write_text('# Brief\n\n- **Primary keyword:** standing desk (150 searches a month). Notes.\n')
+    (ws / 'final.md').write_text(final_text(title='How to pick a desk'))
+    r = lint(ws / 'final.md')
+    assert 'SEO-1' in rules(r) and '"standing desk" is not in the title' in r.out
+
+
 @pytest.mark.parametrize('body,why', [
     ('# One\n\ntext\n\n# Two\n\ntext\n', 'two H1'),
     ('text only\n', 'no H1'),
