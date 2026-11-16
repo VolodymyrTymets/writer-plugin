@@ -2180,6 +2180,7 @@ def test_two_creates_at_once_both_end_up_in_the_created_log(ow):
         p.wait(timeout=30)
     ids = sorted(d['id'] for d in json.loads((ow.art / '.docs-created.json').read_text())['docs'])
     assert ids == sorted(f'doc{i}' for i in range(8))
+    assert not [p for p in ow.art.iterdir() if p.name.endswith('.lock')], 'the lock must not land in the article folder'
 
 
 # ---------------- ADR-016 (R6): pending reviewer comments ----------------
