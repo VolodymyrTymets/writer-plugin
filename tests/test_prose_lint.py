@@ -95,8 +95,9 @@ def test_a_clean_final_has_no_findings_and_exits_0(ws):
     (dict(slug='Acme Review'), 'SEO-6'),
     (dict(slug='Pick-A-Desk'), 'SEO-6'),
     (dict(slug='pick--a-desk'), 'SEO-6'),
+    (dict(slug='two words'), 'SEO-6'),
 ], ids=['too-long', 'too-short', 'title-over-60', 'meta-short', 'meta-long', 'keyword-not-in-title', 'banned-phrase', 'ai-tell',
-        'marker', 'marker-curly', 'number-without-fact-id', 'slug-spaces', 'slug-capitals', 'slug-double-hyphen'])
+        'marker', 'marker-curly', 'number-without-fact-id', 'slug-spaces', 'slug-capitals', 'slug-double-hyphen', 'slug-space-only'])
 def test_each_rule_fires_on_its_own_case(ws, kwargs, rule):
     (ws / 'final.md').write_text(final_text(**kwargs))
     r = lint(ws / 'final.md')
@@ -205,10 +206,22 @@ def test_heading_rules_apply_to_any_article_file(ws, body, why):
     assert 'STR-4' in rules(r), why
 
 
+@pytest.mark.parametrize('slug', ['"pick-a-desk"', "'pick-a-desk'", 'pick-a-desk'], ids=['double-quoted', 'single-quoted', 'plain'])
+def test_a_well_formed_slug_is_no_finding_even_in_yaml_quotes(ws, slug):
+    (ws / 'final.md').write_text(final_text(slug=slug))
+    assert 'SEO-6' not in rules(lint(ws / 'final.md'))
+
+
+def test_a_final_with_no_slug_line_is_no_seo_6_finding(ws):
+    text = final_text()
+    (ws / 'final.md').write_text(text.replace('slug: pick-a-standing-desk\n', ''))
+    assert 'SEO-6' not in rules(lint(ws / 'final.md'))
+
+
 def test_a_draft_is_not_held_to_the_final_only_rules(ws):
-    (ws / 'draft.md').write_text(f'# {TITLE}\n\nChoosing a {KEYWORD}. {filler(180)}\n\n## Part\n\n{filler(10)}\n')
+    (ws / 'draft.md').write_text(f'---\nslug: Bad Slug\n---\n# {TITLE}\n\nChoosing a {KEYWORD}. {filler(180)}\n\n## Part\n\n{filler(10)}\n')
     r = lint(ws / 'draft.md')
-    assert not {'SEO-1', 'SEO-2', 'SEO-3', 'FLOW-6'} & set(rules(r)), r.out
+    assert not {'SEO-1', 'SEO-2', 'SEO-3', 'SEO-6', 'FLOW-6'} & set(rules(r)), r.out
 
 
 def test_a_missing_front_matter_is_a_finding_for_a_final(ws):

@@ -435,14 +435,14 @@ def test_outline_stage_gives_one_open_gap_one_marker():
     text = flat('outline')
     for needle in ('A marker is only for a point that `research.md` lists under Open gaps',
                    'One open gap gets at most one marker', 'drops that point instead of repeating the marker',
-                   'never holds more markers in cells than `research.md` holds under Open gaps'):
+                   'never holds more markers outside "Open questions for the human" than `research.md` holds under Open gaps'):
         assert needle in text, needle
 
 
 def test_g2_blocks_more_markers_than_open_gaps():
     text = checklist_text('check-outline')
     assert 'One marker per open gap (ADR-017)' in text
-    assert 'under "## Open gaps" in `research.md`' in text and 'outnumber them' in text and 'blocking FACT-1' in text
+    assert 'under "## Open gaps" in `research.md`' in text and 'counted for line 3' in text and 'outnumber them' in text and 'blocking FACT-1' in text
     assert 'more markers than open gaps is a blocking FACT-1 finding' in flat('check-outline')
 
 

@@ -1,6 +1,6 @@
 schema_version: "1.1"
 name: g2-block-marker-without-gap
-description: "A marker stands for a point the research lists no gap for, so the outline has one marker against none and G2 blocks on FACT-1"
+description: "The research lists no open gap and the outline holds one marker, so G2 blocks on FACT-1 (the count-over-zero case)"
 tags: [gate, g2, block]
 runs: 1
 execution:

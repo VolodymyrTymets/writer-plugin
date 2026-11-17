@@ -53,7 +53,7 @@ Style guide for this workspace: `{{STYLE_GUIDE_PATH}}`. Every gate cites a rule 
 - **SEO-3** The meta description is 120 to 155 characters. A client cannot override this.
 - **SEO-4** The article matches the search intent in the brief.
 - **SEO-5** Internal links come from the style guide's link list; external links point to the sources in the fact bank.
-- **SEO-6** The final's `slug:` is lowercase kebab-case and is its own value, not the article folder's name.
+- **SEO-6** The final's `slug:` is lowercase kebab-case, chosen from the title or primary keyword; the edit stage does not copy it from the folder name (the two may coincide).
 
 ## FLOW — workflow
 
