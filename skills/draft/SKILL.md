@@ -42,7 +42,8 @@ say so in your report. Write the article from the outline's Structure table, row
 - **Headings:** the H1 is the outline's first title option; each row becomes a heading at its level with the outline's heading text.
 - **Opening:** the first 100 words state the promise and contain the primary keyword, as the intro hook plans.
 - **Each section:** do what its Purpose says, cover its Key points, aim at its word budget. The whole draft lands within 10% of the
-  brief's target length (STR-6).
+  brief's target length (STR-6); for a range, 10% beyond each end. Aim at the middle of the target and never pad to clear a length flag: a
+  count inside the tolerance is not a finding, and filler fails the prose gates.
 - **Fact IDs (FACT-1):** every sentence with a statistic, a date, a named claim or a quote ends with `[F#]`, using only IDs in the
   outline row's Fact IDs cell that exist in `research.md`. The sentence says no more than the bank row's claim does (FACT-5). A
   quote is the row's verbatim quote. The IDs stay in the draft; they are stripped only in the Doc copy.

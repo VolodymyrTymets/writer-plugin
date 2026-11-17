@@ -37,14 +37,15 @@ WORD = re.compile(r"\w[\w'’-]*")
 
 
 def length_bounds(brief_text: str) -> Optional[Tuple[int, int]]:
-    """The brief's target length as (min, max) words: a range uses its bounds, a single number is plus or minus 10%."""
+    """The brief's target length as (min, max) words, STR-6: the target plus or minus 10%. A range widens at both ends, so a
+    draft a few words under its low end is within tolerance and nobody pads to reach it (FT-7)."""
     m = re.search(r'\*\*Target length:\*\*\s*(.+)', brief_text)
     value = m.group(1) if m else ''
     nums = [int(n.replace(',', '')) for n in re.findall(r'\d[\d,]*', value) if n.replace(',', '')]
     if not nums:
         return None
     if len(nums) >= 2 and nums[1] > nums[0]:
-        return nums[0], nums[1]
+        return round(nums[0] * 0.9), round(nums[1] * 1.1)
     return round(nums[0] * 0.9), round(nums[0] * 1.1)
 
 

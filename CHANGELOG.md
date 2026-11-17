@@ -8,6 +8,8 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- `prose-lint.py` STR-6 applies the 10% tolerance to both ends of a range target: 3,500 to 4,000 words allows 3,150 to 4,400, where it used to flag 3,493. The draft and edit
+  skills say not to pad to clear a length flag (FT-7). **Upgrading:** a brief with a range target now passes at a few words under its low end; re-record the lint on a final you already linted.
 - Reviewer comments reach the stage they are about (FT-5, ADR-016). The status script lists `comments` waiting for a stage; research, outline, draft and the edit stage read them as data, back the
   artifact up (research now keeps `research.prev.<n>.md`), rebuild with them, clear the approval and are gated again; a rerun that applies nothing writes nothing and runs no gate. `/sync` restarts the owning
   stage once when comments are waiting and no approval came in. A reviewer's answer to a research question is recorded as a pointer note, never as a fact, so it does not clear a marker.
