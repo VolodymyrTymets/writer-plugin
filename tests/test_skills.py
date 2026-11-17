@@ -346,6 +346,15 @@ def test_brief_stage_carries_earlier_answers_forward_verbatim():
     assert 'verbatim' in text and 'unless the corrected input overrides' in text
 
 
+def test_brief_stage_reads_a_pdf_with_read_and_never_a_shell():
+    text = flat('intake-brief')
+    for needle in ('`.pdf`', '`pages`', 'at most 20 pages', 'extracted from <file name> by the Read tool',
+                   'a scanned PDF', 'write no `brief.source.md`'):
+        assert needle in text, needle
+    front = skill_text('intake-brief').split('---')[1]
+    assert 'Bash' not in front
+
+
 def test_outline_stage_backs_up_the_outline_it_replaces_and_clears_the_approval():
     text = flat('outline')
     assert 'outline.prev.<n>.md' in text and 'never replace an earlier backup' in text
