@@ -52,7 +52,7 @@ Write the result to `articles/<slug>/brief.md`.
 2. Check that line 1 of the verdict matches
    `^## G0 brief gate: (PASS \(0 blocking|BLOCK \([1-9][0-9]* blocking), [0-9]+ advisory\)$`. If it does not, the
    verdict is malformed: treat it as **no PASS**, save nothing, tell the user what came back, and stop.
-3. Save the verdict text unchanged, with the Write tool, to `articles/<slug>/gates/G0-brief.r<k>.md`, where `k` is 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict. Keep lines 1 and 2 exactly as printed, with no blank line between them: the guard refuses a verdict whose line 2 is not `Artifact: <path>`. G0 has no label on line 3; its line 3 is free text, usually blank, so save the rest as printed too. If the gate printed lines 1 and 2 otherwise, save nothing and rerun the gate; never edit them (ADR-019).
+3. Save the verdict text unchanged, with the Write tool, to `articles/<slug>/gates/G0-brief.r<k>.md`, where `k` is 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict. Keep lines 1 and 2 exactly as printed, with no blank line between them: the guard refuses a verdict whose line 2 is not `Artifact: <path>`. G0 has no label on line 3; its line 3 is free text, usually blank, so save the rest as printed too. If the gate printed lines 1 and 2 otherwise, treat it as **no PASS**: save nothing, tell the user what came back, and stop; never edit them (ADR-019).
 
 ## Step 5 — On BLOCK
 

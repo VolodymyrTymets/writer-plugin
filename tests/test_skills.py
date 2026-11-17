@@ -74,9 +74,8 @@ def test_verdict_regex_accepts_each_gates_own_examples_and_only_those(d):
 
 
 def _example_verdicts(d):
-    """The literal verdicts in a gate skill's fenced blocks: each starts at a `## G` heading and ends at the first blank line after its header."""
-    blocks = re.findall(r'```markdown\n(## G.*?)```', skill_text(d), re.S)
-    return blocks
+    """The literal verdicts in a gate skill's fenced blocks, each starting at its `## G` heading."""
+    return re.findall(r'```markdown\n(## G.*?)```', skill_text(d), re.S)
 
 
 @pytest.mark.parametrize('d', GATES)
@@ -95,14 +94,22 @@ def test_the_artifact_none_block_of_each_gate_passes_the_header_check(stage, lin
     # the gate skills describe this verdict in prose only, so it is built here the way they say
     text = '\n'.join(l for l in (f'## {GATES["check-" + stage][0]} gate: BLOCK (1 blocking, 0 advisory)', 'Artifact: none', line3) if l is not None)
     assert writer.verdict_header_problem(stage, text + '\n') is None
+    if line3:
+        # the gate prints this verdict from prose only, so the prose is what must keep saying it
+        assert f'In that case line 3 is `{line3}`' in flat('check-' + stage)
+
+
+@pytest.mark.parametrize('d', GATES)
+def test_no_gate_is_told_to_answer_in_one_line_because_the_guard_requires_an_artifact_line(d):
+    assert 'say PASS in one line' not in flat(d)
 
 
 @pytest.mark.parametrize('d', ACTORS)
-def test_actor_saves_the_verdict_header_as_printed_and_reruns_the_gate_instead_of_editing_it(d):
+def test_actor_saves_the_verdict_header_as_printed_and_stops_instead_of_editing_it(d):
     text = flat(d)
     # G0 has no line-3 label (a blank line 3 is a valid G0 verdict), so its actor must not be told one is required
     lead = 'Keep lines 1 and 2 exactly as printed' if d == 'brief' else 'Keep lines 1 to 3 exactly as printed'
-    assert lead in text and 'save nothing and rerun the gate' in text and 'ADR-019' in text
+    assert lead in text and 'save nothing, tell the user what came back, and stop' in text and 'ADR-019' in text
     assert (d == 'brief') == ('G0 has no label on line 3' in text)
 
 

@@ -147,7 +147,8 @@ def check_gates(root, slug, sub, tool, tool_input):
     problem = w.verdict_header_problem(stage, str((tool_input or {}).get('content') or ''))
     if problem:
         w.block('FLOW-4', f'{problem}; a saved verdict keeps the gate\'s first three lines as printed (ADR-019).',
-                'save the verdict text unchanged, with no blank line before line 2 or 3. If the gate itself printed it this way, save nothing and rerun the gate.')
+                'save the verdict text unchanged, with no blank line before ' + ('line 2' if stage == 'brief' else 'line 2 or 3')
+                + '. If the gate itself printed it this way, save nothing, report what came back and stop.')
     now_research = w.artifact_hash(root, slug, 'research') if stage == 'research' else None
     # the one verdict that needs no record is G1's BLOCK for a research.md that does not exist; the text alone cannot claim it
     if stage == 'research' and not (now_research is None and _says_no_artifact(str((tool_input or {}).get('content') or ''))):

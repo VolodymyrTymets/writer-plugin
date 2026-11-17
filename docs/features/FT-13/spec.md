@@ -16,7 +16,7 @@ BUSINESS_MODEL goal 1 (mechanical enforcement over a prompt rule): a verdict tha
   G3 `Outline:`) is not that label; G0 has no line 3. The block names the line and the fix. The five actor skills say "save lines 1 to 3 as printed,
   no blank line before them". ADR-004 is refined (new ADR-019).
 - **out (explicit):** the body of a verdict (findings, `Not checked`); the counts' values (no parser reads them); an actor that edits text inside the
-  body; verdicts already saved; FT-14; any change to the gate skills' own text (their format sections already state the three lines).
+  body; verdicts already saved; FT-14; any change to the gate skills' own text, except `check-brief`'s "say PASS in one line", which contradicted the `Artifact:` line the guard now requires.
 
 ## Acceptance criteria
 - [x] AC1 Given a new G1/G2/G3/G4 verdict whose line 3 is blank or another line, when written with Write, the guard exits 2 naming "line 3" and the label wanted.

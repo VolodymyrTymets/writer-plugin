@@ -39,7 +39,7 @@ as in FT-8-10. A refinement of ADR-004, so a new ADR (ADR-019), no new pattern.
 
 ### R2 — actors save the header as printed (S)
 - files: `skills/brief/SKILL.md`, `skills/research/SKILL.md`, `skills/outline/SKILL.md`, `skills/draft/SKILL.md`, `skills/edit/SKILL.md`
-  (change: the "Save the verdict unchanged" step adds: lines 1 to 3 exactly as printed, no blank line before them; the guard refuses otherwise; the actor checks lines 2 and 3 as it checks line 1, and when they do not match saves nothing, reruns the gate and never edits them, as ADR-004 says for line 1),
+  (change: the "Save the verdict unchanged" step adds: lines 1 to 3 exactly as printed, no blank line before them; the guard refuses otherwise; the actor checks lines 2 and 3 as it checks line 1, and when they do not match saves nothing, tells the user what came back, stops, and never edits them, as ADR-004 says for line 1),
   `tests/test_skills.py` (change: pin the sentence in all five)
 - layer: skill text.
 - test: `tests/test_skills.py` new case: each actor's flat text contains the sentence.
@@ -51,8 +51,8 @@ as in FT-8-10. A refinement of ADR-004, so a new ADR (ADR-019), no new pattern.
 ## Docs to update in this PR
 - [ ] docs/features/FT-13/spec.md (acceptance criteria checked off)
 - [ ] docs/DESIGN.md: FT-13 row to "fixed", and the `guard-stage-order` row (FLOW-4: lines 2 and 3 of a verdict)
-- [ ] docs/decisions/ADR-019-verdict-header-lines.md (new; extends ADR-004's line-1 rule to lines 2 and 3: no match, nothing saved, gate rerun; ADR-004 gets a "Refined by ADR-019" line)
-- [ ] CHANGELOG.md (Deleted section first, then Fixed)
+- [ ] docs/decisions/ADR-019-verdict-header-lines.md (new; extends ADR-004's line-1 rule to lines 2 and 3: no match, nothing saved, user told, stage stops; ADR-004 gets a "Refined by ADR-019" line)
+- [ ] CHANGELOG.md (Deleted section first, then the entry under Changed, where this repo lists fixes)
 - [ ] docs/ARCHITECTURE.md:30 (Gate verdict row) and docs/DOMAIN_GLOSSARY.md:15 (Verdict file): "line 1 fixed" becomes "lines 1 to 3 fixed (ADR-004, ADR-019)"; no new term
 
 ## Risks

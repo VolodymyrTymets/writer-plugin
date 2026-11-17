@@ -90,7 +90,7 @@ the approval was cleared. Then write the result to `articles/<slug>/research.md`
 2. Check that line 1 matches
    `^## G1 research gate: (PASS \(0 blocking|BLOCK \([1-9][0-9]* blocking), [0-9]+ advisory\)$`. If it does not, treat
    it as **no PASS**, save nothing, tell the user what came back, and stop.
-3. Save the verdict unchanged, with the Write tool, to `articles/<slug>/gates/G1-research.r<k>.md`, `k` being 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict. Keep lines 1 to 3 exactly as printed, with no blank line before them: the guard refuses a verdict whose line 2 is not `Artifact: <path>` or whose line 3 lacks the gate's label. If the gate printed them otherwise, save nothing and rerun the gate; never edit them (ADR-019).
+3. Save the verdict unchanged, with the Write tool, to `articles/<slug>/gates/G1-research.r<k>.md`, `k` being 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict. Keep lines 1 to 3 exactly as printed, with no blank line before them: the guard refuses a verdict whose line 2 is not `Artifact: <path>` or whose line 3 lacks the gate's label. If the gate printed them otherwise, treat it as **no PASS**: save nothing, tell the user what came back, and stop; never edit them (ADR-019).
 
 ## Step 5 — On BLOCK
 
