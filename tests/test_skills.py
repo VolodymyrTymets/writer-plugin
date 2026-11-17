@@ -100,7 +100,10 @@ def test_the_artifact_none_block_of_each_gate_passes_the_header_check(stage, lin
 @pytest.mark.parametrize('d', ACTORS)
 def test_actor_saves_the_verdict_header_as_printed_and_reruns_the_gate_instead_of_editing_it(d):
     text = flat(d)
-    assert 'Keep lines 1 to 3 exactly as printed' in text and 'save nothing and rerun the gate' in text and 'ADR-019' in text
+    # G0 has no line-3 label (a blank line 3 is a valid G0 verdict), so its actor must not be told one is required
+    lead = 'Keep lines 1 and 2 exactly as printed' if d == 'brief' else 'Keep lines 1 to 3 exactly as printed'
+    assert lead in text and 'save nothing and rerun the gate' in text and 'ADR-019' in text
+    assert (d == 'brief') == ('G0 has no label on line 3' in text)
 
 
 @pytest.mark.parametrize('line', [
