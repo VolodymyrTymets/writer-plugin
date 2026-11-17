@@ -8,6 +8,11 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- A PDF brief is read with the Read tool, never a shell: `brief.source.md` holds the text Read returned under an "extracted from" line, and a scanned PDF stops the stage with a request for text (FT-8).
+- The brief stage normalises the folder slug to lowercase kebab-case and names the change; the final's `slug:` is the SEO slug, its own value, and `prose-lint.py` reports one that is not kebab-case as the new rule SEO-6 (FT-9).
+  **Upgrading:** re-run `writer-plugin:setup` (or add SEO-6 to your `CLAUDE.md`) so a G4 verdict that cites it is defined; a final whose `slug:` is a capitalised folder name gets one lint line on its next edit run.
+- The outline holds at most one marker per open gap of the research, drops a claim that has no fact and no gap, and G2 blocks more markers than gaps as FACT-1 (FT-10, ADR-017; refines ADR-008).
+  **Upgrading:** an outline already approved with extra markers is not re-gated until it is rebuilt.
 - `prose-lint.py` STR-6 applies the 10% tolerance to both ends of a range target: 3,500 to 4,000 words allows 3,150 to 4,400, where it used to flag 3,493. The draft and edit
   skills say not to pad to clear a length flag (FT-7). **Upgrading:** a brief with a range target now passes at a few words under its low end; re-record the lint on a final you already linted.
 - Reviewer comments reach the stage they are about (FT-5, ADR-016). The status script lists `comments` waiting for a stage; research, outline, draft and the edit stage read them as data, back the

@@ -36,7 +36,7 @@ GATES = {
     'check-brief': ('G0 brief', 'gate', {f'BRF-{n}' for n in range(1, 7)}),
     'check-research': ('G1 research', 'fact-gate', {f'FACT-{n}' for n in range(1, 7)}),
     'check-outline': ('G2 outline', 'gate', {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'}),
-    'check-final': ('G4 final', 'fact-gate', {f'FACT-{n}' for n in range(1, 6)} | {'STR-4', 'STR-6', 'SEO-1', 'SEO-2', 'SEO-3', 'SEO-5', 'FLOW-6'} | {f'VOI-{n}' for n in range(1, 6)}),
+    'check-final': ('G4 final', 'fact-gate', {f'FACT-{n}' for n in range(1, 6)} | {'STR-4', 'STR-6', 'SEO-1', 'SEO-2', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'} | {f'VOI-{n}' for n in range(1, 6)}),
     'check-draft': ('G3 draft', 'gate', {'STR-1', 'STR-2', 'STR-5', 'STR-6', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5'}),
 }
 # actor skill dir -> (stage, gate it invokes)
@@ -52,7 +52,7 @@ MUST_CITE = {
     'check-brief': {f'BRF-{n}' for n in range(1, 7)},
     'check-research': {'FACT-2', 'FACT-3', 'FACT-5', 'FACT-6'},
     'check-outline': {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'},
-    'check-final': {'FACT-1', 'FACT-2', 'FACT-3', 'FACT-4', 'FACT-5', 'STR-4', 'STR-6', 'VOI-1', 'VOI-5', 'SEO-1', 'SEO-3', 'SEO-5', 'FLOW-6'},
+    'check-final': {'FACT-1', 'FACT-2', 'FACT-3', 'FACT-4', 'FACT-5', 'STR-4', 'STR-6', 'VOI-1', 'VOI-5', 'SEO-1', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'},
     'check-draft': {'STR-1', 'STR-2', 'STR-5', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5'},
 }
 RULE_ID = re.compile(r'\b(?:BRF|FACT|STR|VOI|SEO|FLOW|PLG)-\d+\b')
@@ -346,6 +346,27 @@ def test_brief_stage_carries_earlier_answers_forward_verbatim():
     assert 'verbatim' in text and 'unless the corrected input overrides' in text
 
 
+def test_brief_stage_reads_a_pdf_with_read_and_never_a_shell():
+    text = flat('intake-brief')
+    for needle in ('`.pdf`', '`pages`', 'at most 20 pages', 'extracted from <file name> by the Read tool',
+                   'a scanned PDF', 'write no `brief.source.md`'):
+        assert needle in text, needle
+    front = skill_text('intake-brief').split('---')[1]
+    assert 'Bash' not in front
+
+
+def test_brief_stage_normalises_the_folder_slug_and_never_renames_a_folder():
+    text = flat('intake-brief')
+    for needle in ('[a-z0-9]+(-[a-z0-9]+)*', 'the change is named in the report', 'An existing article folder is never renamed',
+                   'SEO slug is a separate value'):
+        assert needle in text, needle
+
+
+def test_edit_stage_writes_a_seo_slug_of_its_own():
+    text = flat('edit-final')
+    assert 'never copied from the folder name' in text and 'SEO-6' in text
+
+
 def test_outline_stage_backs_up_the_outline_it_replaces_and_clears_the_approval():
     text = flat('outline')
     assert 'outline.prev.<n>.md' in text and 'never replace an earlier backup' in text
@@ -405,7 +426,24 @@ def test_outline_stage_writes_only_the_marker_and_a_neutral_label_in_a_marked_ce
 def test_outline_stage_does_not_treat_open_gaps_or_its_own_knowledge_as_a_source():
     text = flat('outline')
     assert 'Open gaps, the brief and your own knowledge are not sources' in text
-    assert 'a statement about a vendor, a price, a plan or a page that has no fact ID is a marker' in text
+    # WHY: ADR-017 replaces ADR-008's "is a marker" with "is dropped"; an intended contract change, not a weaker check
+    assert 'a statement about a vendor, a price, a plan or a page that has no fact ID is dropped from the outline' in text
+    assert 'is a marker, even if' not in text
+
+
+def test_outline_stage_gives_one_open_gap_one_marker():
+    text = flat('outline')
+    for needle in ('A marker is only for a point that `research.md` lists under Open gaps',
+                   'One open gap gets at most one marker', 'drops that point instead of repeating the marker',
+                   'never holds more markers outside "Open questions for the human" than `research.md` holds under Open gaps'):
+        assert needle in text, needle
+
+
+def test_g2_blocks_more_markers_than_open_gaps():
+    text = checklist_text('check-outline')
+    assert 'One marker per open gap (ADR-017)' in text
+    assert 'under "## Open gaps" in `research.md`' in text and 'counted for line 3' in text and 'outnumber them' in text and 'blocking FACT-1' in text
+    assert 'more markers than open gaps is a blocking FACT-1 finding' in flat('check-outline')
 
 
 def test_g2_treats_a_marker_as_not_a_claim():

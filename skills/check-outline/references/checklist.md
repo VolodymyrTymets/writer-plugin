@@ -24,6 +24,10 @@ A marker is `<Can't be verified. Reason: reason sentence here>`. It stands in fo
 - A marker not in the exact form (ASCII apostrophe; a non-empty one-line reason with no `<`, `>` or `|`) is a blocking
   FACT-1 finding with the fix "rewrite it in the exact form". It is not counted.
 - A marker on a point the bank supports is a FACT-1 finding; the fix is "cite the fact ID instead".
+- **One marker per open gap (ADR-017).** Count the exact-form markers under "## Open gaps" in `research.md`. If the exact-form
+  markers counted for line 3 (outside "Open questions for the human") outnumber them, that is one blocking FACT-1 finding with the fix "keep one marker per open gap,
+  in one row, and drop the claim from the other rows". Name both counts. Do not guess which marker is the extra one: say the
+  count and quote two that look like the same gap.
 - Line 3 of your verdict is `Markers: <n>`: the exact-form markers in `outline.md` outside the "Open questions for the human"
   section (that section only collects them, so counting it would count each twice). Count it the same way every run.
 

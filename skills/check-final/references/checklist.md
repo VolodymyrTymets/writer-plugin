@@ -1,7 +1,7 @@
 # G4 checklist
 
 Judge `final.md`. Rule IDs allowed at this gate: FACT-1 to FACT-5, STR-4, STR-6, VOI-1 to VOI-5, SEO-1, SEO-2, SEO-3, SEO-5,
-FLOW-6. Structure and argument were G3's work. Blocking means the article would publish a wrong fact, a broken field or the
+SEO-6, FLOW-6. Structure and argument were G3's work. Blocking means the article would publish a wrong fact, a broken field or the
 style guide's bans; polish is advisory and rare.
 
 ## A. The recorded lint run
@@ -11,7 +11,7 @@ Read `articles/<slug>/.prose-lint.json`. Its `lines` are the findings `prose-lin
 | What you find | Finding |
 |---------------|---------|
 | The file or its `lines` key is missing (an older record has only a count) | one blocking finding, rule STR-6, fix "run `prose-lint.py --record` on the final"; list the lint under Not checked |
-| A STR-4, STR-6, SEO-1, SEO-2, SEO-3, VOI-2 or VOI-3 line | blocking, same rule ID, the line quoted. These are mechanical |
+| A STR-4, STR-6, SEO-1, SEO-2, SEO-3, SEO-6, VOI-2 or VOI-3 line | blocking, same rule ID, the line quoted. These are mechanical |
 | A FACT-1 line | read the sentence in `final.md`. A number that is a claim with no `[F#]` is blocking; a number that is not a claim (a step number, "two things") is not a finding, and you say you discarded it |
 | A FLOW-6 line | never a finding: count it for line 3 and list it under "Sign-off holds" |
 

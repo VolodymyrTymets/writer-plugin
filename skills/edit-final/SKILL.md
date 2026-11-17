@@ -55,7 +55,7 @@ but `final.md` because a comment asks, whatever its wording.
   Your report lists every marker and the count.
 - **Front matter**, the first lines of the file:
   `---`, then `title:` (60 characters or fewer, the primary keyword in it), `meta_description:` (120 to 155 characters, one
-  line), `slug:` (the article's slug), then `---`. After it the article starts with one H1, then the body. The primary keyword is in
+  line), `slug:` (the SEO slug: lowercase kebab-case from the title or primary keyword, `[a-z0-9]+(-[a-z0-9]+)*`; a value of its own, never copied from the folder name, SEO-6), then `---`. After it the article starts with one H1, then the body. The primary keyword is in
   the first 100 words and in at least one H2 (SEO-1). Links follow the style guide's list and the fact bank (SEO-5).
 - The last line is `Signed-off-by:` with nothing after it; never copy the draft's `Approved-by:` line into the final. Leave no `{{placeholder}}`.
 

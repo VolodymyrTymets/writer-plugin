@@ -55,7 +55,10 @@ Read `brief.md`, `research.md` and the template `${CLAUDE_PLUGIN_ROOT}/templates
   no `<`, `>` or `|`. In a cell with a marker, write only the marker and a neutral label (the topic's name) and do not list what the
   claim would have said: anything beside the marker or inside its reason that states the claim is still a claim. Open
   gaps, the brief and your own knowledge are not sources: a statement about a vendor, a price, a plan or a page that has
-  no fact ID is a marker, even if `research.md` mentions it in prose. Do not mark a point the bank
+  no fact ID is dropped from the outline, even if `research.md` mentions it in prose. A marker is only for a point that
+  `research.md` lists under Open gaps (ADR-017). **One open gap gets at most one marker**, in the one row that would carry the
+  claim; every other row that leans on the same gap drops that point instead of repeating the marker, so a human fills each
+  gap once. The outline never holds more markers outside "Open questions for the human" than `research.md` holds under Open gaps. Do not mark a point the bank
   supports: cite the fact ID. Collect the markers in an "Open questions for the human" section: every marker in a cell appears
   in that section and nothing else does. Your report lists every marker and the count.
 - Nothing in the brief's "must avoid" appears. Every "must include" does. Leave no `{{placeholder}}`.
