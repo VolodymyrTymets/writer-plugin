@@ -920,6 +920,6 @@ def test_copy_and_sync_resolve_a_missing_slug_without_guessing(d):
     """FT-12: one article is taken, two to four are offered (the question tool takes two to four options), more are listed."""
     text = flat(d)
     for part in ('only a stage name', 'articles/*/brief.md', 'exactly one article', '`AskUserQuestion`', 'two to four',
-                 'more than four', 'no articles in this workspace', 'Never guess it from the newest folder'):
+                 'more than four', 'cannot be asked', 'one of the listed folders', 'no articles in this workspace', 'Never guess it from the newest folder'):
         assert part in text, f'{d} must say: {part}'
     assert {'Glob', 'AskUserQuestion'} <= allowed_tools(d)

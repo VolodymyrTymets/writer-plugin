@@ -15,7 +15,7 @@ or edit a comment: the connector cannot, and the Doc belongs to its reviewers.
 
 ## Step 1 — Resolve the article, the stage and the Doc
 
-`$ARGUMENTS` is `<slug> <stage>`, `<slug>`, or empty. No slug means `$ARGUMENTS` is empty or only a stage name (`brief`, `research`, `outline`, `draft` or `final`, which then stays the stage). List `articles/*/brief.md` with Glob: exactly one article, take it and name it in the report; two to four, ask with one `AskUserQuestion`, one option per article folder (the tool takes two to four options); more than four, print the folders and ask the user to type the slug; none, say there are no articles in this workspace and stop. Never guess it from the newest folder.
+`$ARGUMENTS` is `<slug> <stage>`, `<slug>`, or empty. No slug means `$ARGUMENTS` is empty or only a stage name (`brief`, `research`, `outline`, `draft` or `final`, which then stays the stage). List `articles/*/brief.md` with Glob: exactly one article, take it and name it in the report; two to four, ask with one `AskUserQuestion`, one option per article folder (the tool takes two to four options); more than four, print the folders and stop, so the user reruns with the slug; none, say there are no articles in this workspace and stop. If the question cannot be asked or returns no choice, print the folders and stop. A slug the user types counts only if it is one of the listed folders; otherwise say so and stop. Never guess it from the newest folder.
 
 Read `articles/<slug>/docs.json`. Its `revisions` list holds one entry per Doc copy. Take the entry for the stage with the
 highest `rev`; with no stage given, the entry with the latest `at`. No Doc copy of `<stage>` is recorded (or there is no
