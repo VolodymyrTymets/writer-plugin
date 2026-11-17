@@ -36,7 +36,7 @@ GATES = {
     'check-brief': ('G0 brief', 'gate', {f'BRF-{n}' for n in range(1, 7)}),
     'check-research': ('G1 research', 'fact-gate', {f'FACT-{n}' for n in range(1, 7)}),
     'check-outline': ('G2 outline', 'gate', {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'}),
-    'check-final': ('G4 final', 'fact-gate', {f'FACT-{n}' for n in range(1, 6)} | {'STR-4', 'STR-6', 'SEO-1', 'SEO-2', 'SEO-3', 'SEO-5', 'FLOW-6'} | {f'VOI-{n}' for n in range(1, 6)}),
+    'check-final': ('G4 final', 'fact-gate', {f'FACT-{n}' for n in range(1, 6)} | {'STR-4', 'STR-6', 'SEO-1', 'SEO-2', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'} | {f'VOI-{n}' for n in range(1, 6)}),
     'check-draft': ('G3 draft', 'gate', {'STR-1', 'STR-2', 'STR-5', 'STR-6', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5'}),
 }
 # actor skill dir -> (stage, gate it invokes)
@@ -52,7 +52,7 @@ MUST_CITE = {
     'check-brief': {f'BRF-{n}' for n in range(1, 7)},
     'check-research': {'FACT-2', 'FACT-3', 'FACT-5', 'FACT-6'},
     'check-outline': {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'},
-    'check-final': {'FACT-1', 'FACT-2', 'FACT-3', 'FACT-4', 'FACT-5', 'STR-4', 'STR-6', 'VOI-1', 'VOI-5', 'SEO-1', 'SEO-3', 'SEO-5', 'FLOW-6'},
+    'check-final': {'FACT-1', 'FACT-2', 'FACT-3', 'FACT-4', 'FACT-5', 'STR-4', 'STR-6', 'VOI-1', 'VOI-5', 'SEO-1', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'},
     'check-draft': {'STR-1', 'STR-2', 'STR-5', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5'},
 }
 RULE_ID = re.compile(r'\b(?:BRF|FACT|STR|VOI|SEO|FLOW|PLG)-\d+\b')
@@ -353,6 +353,18 @@ def test_brief_stage_reads_a_pdf_with_read_and_never_a_shell():
         assert needle in text, needle
     front = skill_text('intake-brief').split('---')[1]
     assert 'Bash' not in front
+
+
+def test_brief_stage_normalises_the_folder_slug_and_never_renames_a_folder():
+    text = flat('intake-brief')
+    for needle in ('[a-z0-9]+(-[a-z0-9]+)*', 'the change is named in the report', 'An existing article folder is never renamed',
+                   'SEO slug is a separate value'):
+        assert needle in text, needle
+
+
+def test_edit_stage_writes_a_seo_slug_of_its_own():
+    text = flat('edit-final')
+    assert 'never copied from the folder name' in text and 'SEO-6' in text
 
 
 def test_outline_stage_backs_up_the_outline_it_replaces_and_clears_the_approval():

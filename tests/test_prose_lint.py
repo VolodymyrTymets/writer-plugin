@@ -40,13 +40,13 @@ def filler(n):
     return ' '.join(['plain'] * n) + '.'
 
 
-def final_text(title=TITLE, meta=META, body=None, extra='', words=None):
+def final_text(title=TITLE, meta=META, body=None, extra='', words=None, slug='pick-a-standing-desk'):
     if body is None:
         intro = f'Choosing a {KEYWORD} is simple when you measure first. ' + filler(20)
         body = (f'# {title or "Title"}\n\n{intro}\n\n## Measure for a {KEYWORD}\n\n{filler(words if words is not None else 150)}\n\n'
                 f'## Close\n\n{filler(20)}\n{extra}\n')
     head = '---\n' + (f'title: {title}\n' if title is not None else '') + (f'meta_description: {meta}\n' if meta is not None else '') \
-        + 'slug: pick-a-standing-desk\n---\n'
+        + f'slug: {slug}\n---\n'
     return head + body
 
 
@@ -92,8 +92,11 @@ def test_a_clean_final_has_no_findings_and_exits_0(ws):
     (dict(extra="<Can't be verified. Reason: the page blocked the fetch.>"), 'FLOW-6'),
     (dict(extra='<Can’t be verified. Reason: a curly apostrophe is still a marker.>'), 'FLOW-6'),
     (dict(extra='The desk weighs 40 kilograms.'), 'FACT-1'),
+    (dict(slug='Acme Review'), 'SEO-6'),
+    (dict(slug='Pick-A-Desk'), 'SEO-6'),
+    (dict(slug='pick--a-desk'), 'SEO-6'),
 ], ids=['too-long', 'too-short', 'title-over-60', 'meta-short', 'meta-long', 'keyword-not-in-title', 'banned-phrase', 'ai-tell',
-        'marker', 'marker-curly', 'number-without-fact-id'])
+        'marker', 'marker-curly', 'number-without-fact-id', 'slug-spaces', 'slug-capitals', 'slug-double-hyphen'])
 def test_each_rule_fires_on_its_own_case(ws, kwargs, rule):
     (ws / 'final.md').write_text(final_text(**kwargs))
     r = lint(ws / 'final.md')

@@ -146,6 +146,10 @@ def lint(path: str, brief_path: Optional[str], style_path: Optional[str]) -> Tup
         add('STR-4', 1, f'expected one H1, found {h1}')
 
     if kind in ('draft', 'final'):
+        slug = keys.get('slug')
+        # The SEO slug is its own value (FT-9): a URL path part, never the folder name, so capitals and spaces are findings.
+        if slug is not None and not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', slug):
+            add('SEO-6', 0, f'slug "{slug}" is not lowercase kebab-case (letters, digits and single hyphens)')
         brief_text = read(brief_path or os.path.join(os.path.dirname(os.path.abspath(path)), 'brief.md'))
         bounds = length_bounds(brief_text) if brief_text else None
         if bounds:

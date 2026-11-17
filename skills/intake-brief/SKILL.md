@@ -19,7 +19,8 @@ done, the brief gate judges it in a fresh context, and you save its verdict.
   A `.pdf` is read with Read too, in chunks of at most 20 pages (`pages`), never through a shell. A PDF has no unchanged text form, so
   `brief.source.md` holds the text Read returned, under the first line `<!-- extracted from <file name> by the Read tool -->`. If Read returns
   no text for the pages (a scanned PDF), do not transcribe the page images and write no `brief.source.md`: stop and ask the user for the text.
-- Slug: lowercase kebab-case from the working title, unless the user gave one. Folder: `articles/<slug>/`.
+- Slug: lowercase kebab-case, `[a-z0-9]+(-[a-z0-9]+)*`, from the working title. A slug the user gave that does not match (capitals, spaces,
+  underscores) is normalised to it, and the change is named in the report. An existing article folder is never renamed. Folder: `articles/<slug>/`. The article's SEO slug is a separate value, set by the edit stage.
 - Save the input unchanged as `articles/<slug>/brief.source.md`. If that file exists and the new input differs, the human
   has supplied a correction: copy the old file to `brief.source.prev.md` (replacing any earlier one) and save the new input
   as `brief.source.md`. Then build `brief.md` from the new input. Before rebuilding, read the previous `brief.md` if
