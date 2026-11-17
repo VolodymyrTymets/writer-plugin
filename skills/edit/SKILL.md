@@ -77,7 +77,7 @@ report that the sign-off was cleared, so the replaced final needs a new sign-off
 4. Check that line 1 matches
    `^## G4 final gate: (PASS \(0 blocking|BLOCK \([1-9][0-9]* blocking), [0-9]+ advisory\)$`. If it does not, treat
    it as **no PASS**, save nothing, tell the user what came back, and stop.
-5. Save the verdict unchanged, with the Write tool, to `articles/<slug>/gates/G4-final.r<k>.md`, `k` being 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict. If the guard refuses the save because the record no longer matches, stop and report it; do not edit anything to make it match.
+5. Save the verdict unchanged, with the Write tool, to `articles/<slug>/gates/G4-final.r<k>.md`, `k` being 1 plus the highest `r<k>` number found in `gates/` and `gates/archive/` (a count would reuse a number after an archive and overwrite a saved verdict). Never edit a saved verdict. Keep lines 1 to 3 exactly as printed, with no blank line before them: the guard refuses a verdict whose line 2 is not `Artifact: <path>` or whose line 3 lacks the gate's label. If the gate printed them otherwise, treat it as **no PASS**: save nothing, tell the user what came back, and stop; never edit them (ADR-019). If the guard refuses the save because the record no longer matches, stop and report it; do not edit anything to make it match.
 
 ## Step 5 — On BLOCK
 

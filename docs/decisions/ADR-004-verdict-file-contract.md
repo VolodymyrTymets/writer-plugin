@@ -40,6 +40,7 @@ enforce FLOW-1. A format that says one thing in the prose and another to a parse
 
 Refined by ADR-007: a verdict covers the artifact it judged; the actor never edits after a PASS.
 Refined by ADR-009: hooks enforce the format, the numbering and immutability; a verdict counts if it was saved by the Write tool and recorded by the hook (this replaces "only an actor-saved verdict counts").
+Refined by ADR-019: lines 2 and 3 of a saved verdict are checked too (`Artifact:` and the gate's count-line label).
 
 ## Revisit when
 A gate needs a third outcome (for example "PASS WITH CONDITIONS"), or verdicts move out of local files.

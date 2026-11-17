@@ -26,6 +26,23 @@ for _stream in (sys.stdin, sys.stdout, sys.stderr):
 VERDICT_LINE = re.compile(
     r'^## (G0 brief|G1 research|G2 outline|G3 draft|G4 final) gate: '
     r'(PASS \(0 blocking|BLOCK \([1-9]\d* blocking), \d+ advisory\)$')
+# FT-13 / ADR-019: line 3 of a saved verdict starts with this label (G0 has no line 3), so a blank line added on save is caught
+VERDICT_LINE3 = {'research': 'Coverage:', 'outline': 'Markers:', 'draft': 'Outline:', 'final': 'Markers:'}
+
+
+def verdict_header_problem(stage: str, content: str) -> Optional[str]:
+    """Why lines 2 and 3 of a verdict about to be saved are not as the gate printed them, or None. Only the labels are read: no parser reads the counts."""
+    lines = content.split('\n')
+    line2 = lines[1].rstrip('\r') if len(lines) > 1 else ''
+    if not line2.startswith('Artifact: ') or not line2[len('Artifact: '):].strip():
+        return f'line 2 of the verdict must be "Artifact: <path>" (got "{line2[:60]}")'
+    label = VERDICT_LINE3.get(stage)
+    line3 = lines[2].rstrip('\r') if len(lines) > 2 else ''
+    if label and not line3.startswith(label + ' '):
+        return f'line 3 of a {GATE_ID[stage]} verdict must start with "{label}" (got "{line3[:60]}")'
+    return None
+
+
 STAGES = ['brief', 'research', 'outline', 'draft', 'final']
 GATE_ID = {'brief': 'G0', 'research': 'G1', 'outline': 'G2', 'draft': 'G3', 'final': 'G4'}
 VERDICT_NAME = re.compile(r'^(G[0-4])-(brief|research|outline|draft|final)\.r(\d+)\.md$')

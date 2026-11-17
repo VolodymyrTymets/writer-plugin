@@ -27,7 +27,7 @@
 | Plugin manifest | JSON | `.claude-plugin/plugin.json` | none |
 | Skill command name | frontmatter `name:` | `COMMANDS` in `tests/test_structure.py` | none |
 | Verdict sidecar | JSON `{artifact_sha256, upstream}` beside each verdict | written only by the `record-verdict` hook (ADR-009) | `gates/G<n>-<stage>.r<k>.json` |
-| Gate verdict | `PASS` or `BLOCK` with rule IDs; line 1 is a fixed pattern (ADR-004) | gate skill checklists | saved by the actor in the workspace `gates/G<n>-<stage>.r<k>.md` |
+| Gate verdict | `PASS` or `BLOCK` with rule IDs; lines 1 to 3 are fixed (ADR-004, ADR-019) | gate skill checklists | saved by the actor in the workspace `gates/G<n>-<stage>.r<k>.md` |
 | Quote record | JSON `{file, sha256, rows, lines, at}` beside `research.md`; `rows` maps each fact ID to `found`, `found-elided`, `not-found`, `unreachable` or `unreadable` | written only by `quote-check.py --record`; the guard blocks any tool write and any G1 verdict saved against another version of the dossier (ADR-015) | `articles/<slug>/.quote-check.json` |
 | Approval record | JSON `{doc_id, rev, artifact_sha256, value, reason, at}` per stage and Doc revision; `value` is the name typed after the label or null with a `reason` | written only by the `record-approval` hook from what the connector returned; the guard blocks any tool write and allows a tool to fill an approval line only against it (ADR-016) | `articles/<slug>/approvals/<stage>.r<rev>.json` |
 | Docs-created log | JSON `{"docs": [{id, title, slug, stage, rev, label, text_sha256, approvable, at}]}` | written only by the same hook, on `create_file`, for a Doc whose text is exactly the artifact's copy; the guard matches every new `docs.json` entry to it (ADR-016) | `articles/<slug>/.docs-created.json` |

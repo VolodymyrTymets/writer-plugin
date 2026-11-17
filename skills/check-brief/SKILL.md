@@ -57,7 +57,7 @@ Artifact: articles/<slug>/brief.md
 ```
 
 A BLOCK is actionable: every item names the fix. Never pad with advisory findings; three real findings beat twelve
-stylistic ones. If the brief is fine, say PASS in one line and stop. Your whole output returns to the caller as one
+stylistic ones. If the brief is fine, say PASS with the heading and the `Artifact:` line and stop. Your whole output returns to the caller as one
 message, so the verdict goes in it. Do not write any file; the caller saves the verdict.
 
 ## Definition of done
