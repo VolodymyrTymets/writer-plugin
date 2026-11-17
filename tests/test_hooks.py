@@ -34,6 +34,18 @@ BLOCK = {
     'outline': '## G2 outline gate: BLOCK (2 blocking, 0 advisory)',
     'final': '## G4 final gate: BLOCK (1 blocking, 0 advisory)',
 }
+# line 3 of a saved verdict as the gate prints it (FT-13); G0 has none
+COUNT = {'research': 'Coverage: 1 answered, 0 open (of 1)', 'outline': 'Markers: 0', 'draft': 'Outline: 1 of 1 sections present', 'final': 'Markers: 0'}
+
+
+def head(stage, line, artifact='x', count=None):
+    """A verdict's first three lines as the gate prints them (G0 has two)."""
+    lines = [line, f'Artifact: {artifact}']
+    if stage != 'brief':
+        lines.append(count if count is not None else COUNT[stage])
+    return '\n'.join(lines) + '\n'
+
+
 GATE = {'brief': 'G0', 'research': 'G1', 'outline': 'G2', 'draft': 'G3', 'final': 'G4'}
 STAGES = ['brief', 'research', 'outline', 'draft', 'final']
 OUTLINE = '# Outline\n\nApproved-by:{approval}\n\n## Thesis\nA thesis.\n'
@@ -227,7 +239,7 @@ def test_an_existing_verdict_cannot_be_overwritten_or_edited(ws):
 
 def test_a_new_verdict_with_the_right_number_and_line_1_is_allowed(ws):
     ws.verdict('brief', 1, PASS['brief'])
-    r = guard(ws.root, write_payload(ws.rel('gates/G0-brief.r2.md'), BLOCK['brief'] + '\nArtifact: x\n'))
+    r = guard(ws.root, write_payload(ws.rel('gates/G0-brief.r2.md'), head('brief', BLOCK['brief'])))
     assert r.code == 0
 
 
@@ -245,11 +257,41 @@ def test_a_bad_new_verdict_is_blocked(ws, name, content, why):
     assert guard(ws.root, write_payload(ws.rel(f'gates/{name}'), content)).code == 2, why
 
 
+@pytest.mark.parametrize('stage,content,want', [
+    ('brief', PASS['brief'] + '\n\nArtifact: x\n', 'line 2'),
+    ('brief', PASS['brief'] + '\n Artifact: x\n', 'line 2'),
+    ('brief', PASS['brief'] + '\n\ufeffArtifact: x\n', 'line 2'),
+    ('brief', PASS['brief'] + '\nArtifact: \n', 'line 2'),
+    ('brief', PASS['brief'] + '\n', 'line 2'),
+    ('research', PASS['research'] + '\nArtifact: x\n\n' + COUNT['research'] + '\n', 'Coverage:'),
+    ('research', PASS['research'] + '\nArtifact: x\n', 'Coverage:'),
+    ('research', PASS['research'] + '\nArtifact: x\nMarkers: 0\n', 'Coverage:'),
+    ('outline', PASS['outline'] + '\nArtifact: x\n\nMarkers: 0\n', 'Markers:'),
+    ('draft', PASS['draft'] + '\nArtifact: x\nMarkers: 0\n', 'Outline:'),
+    ('final', PASS['final'] + '\nArtifact: x\n\nMarkers: 0\n', 'Markers:'),
+], ids=['blank-line-2', 'leading-space-line-2', 'bom-line-2', 'empty-artifact-value', 'one-line-verdict', 'blank-line-3-g1', 'two-line-g1',
+        'wrong-label-g1', 'blank-line-3-g2', 'wrong-label-g3', 'blank-line-3-g4'])
+def test_a_verdict_whose_header_lines_are_not_as_printed_is_blocked_and_the_message_says_which(ws, stage, content, want):
+    ws.chain(stage)
+    r = guard(ws.root, write_payload(ws.rel(f'gates/{GATE[stage]}-{stage}.r1.md'), content))
+    assert r.code == 2 and 'FLOW-4' in r.err and want in r.err
+
+
+@pytest.mark.parametrize('stage,eol', [('brief', '\n'), ('draft', '\r\n'), ('brief', '\r\n')], ids=['g0-free-line-3', 'crlf-g3', 'crlf-g0'])
+def test_a_verdict_with_the_printed_header_is_allowed(ws, stage, eol):
+    ws.approve()
+    ws.chain(stage)
+    content = head(stage, PASS[stage]).replace('\n', eol)
+    if stage == 'brief':
+        content += eol + 'free text on line 3' + eol
+    assert guard(ws.root, write_payload(ws.rel(f'gates/{GATE[stage]}-{stage}.r1.md'), content)).code == 0
+
+
 def test_the_next_number_continues_past_the_archive(ws):
     ws.verdict('brief', 1, PASS['brief'], archived=True)
     ws.verdict('brief', 2, BLOCK['brief'], archived=True)
     assert guard(ws.root, write_payload(ws.rel('gates/G0-brief.r1.md'), PASS['brief'] + '\n')).code == 2   # collides with the archive
-    assert guard(ws.root, write_payload(ws.rel('gates/G0-brief.r3.md'), PASS['brief'] + '\n')).code == 0
+    assert guard(ws.root, write_payload(ws.rel('gates/G0-brief.r3.md'), head('brief', PASS['brief']))).code == 0
 
 
 # ---------------- Bash writes ----------------
@@ -556,7 +598,7 @@ def give_approval(ws, stage, value, text):
 
 
 def g4_save(ws, line=None, k=1):
-    return guard(ws.root, write_payload(ws.rel(f'gates/G4-final.r{k}.md'), (line or PASS['final']) + '\nArtifact: x\n'))
+    return guard(ws.root, write_payload(ws.rel(f'gates/G4-final.r{k}.md'), head('final', line or PASS['final'])))
 
 
 def edit_final(ws, old, new, replace_all=False):
@@ -578,7 +620,8 @@ def test_a_g4_verdict_is_blocked_with_no_lint_record_and_the_message_names_the_c
 def test_a_g4_verdict_is_blocked_when_final_changed_after_the_lint(ws):
     final_ready(ws)
     (ws.art / 'final.md').write_text('# T\n\nA different body.\n')
-    assert g4_save(ws).code == 2
+    r = g4_save(ws)
+    assert r.code == 2 and 'prose-lint' in r.err
 
 
 def test_a_sign_off_only_change_after_the_lint_still_matches_the_record(ws):
@@ -590,7 +633,7 @@ def test_a_sign_off_only_change_after_the_lint_still_matches_the_record(ws):
 def test_a_g3_verdict_save_needs_no_lint_record(ws):
     ws.approve()
     ws.chain('draft')
-    r = guard(ws.root, write_payload(ws.rel('gates/G3-draft.r1.md'), PASS['draft'] + '\nArtifact: x\n'))
+    r = guard(ws.root, write_payload(ws.rel('gates/G3-draft.r1.md'), head('draft', PASS['draft'])))
     assert r.code == 0
 
 
@@ -1432,7 +1475,7 @@ def research_ready(ws, record=True, body=None):
 
 
 def g1_save(ws, line=None, k=1, artifact='x'):
-    return guard(ws.root, write_payload(ws.rel(f'gates/G1-research.r{k}.md'), (line or PASS['research']) + f'\nArtifact: {artifact}\n'))
+    return guard(ws.root, write_payload(ws.rel(f'gates/G1-research.r{k}.md'), head('research', line or PASS['research'], artifact, 'Coverage: n/a' if artifact == 'none' else None)))
 
 
 def test_a_g1_verdict_is_saved_against_a_matching_quote_record(ws):
@@ -1449,13 +1492,15 @@ def test_a_g1_verdict_is_blocked_with_no_quote_record_and_the_message_names_the_
 def test_a_g1_verdict_is_blocked_when_research_changed_after_the_check(ws):
     research_ready(ws)
     (ws.art / 'research.md').write_text('# research\n\na different dossier\n')
-    assert g1_save(ws).code == 2
+    r = g1_save(ws)
+    assert r.code == 2 and 'quote-check' in r.err
 
 
 def test_a_corrupt_quote_record_blocks_the_g1_save(ws):
     research_ready(ws)
     (ws.art / '.quote-check.json').write_text('not json')
-    assert g1_save(ws).code == 2
+    r = g1_save(ws)
+    assert r.code == 2 and 'quote-check' in r.err
 
 
 def test_an_approval_line_after_the_check_still_matches_the_record(ws):
@@ -1466,7 +1511,8 @@ def test_an_approval_line_after_the_check_still_matches_the_record(ws):
 
 def test_a_g1_block_is_also_saved_only_against_a_record(ws):
     research_ready(ws, record=False)
-    assert g1_save(ws, line=BLOCK['research']).code == 2
+    r = g1_save(ws, line=BLOCK['research'])
+    assert r.code == 2 and 'quote-check' in r.err
 
 
 def test_the_g1_block_for_a_missing_research_needs_no_record(ws):
@@ -1477,13 +1523,14 @@ def test_the_g1_block_for_a_missing_research_needs_no_record(ws):
 
 def test_a_g1_verdict_that_claims_no_artifact_cannot_skip_the_record_while_research_exists(ws):
     research_ready(ws, record=False)
-    assert g1_save(ws, line=BLOCK['research'], artifact='none').code == 2
+    r = g1_save(ws, line=BLOCK['research'], artifact='none')
+    assert r.code == 2 and 'quote-check' in r.err
 
 
 def test_other_gates_need_no_quote_record(ws):
     ws.approve()
     ws.chain('outline')
-    assert guard(ws.root, write_payload(ws.rel('gates/G2-outline.r1.md'), PASS['outline'] + '\nArtifact: x\n')).code == 0
+    assert guard(ws.root, write_payload(ws.rel('gates/G2-outline.r1.md'), head('outline', PASS['outline']))).code == 0
 
 
 @pytest.mark.parametrize('payload', [
@@ -1505,7 +1552,8 @@ def test_running_the_quote_script_with_record_is_not_blocked(ws):
 def test_a_pass_that_claims_no_artifact_cannot_skip_the_record_either(ws):
     ws.chain('research')
     (ws.art / 'research.md').unlink()
-    assert g1_save(ws, line=PASS['research'], artifact='none').code == 2
+    r = g1_save(ws, line=PASS['research'], artifact='none')
+    assert r.code == 2 and 'quote-check' in r.err
 
 
 # ---------------- FT-6 (approval in the Doc): a copy is always unapproved and says where to approve ----------------
