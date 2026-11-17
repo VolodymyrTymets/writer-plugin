@@ -1368,6 +1368,27 @@ def test_front_matter_becomes_a_list_reviewers_can_read():
                                       '\n# HTTP caching\n\nBody.\n')
 
 
+# FT-14: a marker stands out in the Doc copy. The comparison of a read-back Doc ignores `*`, so approval still matches.
+MARK = "<Can't be verified. Reason: no public source>"
+
+
+def test_marker_is_bold_in_the_doc_copy_and_a_second_pass_changes_nothing():
+    out = writer.doc_text(f'# T\n\nPrice is {MARK} today [F1].\n')
+    assert out == f'# T\n\nPrice is **{MARK}** today.\n'
+    assert writer.bold_markers(out) == out
+
+
+def test_marker_in_a_code_fence_stays_plain_and_front_matter_body_is_bolded():
+    fenced = f'# T\n\n```\n{MARK}\n```\n'
+    assert writer.doc_text(fenced) == fenced
+    assert f'**{MARK}**' in writer.doc_text(f'---\ntitle: T\n---\n# T\n\n{MARK}\n')
+
+
+def test_bold_marker_does_not_break_the_approval_comparison(tmp_path):
+    shown = writer.doc_text(f'# T\n\n{MARK}\n', 'outline')
+    assert writer._doc_words(shown, 'outline') == writer._doc_words(f'# T\n\n{MARK}\n', 'outline')
+
+
 @pytest.mark.parametrize('text', ['# T\n\n---\n\nA rule mid-text.\n', 'No front matter [F2].\n', '---\nnot closed\n'],
                          ids=['rule-later', 'none', 'unclosed'])
 def test_only_a_leading_closed_front_matter_block_is_rendered(text):

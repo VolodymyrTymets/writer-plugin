@@ -562,6 +562,25 @@ def strip_fact_ids(text: str) -> str:
 _FRONT_MATTER = re.compile(r'\A---\n(.*?)\n---\n', re.S)
 
 
+def bold_markers(text: str) -> str:
+    """Each unverified marker in bold outside code fences, so a reviewer scanning the Doc sees the gaps (FT-14). Bold is what the Markdown
+    upload is known to keep (ADR-012); a marker already wrapped in `**` is left alone, so the result does not grow on a second pass."""
+    out, fenced = [], False
+    for line in text.split('\n'):
+        if _FENCE.match(line):
+            fenced = not fenced
+            out.append(line)
+        elif fenced:
+            out.append(line)
+        else:
+            out.append(MARKER_TEXT.sub(lambda m: m.group(0) if _wrapped(line, m) else f'**{m.group(0)}**', line))
+    return '\n'.join(out)
+
+
+def _wrapped(line: str, m: 're.Match[str]') -> bool:
+    return line[:m.start()].endswith('**') and line[m.end():].startswith('**')
+
+
 _APPROVAL_LINE_ANY = re.compile(r'^[ \t]*(Approved-by|Signed-off-by):.*$')
 
 
@@ -618,14 +637,14 @@ def doc_text(text: str, stage: Optional[str] = None, keep_signoff: bool = False)
     (`keep_signoff` is for the publish-ready final alone). Without a stage the approval lines are left as they are."""
     m = _FRONT_MATTER.match(text)
     if not m:
-        shown = strip_fact_ids(text)
+        shown = bold_markers(strip_fact_ids(text))
         return _open_approval(shown, stage, keep_signoff) if stage else shown
     items = []
     for line in m.group(1).split('\n'):
         key, sep, value = line.partition(':')
         if sep and key.strip():
             items.append(f'- **{key.strip().replace("_", " ").capitalize()}:** {value.strip()}')
-    body = strip_fact_ids(text[m.end():])
+    body = bold_markers(strip_fact_ids(text[m.end():]))
     return '\n'.join(items) + '\n\n' + (_open_approval(body, stage, keep_signoff) if stage else body)
 
 

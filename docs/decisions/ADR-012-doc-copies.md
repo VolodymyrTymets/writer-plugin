@@ -39,6 +39,7 @@ One spike Doc through the claude.ai Google Drive connector in an interactive Cla
 2. **The upload is Markdown** (`text/markdown`) with fact tags stripped outside code fences. No HTML or `.docx` conversion. A
    leading front-matter block becomes a `- **Title:** …` list (`writer.doc_text`). In the live run, Google turned raw front matter
    into a horizontal rule plus a stray heading, and a reviewer still needs to check the title, meta description and slug.
+   Each `<Can't be verified. Reason: …>` marker outside a code fence is wrapped in `**…**` so it stands out (FT-14).
 3. **`bin/doc-copy.py <slug> <stage>` computes everything the copy needs:** `text`, `sha256`, `rev`, `publish_ready`, `title`,
    `skip` and `existing_url`. It is read-only (the ADR-011 pattern). The `publish` skill uploads `text` under `title` and copies the
    fields unchanged into `articles/<slug>/docs.json`; the model never hashes, numbers or labels. `sha256` is the on-disk artifact's
