@@ -217,8 +217,9 @@ def test_a_missing_front_matter_is_a_finding_for_a_final(ws):
 @pytest.mark.parametrize('brief,expected_bounds', [
     ('- **Target length:** 200 words', (180, 220)),
     ('- **Target length:** 1,400', (1260, 1540)),
-    ('- **Target length:** 3,500-4,000 words', (3500, 4000)),
-], ids=['single', 'thousands-separator', 'range'])
+    ('- **Target length:** 3,500-4,000 words', (3150, 4400)),
+    ('- **Target length:** 3,500 to 4,000 words', (3150, 4400)),
+], ids=['single', 'thousands-separator', 'range', 'range-with-to'])
 def test_the_target_length_is_read_from_the_brief(brief, expected_bounds):
     sys.path.insert(0, str(PLUGIN / 'bin'))
     import importlib.util
@@ -226,6 +227,15 @@ def test_the_target_length_is_read_from_the_brief(brief, expected_bounds):
     mod = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(mod)
     assert mod.length_bounds(brief) == expected_bounds
+
+
+def test_a_few_words_under_a_range_is_not_a_finding(ws):
+    # FT-7: 3,493 words against 3,500-4,000 was flagged and the actor padded prose to clear it; STR-6 is the range plus or minus 10%
+    (ws / 'brief.md').write_text(BRIEF.replace('200 words', '3,500-4,000 words'))
+    (ws / 'final.md').write_text(final_text(words=3300))
+    assert 'STR-6' not in rules(lint(ws / 'final.md'))
+    (ws / 'final.md').write_text(final_text(words=2800))
+    assert 'STR-6' in rules(lint(ws / 'final.md'))
 
 
 def test_missing_inputs_skip_their_checks_with_a_note_and_do_not_fail(ws, tmp_path):
