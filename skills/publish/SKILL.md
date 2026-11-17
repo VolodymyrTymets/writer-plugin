@@ -2,7 +2,7 @@
 name: publish
 description: Copies one article artifact (brief, research, outline, draft or final) to a new Google Doc revision for review and comments, and records it in docs.json. Use after a stage passes its gate, or after sign-off for the publish-ready copy. The local Markdown stays the source of truth.
 argument-hint: "[article slug] [stage: brief | research | outline | draft | final]"
-allowed-tools: Read, Write, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/doc-copy.py *), mcp__claude_ai_Google_Drive__create_file, mcp__claude_ai_Google_Drive__search_files
+allowed-tools: Read, Write, Glob, AskUserQuestion, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/doc-copy.py *), mcp__claude_ai_Google_Drive__create_file, mcp__claude_ai_Google_Drive__search_files
 ---
 
 # Doc copy
@@ -17,7 +17,7 @@ and only by appending one entry.
 
 `$ARGUMENTS` is `<slug> <stage>`, `<slug>`, or empty. The stage is one of `brief`, `research`, `outline`, `draft`, `final`.
 - No stage: the latest artifact that exists, in the order final, draft, outline, research, brief.
-- No slug: ask the user. Never guess it from the newest folder.
+- No slug means `$ARGUMENTS` is empty or only a stage name (`brief`, `research`, `outline`, `draft` or `final`, which then stays the stage). List `articles/*/brief.md` with Glob: exactly one article, take it and name it in the report; two to four, ask with one `AskUserQuestion`, one option per article folder (the tool takes two to four options); more than four, print the folders and ask the user to type the slug; none, say there are no articles in this workspace and stop. Never guess it from the newest folder.
 
 ## Step 2 — Check for a Drive connection
 

@@ -22,12 +22,12 @@ BUSINESS_MODEL goal 3 (polish), with a goal-1 edge: a guessed slug makes `/sync`
   FT-13 and FT-14; editing old `docs/features/*/` plans and ADR-010 (history); migrating users' installed copies.
 
 ## Acceptance criteria
-- [ ] AC1 `skills/` holds `brief`, `edit`, `setup`, `sync` and none of the four old folders; every skill's `name:` equals its folder name.
-- [ ] AC2 `tests/test_structure.py` fails if a skill folder differs from its frontmatter `name:`.
-- [ ] AC3 No file outside history (`docs/features/*/`, ADR-010, CHANGELOG), `ADR-018` and the FT-11 row of `docs/DESIGN.md` names an old folder.
-- [ ] AC4 `sync` and `publish`, given no slug (or only a stage name, as in `/sync research`): exactly one folder under `articles/` is taken and named in the report; 2 to 4 are offered through `AskUserQuestion`; more than 4 are listed and the user types one; none stops with a one-line message. Never "newest folder".
-- [ ] AC5 `claude plugin validate ./` passes with only the known warning; the full pytest suite passes.
-- [ ] AC6 Run: `/writer-plugin:sync` with no slug behaves as AC4 in a scratch workspace with one folder, and with two.
+- [x] AC1 `skills/` holds `brief`, `edit`, `setup`, `sync` and none of the four old folders; every skill's `name:` equals its folder name.
+- [x] AC2 `tests/test_structure.py` fails if a skill folder differs from its frontmatter `name:`.
+- [x] AC3 No file outside history (`docs/features/*/`, ADR-010, CHANGELOG), `ADR-018` and the FT-11 row of `docs/DESIGN.md` names an old folder.
+- [x] AC4 `sync` and `publish`, given no slug (or only a stage name, as in `/sync research`): exactly one folder under `articles/` is taken and named in the report; 2 to 4 are offered through `AskUserQuestion`; more than 4 are listed and the user types one; none stops with a one-line message. Never "newest folder".
+- [x] AC5 `claude plugin validate ./` passes with only the known warning; the full pytest suite passes.
+- [x] AC6 (one folder: taken; two folders: listed headless, the interactive question not seen) Run: `/writer-plugin:sync` with no slug behaves as AC4 in a scratch workspace with one folder, and with two.
 
 ## Edge cases
 | Case | Expected behaviour | Decided by |

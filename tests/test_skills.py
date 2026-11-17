@@ -778,7 +778,8 @@ DOC_COPY_RUN = 'python3 ${CLAUDE_PLUGIN_ROOT}/bin/doc-copy.py'
 
 
 def test_publish_pre_approves_only_the_script_the_write_and_the_drive_create_and_search_tools():
-    assert allowed_tools(PUBLISH) == {'Read', 'Write', f'Bash({DOC_COPY_RUN} *)', DRIVE_CREATE,
+    # WHY: Glob and AskUserQuestion resolve a missing slug (FT-12); both are read-only for the workspace.
+    assert allowed_tools(PUBLISH) == {'Read', 'Write', 'Glob', 'AskUserQuestion', f'Bash({DOC_COPY_RUN} *)', DRIVE_CREATE,
                                       'mcp__claude_ai_Google_Drive__search_files'}
 
 
@@ -833,7 +834,8 @@ def test_sync_pre_approves_only_read_write_edit_and_the_drive_read_tool():
     # WHY: sync now carries an approval into the artifact with Edit (FT-6, ADR-016, docs/features/comment-rerun-and-clean-copies/plan.md R5);
     # the guard, not this list, decides which Edit is allowed.
     # WHY: sync also restarts the owning stage, with a Skill permission scoped to the four stage commands, and reads the status (ADR-016, R6)
-    assert allowed_tools(SYNC) == {'Read', 'Write', 'Edit', STATUS_RULE, DRIVE_READ, 'Skill(writer-plugin:research)', 'Skill(writer-plugin:outline)',
+    # WHY: Glob and AskUserQuestion resolve a missing slug (FT-12).
+    assert allowed_tools(SYNC) == {'Read', 'Write', 'Edit', 'Glob', 'AskUserQuestion', STATUS_RULE, DRIVE_READ, 'Skill(writer-plugin:research)', 'Skill(writer-plugin:outline)',
                                    'Skill(writer-plugin:draft)', 'Skill(writer-plugin:edit)'}
 
 
@@ -911,3 +913,13 @@ def test_orchestrator_relays_the_doc_copies_and_names_the_publish_ready_step():
     text = flat(ORCHESTRATOR)
     assert 'Doc copies: as each actor reported' in text and 'not yet available' not in text
     assert 'a human runs `writer-plugin:publish <slug> final`' in text
+
+
+@pytest.mark.parametrize('d', ['publish', SYNC])
+def test_copy_and_sync_resolve_a_missing_slug_without_guessing(d):
+    """FT-12: one article is taken, two to four are offered (the question tool takes two to four options), more are listed."""
+    text = flat(d)
+    for part in ('only a stage name', 'articles/*/brief.md', 'exactly one article', '`AskUserQuestion`', 'two to four',
+                 'more than four', 'no articles in this workspace', 'Never guess it from the newest folder'):
+        assert part in text, f'{d} must say: {part}'
+    assert {'Glob', 'AskUserQuestion'} <= allowed_tools(d)
