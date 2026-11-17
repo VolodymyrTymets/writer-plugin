@@ -10,6 +10,7 @@ from pathlib import Path
 import pytest
 
 from conftest import PLUGIN as ROOT, UNVERIFIED_MARKER
+from lib import writer
 
 
 def tools_of(agent: str) -> set:
@@ -70,6 +71,36 @@ def test_verdict_regex_accepts_each_gates_own_examples_and_only_those(d):
     for line in heads:
         assert VERDICT_LINE.match(line), f'{d}: example does not match the verdict contract: {line}'
         assert line.startswith(f'## {pair} gate'), f'{d}: example uses another gate\'s pair: {line}'
+
+
+def _example_verdicts(d):
+    """The literal verdicts in a gate skill's fenced blocks: each starts at a `## G` heading and ends at the first blank line after its header."""
+    blocks = re.findall(r'```markdown\n(## G.*?)```', skill_text(d), re.S)
+    return blocks
+
+
+@pytest.mark.parametrize('d', GATES)
+def test_each_gates_literal_examples_pass_the_header_check_the_guard_applies_on_save(d):
+    stage = GATES[d][0].split()[1]
+    examples = _example_verdicts(d)
+    assert len(examples) >= 2, f'{d} needs a literal PASS and BLOCK example'
+    for text in examples:
+        assert writer.verdict_header_problem(stage, text) is None, f'{d}: {text.splitlines()[:3]}'
+
+
+@pytest.mark.parametrize('stage,line3', [
+    ('brief', None), ('research', 'Coverage: n/a'), ('outline', 'Markers: n/a'), ('draft', 'Outline: n/a'), ('final', 'Markers: n/a'),
+], ids=['g0', 'g1', 'g2', 'g3', 'g4'])
+def test_the_artifact_none_block_of_each_gate_passes_the_header_check(stage, line3):
+    # the gate skills describe this verdict in prose only, so it is built here the way they say
+    text = '\n'.join(l for l in (f'## {GATES["check-" + stage][0]} gate: BLOCK (1 blocking, 0 advisory)', 'Artifact: none', line3) if l is not None)
+    assert writer.verdict_header_problem(stage, text + '\n') is None
+
+
+@pytest.mark.parametrize('d', ACTORS)
+def test_actor_saves_the_verdict_header_as_printed_and_reruns_the_gate_instead_of_editing_it(d):
+    text = flat(d)
+    assert 'Keep lines 1 to 3 exactly as printed' in text and 'save nothing and rerun the gate' in text and 'ADR-019' in text
 
 
 @pytest.mark.parametrize('line', [
