@@ -12,10 +12,10 @@ from pathlib import Path
 
 from conftest import PLUGIN as ROOT
 
-# A plugin skill takes its command from frontmatter `name:` (unlike a project skill, where the directory name wins).
-# COMMANDS is the single source of truth for what exists: directory -> command.
+# A skill's folder name is its command (ADR-018): Claude Code builds `/<plugin>:<directory>` and lets `name:` replace the last
+# segment, so the two must be equal or one command has two names (FT-11). COMMANDS is the single source of truth for what exists.
 COMMANDS = {
-    'intake-brief': 'brief',
+    'brief': 'brief',
     'check-brief': 'check-brief',
     'research': 'research',
     'check-research': 'check-research',
@@ -24,11 +24,11 @@ COMMANDS = {
     'check-draft': 'check-draft',
     'draft': 'draft',
     'check-final': 'check-final',
-    'edit-final': 'edit',
+    'edit': 'edit',
     'article': 'article',
-    'setup-workspace': 'setup',
+    'setup': 'setup',
     'publish': 'publish',
-    'sync-comments': 'sync',
+    'sync': 'sync',
 }
 # Built next, in the order of docs/DESIGN.md. Move an entry from PLANNED to COMMANDS in the commit that adds the skill.
 PLANNED = {
@@ -157,6 +157,8 @@ def test_skills_are_flat_named_and_complete():
             fails.append(f'skills/{d}: not in the COMMANDS map{hint}')
         elif k.get('name') != expected:
             fails.append(f'skills/{d}: frontmatter name "{k.get("name")}" but COMMANDS says "{expected}"')
+        if k.get('name') != d:
+            fails.append(f'skills/{d}: folder name and frontmatter name "{k.get("name")}" differ - one command, one name (ADR-018)')
         if len(k.get('description') or '') < 40:
             fails.append(f'skills/{d}: description too short to trigger reliably')
         text = read(f)

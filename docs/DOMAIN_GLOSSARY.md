@@ -35,5 +35,5 @@
 | Rule ID | `BRF`, `FACT`, `STR`, `VOI`, `SEO`, `FLOW`, `PLG` prefix plus number, cited by every finding | This repo's agent-config rules (A–G in `CLAUDE.md`) |
 
 ## Naming rules
-- Skill directories may differ from commands; the command comes from frontmatter `name:` (`COMMANDS` in `tests/test_structure.py`).
+- A skill's folder name is its command, equal to its frontmatter `name:` (ADR-018; `COMMANDS` in `tests/test_structure.py`).
 - Gate verdict files: `gates/G<n>-<stage>.r<k>.md`.

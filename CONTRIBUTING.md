@@ -19,9 +19,9 @@ approach and the build plan — is in [docs/DESIGN.md](docs/DESIGN.md).
 
 ### Command names
 
-A plugin skill takes its command from frontmatter `name:`, not its directory. The map is `COMMANDS` in
-`tests/test_structure.py`; commands not built yet are in `PLANNED`. The test fails when a skill's `name:` drifts from
-the map, when a name collides with a built-in, or when a document presents a command that does not exist. Planned
+A skill's folder name is its command (ADR-018): `skills/sync/` has `name: sync` and runs as `writer-plugin:sync`. The map is
+`COMMANDS` in `tests/test_structure.py`; commands not built yet are in `PLANNED`. The test fails when a skill's `name:` differs
+from its folder or drifts from the map, when a name collides with a built-in, or when a document presents a command that does not exist. Planned
 commands may appear only in `README.md`, `CHANGELOG.md` and `docs/DESIGN.md`.
 
 ### Gates are forked by construction
