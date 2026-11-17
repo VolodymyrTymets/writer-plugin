@@ -2,7 +2,7 @@
 name: sync
 description: Pulls reviewer comments from an article's latest Google Doc copy back into the workspace as comments/<stage>.r<rev>.md, quoted verbatim with their anchor text, and carries a human's approval typed in that Doc into the local artifact, so the stage can close, and restarts the stage that owns the artifact when comments are waiting. Use after reviewers have commented on, or approved, a Doc made by the publish skill.
 argument-hint: "[article slug] [stage: brief | research | outline | draft | final]"
-allowed-tools: Read, Write, Edit, Skill(writer-plugin:research), Skill(writer-plugin:outline), Skill(writer-plugin:draft), Skill(writer-plugin:edit), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py *), mcp__claude_ai_Google_Drive__read_file_content
+allowed-tools: Read, Write, Edit, Glob, AskUserQuestion, Skill(writer-plugin:research), Skill(writer-plugin:outline), Skill(writer-plugin:draft), Skill(writer-plugin:edit), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py *), mcp__claude_ai_Google_Drive__read_file_content
 ---
 
 # Comment sync
@@ -15,7 +15,7 @@ or edit a comment: the connector cannot, and the Doc belongs to its reviewers.
 
 ## Step 1 — Resolve the article, the stage and the Doc
 
-`$ARGUMENTS` is `<slug> <stage>`, `<slug>`, or empty. No slug: ask the user; never guess it from the newest folder.
+`$ARGUMENTS` is `<slug> <stage>`, `<slug>`, or empty. No slug means `$ARGUMENTS` is empty or only a stage name (`brief`, `research`, `outline`, `draft` or `final`, which then stays the stage). List `articles/*/brief.md` with Glob: exactly one article, take it and name it in the report; two to four, ask with one `AskUserQuestion`, one option per article folder (the tool takes two to four options); more than four, print the folders and stop, so the user reruns with the slug; none, say there are no articles in this workspace and stop. If the question cannot be asked or returns no choice, print the folders and stop. A slug the user types counts only if it is one of the listed folders; otherwise say so and stop. Never guess it from the newest folder.
 
 Read `articles/<slug>/docs.json`. Its `revisions` list holds one entry per Doc copy. Take the entry for the stage with the
 highest `rev`; with no stage given, the entry with the latest `at`. No Doc copy of `<stage>` is recorded (or there is no

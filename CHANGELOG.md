@@ -8,6 +8,8 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- `sync` and `publish` with no slug (or only a stage name, as in `/sync research`) take the workspace's only article, offer two to four as options, list more than four, and never guess (FT-12).
+- Four skill folders are renamed to their command, so each command has one name: `intake-brief` → `brief`, `edit-final` → `edit`, `setup-workspace` → `setup`, `sync-comments` → `sync`. The commands (`writer-plugin:brief` and so on) do not change, and the structure test now fails if a folder and its `name:` differ (FT-11, ADR-018).
 - A PDF brief is read with the Read tool, never a shell: `brief.source.md` holds the text Read returned under an "extracted from" line, and a scanned PDF stops the stage with a request for text (FT-8).
 - The brief stage normalises the folder slug to lowercase kebab-case and names the change; the final's `slug:` is the SEO slug, its own value, and `prose-lint.py` reports one that is not kebab-case as the new rule SEO-6 (FT-9).
   **Upgrading:** re-run `writer-plugin:setup` (or add SEO-6 to your `CLAUDE.md`) so a G4 verdict that cites it is defined; a final whose `slug:` is a capitalised folder name gets one lint line on its next edit run.

@@ -2186,7 +2186,7 @@ def test_two_creates_at_once_both_end_up_in_the_created_log(ow):
 
 # ---------------- ADR-016 (R6): pending reviewer comments ----------------
 def comments_file(ws, stage='outline', rev=1, sha=None, threads=('OPEN',), header=True, docs=True, docs_sha=None):
-    """A comments file exactly as the sync skill writes it (Step 4 of skills/sync-comments)."""
+    """A comments file exactly as the sync skill writes it (Step 4 of skills/sync)."""
     real = writer.text_hash((ws.art / f'{stage}.md').read_text())
     sha = sha if sha is not None else real
     if docs:

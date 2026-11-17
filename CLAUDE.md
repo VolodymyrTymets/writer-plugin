@@ -36,7 +36,7 @@ workspace; `templates/` is read at run time by the stage skills (ADR-005), so a 
 
 ## Conventions
 
-- Skills are flat (`skills/<dir>/SKILL.md` plus `references/` only). A skill's command comes from frontmatter `name:`;
+- Skills are flat (`skills/<dir>/SKILL.md` plus `references/` only). A skill's command comes from frontmatter `name:`, which equals its folder name (ADR-018);
   the map is `COMMANDS` in `tests/test_structure.py`, and planned ones are in `PLANNED`.
 - Every gate skill carries `context: fork`, `background: false` and a scoped write-free agent (`writer-plugin:<agent>`).
 - A hook change needs a test case. Prefer a script or hook over a prompt rule.
