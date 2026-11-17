@@ -426,7 +426,24 @@ def test_outline_stage_writes_only_the_marker_and_a_neutral_label_in_a_marked_ce
 def test_outline_stage_does_not_treat_open_gaps_or_its_own_knowledge_as_a_source():
     text = flat('outline')
     assert 'Open gaps, the brief and your own knowledge are not sources' in text
-    assert 'a statement about a vendor, a price, a plan or a page that has no fact ID is a marker' in text
+    # WHY: ADR-017 replaces ADR-008's "is a marker" with "is dropped"; an intended contract change, not a weaker check
+    assert 'a statement about a vendor, a price, a plan or a page that has no fact ID is dropped from the outline' in text
+    assert 'is a marker, even if' not in text
+
+
+def test_outline_stage_gives_one_open_gap_one_marker():
+    text = flat('outline')
+    for needle in ('A marker is only for a point that `research.md` lists under Open gaps',
+                   'One open gap gets at most one marker', 'drops that point instead of repeating the marker',
+                   'never holds more markers in cells than `research.md` holds under Open gaps'):
+        assert needle in text, needle
+
+
+def test_g2_blocks_more_markers_than_open_gaps():
+    text = checklist_text('check-outline')
+    assert 'One marker per open gap (ADR-017)' in text
+    assert 'under "## Open gaps" in `research.md`' in text and 'outnumber them' in text and 'blocking FACT-1' in text
+    assert 'more markers than open gaps is a blocking FACT-1 finding' in flat('check-outline')
 
 
 def test_g2_treats_a_marker_as_not_a_claim():

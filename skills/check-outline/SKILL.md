@@ -60,7 +60,7 @@ Markers: 0
 ```
 
 A BLOCK is actionable: every item names the fix. Never pad with advisory findings. Do not write any file; the caller
-saves the verdict. You do not judge the `Approved-by:` line: it is a human's, and no rule here covers it. A marker is not a BLOCK, so it never counts toward the two-BLOCK stop (FLOW-3) and the flow goes on; the human may approve an outline that still has markers, and a final article is not signed off while one remains (FLOW-6).
+saves the verdict. You do not judge the `Approved-by:` line: it is a human's, and no rule here covers it. A marker in the exact form that stays within the open-gap count is not a BLOCK and the flow goes on (more markers than open gaps is a blocking FACT-1 finding, which counts like any BLOCK, ADR-017); the human may approve an outline that still has markers, and a final article is not signed off while one remains (FLOW-6).
 
 ## Definition of done
 - [ ] The outline resolved and named on the `Artifact:` line

@@ -1,0 +1,26 @@
+schema_version: "1.1"
+name: g2-block-marker-fan-out
+description: "One gap's marker is repeated in four rows, so the outline holds five markers for two gaps and G2 blocks on FACT-1"
+tags: [gate, g2, block]
+runs: 1
+execution:
+  prompt: "/writer-plugin:check-outline http-caching"
+  max_turns: 30
+  timeout_seconds: 900
+  allowed_tools: [Read, Glob, Grep, Skill]
+context:
+  scaffold_script: scaffold.sh
+graders:
+  - name: verdict-line
+    type: regex
+    pattern: "^## G2 outline gate: BLOCK \\([1-9]"
+  - name: forked-write-free
+    type: regex
+    target: "trace"
+    pattern: "\"subagent_type\"\\s*:\\s*\"writer-plugin:gate\""
+  - name: rule-id
+    type: regex
+    pattern: "\\[FACT-1\\]"
+  - name: names-the-defect
+    type: llm
+    criteria: "The verdict blocks because the outline holds more markers than the research has open gaps (five against two): one gap's marker is repeated across rows."
