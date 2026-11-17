@@ -8,6 +8,7 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- A saved verdict keeps its header: the guard refuses a new verdict whose line 2 is not `Artifact: <path>` or whose line 3 (G1 `Coverage:`, G2 and G4 `Markers:`, G3 `Outline:`) lacks the gate's label, and the five actor skills say to save lines 1 to 3 as printed or rerun the gate (FT-13, ADR-019; refines ADR-004). **Upgrading:** verdicts already saved are not re-checked.
 - `sync` and `publish` with no slug (or only a stage name, as in `/sync research`) take the workspace's only article, offer two to four as options, list more than four, and never guess (FT-12).
 - Four skill folders are renamed to their command, so each command has one name: `intake-brief` → `brief`, `edit-final` → `edit`, `setup-workspace` → `setup`, `sync-comments` → `sync`. The commands (`writer-plugin:brief` and so on) do not change, and the structure test now fails if a folder and its `name:` differ (FT-11, ADR-018).
 - A PDF brief is read with the Read tool, never a shell: `brief.source.md` holds the text Read returned under an "extracted from" line, and a scanned PDF stops the stage with a request for text (FT-8).
