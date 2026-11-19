@@ -62,6 +62,11 @@ questions. The fix is to try other sources for them, or to ask the human for the
 questions stay under Open gaps as markers and travel to the outline, draft and final, where a human fills them; a final with a marker
 cannot be signed off. The human sees the floor when approving the research (ADR-021, which supersedes ADR-014).
 
+**Questions for the human (FACT-6).** The last section of `research.md` is `## Questions for the human`: plain-text questions for the human, each starting `[OPEN]` or `[RESOLVED]`, or the single word `none`.
+Add one advisory FACT-6 finding, naming the lines, when the section is missing; a line has no `[OPEN]` or `[RESOLVED]` mark; a line carries a `Q<n>` or `F<n>` id or a comment number;
+a marker under Open gaps that no `[OPEN]` question covers (one question may cover several markers about the same page); or a `[RESOLVED]` question whose marker is still under Open gaps.
+This check never blocks, and it does not judge the wording of a question (ADR-021).
+
 ## Do not
 - Judge style, structure or the quality of the gap statement; those are other gates' work.
 - Pass a row because the source "is surely right". If you did not open it, it is Not checked.

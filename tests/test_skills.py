@@ -1008,3 +1008,13 @@ def test_research_writes_a_marked_list_of_questions_for_the_human_and_reports_it
                  'keep every earlier line', 'change `[OPEN]` to `[RESOLVED]` only when a fact row now answers it or a reviewer\'s comment settles a decision',
                  'Write `none` when nothing is owed', 'the counts of the `## Questions for the human` list', 'without repeating the questions'):
         assert part in text, f'research must say: {part}'
+
+
+def test_g1_advises_on_the_list_of_questions_for_the_human():
+    """FT-20: missing section, an id or a missing mark in a line, an uncovered marker, a resolved question with its marker still open: advisory only."""
+    text = checklist_text('check-research')
+    part = text[text.index('Questions for the human'):]
+    for needle in ('advisory FACT-6 finding', 'no `[OPEN]` or `[RESOLVED]` mark', 'a `Q<n>` or `F<n>` id', 'no `[OPEN]` question covers',
+                   'a `[RESOLVED]` question whose marker is still under Open gaps', 'never blocks'):
+        assert needle in part, f'the checklist must say: {needle}'
+    assert '[FACT-6] Questions for the human' in skill_text('check-research'), 'the gate skill must show the advisory line'

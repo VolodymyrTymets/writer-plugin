@@ -19,12 +19,12 @@ BUSINESS_MODEL goal 1 and the "human fills the gaps" flow of ADR-021: the human 
   any change to markers, FLOW-6, FACT-6's arithmetic or the other stages' gates; a script or hook.
 
 ## Acceptance criteria
-- [ ] AC1 `templates/research.md` ends with `## Questions for the human`, after `## Open gaps`, with numbered placeholders that start `[OPEN]` or `[RESOLVED]` and the "no ids" rule in a comment.
-- [ ] AC2 The research skill tells the actor to write that section, one question per marker under Open gaps and per owed decision, with no `Q`/`F`/comment ids, to name in each what would answer it, and to mark each `[OPEN]`;
+- [x] AC1 `templates/research.md` ends with `## Questions for the human`, after `## Open gaps`, with numbered placeholders that start `[OPEN]` or `[RESOLVED]` and the "no ids" rule in a comment.
+- [x] AC2 The research skill tells the actor to write that section, one question per marker under Open gaps and per owed decision, with no `Q`/`F`/comment ids, to name in each what would answer it, and to mark each `[OPEN]`;
   on a rerun it keeps every earlier line, changes `[OPEN]` to `[RESOLVED]` only when a fact row now answers the question or a reviewer's comment settles a decision, and adds one plain sentence saying how. The Step 6 report gives the counts ("3 open, 2 resolved") and points to the section instead of repeating the questions.
-- [ ] AC3 G1 reports as an **advisory** FACT-6 finding: a missing section, a line in it with a `Q<n>`/`F<n>` id or no `[OPEN]`/`[RESOLVED]` mark, an Open gaps marker no `[OPEN]` question covers, or a `[RESOLVED]` question whose marker is still under Open gaps. It never blocks.
-- [ ] AC4 Tests pin AC1 to AC3 (template shape, skill text, checklist text); none is deleted or skipped.
-- [ ] AC5 Full pytest passes; `claude plugin validate ./` passes with only the known warning.
+- [x] AC3 G1 reports as an **advisory** FACT-6 finding: a missing section, a line in it with a `Q<n>`/`F<n>` id or no `[OPEN]`/`[RESOLVED]` mark, an Open gaps marker no `[OPEN]` question covers, or a `[RESOLVED]` question whose marker is still under Open gaps. It never blocks.
+- [x] AC4 Tests pin AC1 to AC3 (template shape, skill text, checklist text); none is deleted or skipped.
+- [x] AC5 Full pytest passes; `claude plugin validate ./` passes with only the known warning.
 
 ## Edge cases
 | Case | Expected behaviour | Decided by |

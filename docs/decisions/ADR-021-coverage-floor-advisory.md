@@ -15,7 +15,7 @@ article (FLOW-3), so nothing reached the draft or the final, although the human 
 1. G1 reports the floor (`answered x 2 < m`, same counting rule) as an **advisory** FACT-6 finding that names the numbers and the open questions. It never blocks.
 2. The open questions stay under Open gaps as one marker each (ADR-008, ADR-017) and travel to the outline, draft and final. The final cannot be signed off while
    a marker remains (FLOW-6), so a thin article cannot be published by accident.
-3. The human sees the floor when approving the research (FLOW-2). The research stage reports each open question with what would answer it, and no longer stops before the gate (the FT-17 stop is removed).
+3. The human sees the floor when approving the research (FLOW-2). The questions are the last section of `research.md`, each marked `[OPEN]` or `[RESOLVED]`, with no Q or F ids (FT-20). The research stage reports each open question with what would answer it, and no longer stops before the gate (the FT-17 stop is removed).
 4. A question that is neither answered nor under Open gaps is still a blocking FACT-6 finding.
 
 ## Rejected
