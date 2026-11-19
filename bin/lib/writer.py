@@ -752,7 +752,10 @@ def doc_copy(root: str, slug: str, stage: str) -> Dict[str, object]:
     shown = doc_text(text, stage, keep_signoff=ready)
     shown_sha = text_hash(shown)
     last = next((e for e in reversed(docs_index(root, slug)) if e.get('stage') == stage), None)
-    skip = bool(last) and last.get('text_sha256') == shown_sha and \
+    # A recorded Doc the recorder hook never logged can never yield an approval (ADR-016), so it is no copy to reuse: skipping it
+    # would leave the reviewer typing a name that sync can never carry in (FT-18).
+    logged = {d.get('id') for d in created_log(root, slug)}  # an unreadable log raises ValueError, which doc-copy.py reports
+    skip = bool(last) and last.get('text_sha256') == shown_sha and last.get('id') in logged and \
         _REV_IN_TITLE.sub('', str(last.get('title', ''))) == _REV_IN_TITLE.sub('', title)
     return {'text': shown, 'sha256': text_hash(text), 'text_sha256': shown_sha, 'rev': rev, 'publish_ready': ready,
             'title': title, 'skip': skip, 'existing_url': last.get('url') if skip else None,
