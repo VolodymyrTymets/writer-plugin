@@ -25,7 +25,7 @@ one of them is wrong, stop and say so. The final gate judges your output in a fr
 - **FLOW-2:** `articles/<slug>/draft.md` must have a non-empty value after `Approved-by:`. An empty line is not approval. If it is
   empty, stop and say a human approves it in the draft's Google Doc and runs `writer-plugin:sync`, or writes a name in the file. Never fill it yourself.
 - **FLOW-3:** count `articles/<slug>/gates/G4-final.r*.md` whose line 1 contains `BLOCK`. If there are
-  two or more, stop, name both files and hand the article to the human. This holds across runs. A human resumes the article by moving **every** `G4-final.r*.md` file, PASS ones too, into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
+  two or more, first invoke `writer-plugin:publish <slug> final` through the Skill tool once, when `final.md` exists (it skips a copy that is already recorded and gives its URL; a Doc is never approval, FLOW-2), and report the Doc URL or its one line saying there is no Google Drive connection; then stop, name both files and hand the article to the human. This holds across runs. A human resumes the article by moving **every** `G4-final.r*.md` file, PASS ones too, into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
 
 ## Step 2b — Pending reviewer comments
 
