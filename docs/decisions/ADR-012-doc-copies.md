@@ -47,6 +47,8 @@ One spike Doc through the claude.ai Google Drive connector in an interactive Cla
    `text_hash` (approval lines ignored); the guard checks it. `text_sha256` is the hash of what reviewers see. A copy is skipped only
    when the stage's last entry has the same `text_sha256` **and** the same label. So a sign-off or a later PASS on unchanged text
    still makes a new Doc, and so does a change in how the text is rendered; an entry recorded without `text_sha256` never causes a skip.
+   Nor does an entry whose Doc id is missing from `.docs-created.json`: the recorder never saw that Doc, so no approval typed in it
+   can be carried in (ADR-016), and reusing it would strand the reviewer (FT-18).
 4. **Publish-ready is defined once**, as `writer.publish_ready()`: the article is `done` (signed off on a current G4 PASS) **and**
    `final.md` holds no marker. `done` alone is not enough, because G4 may pass a marker (ADR-008) and a sign-off typed by hand skips
    the guard.

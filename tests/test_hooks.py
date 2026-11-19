@@ -1088,10 +1088,29 @@ def test_an_ungated_stage_is_labelled_ungated(ws):
 def test_an_unchanged_copy_is_skipped_and_names_the_existing_doc(ws):
     build_state(ws, 'unapproved')
     first = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    entry = dict(stage='outline', rev=1, id='d1', url='https://docs.example/d1', at='t', sha256=first['sha256'],
+                 text_sha256=first['text_sha256'], title=first['title'], publish_ready=False)
+    record_doc(ws, [entry])
+    log_created(ws, [entry])
+    again = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
+    assert (again['skip'], again['existing_url'], again['rev']) == (True, 'https://docs.example/d1', 2)
+
+
+def test_an_unchanged_copy_the_recorder_never_logged_is_not_reused(ws):
+    """FT-18: a Doc in docs.json that the create hook never logged can never carry an approval, so the next copy is a new Doc."""
+    build_state(ws, 'unapproved')
+    first = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
     record_doc(ws, [dict(stage='outline', rev=1, id='d1', url='https://docs.example/d1', at='t', sha256=first['sha256'],
                          text_sha256=first['text_sha256'], title=first['title'], publish_ready=False)])
     again = json.loads(doc_copy(ws.root, ws.slug, 'outline').out)
-    assert (again['skip'], again['existing_url'], again['rev']) == (True, 'https://docs.example/d1', 2)
+    assert (again['skip'], again['existing_url'], again['rev'], again['title']) == (False, None, 2, 'demo · outline · r2')
+
+
+def test_an_unreadable_created_log_stops_the_copy_instead_of_guessing(ws):
+    build_state(ws, 'unapproved')
+    (ws.art / '.docs-created.json').write_text('{not json')
+    r = doc_copy(ws.root, ws.slug, 'outline')
+    assert r.code == 1 and 'error' in json.loads(r.out)
 
 
 def entry_from(out, rev, url):
