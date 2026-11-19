@@ -76,6 +76,14 @@ Before you write, if `research.md` already exists, copy it to `articles/<slug>/r
 `research.prev.*.md` files (1 if there are none), whatever its `Approved-by:` value, and never replace an earlier backup. If the value was non-empty, say in your report that
 the approval was cleared. Then write the result to `articles/<slug>/research.md`.
 
+## Step 3b — Stop before the gate when the next move is the human's
+
+If fewer than half of the brief's questions are answered by fact rows, the gate will BLOCK on FACT-6 and spend one of the two FLOW-3 strikes without changing anything: do not run the gate.
+Invoke `writer-plugin:publish <slug> research` through the Skill tool once, so the human can answer in the Doc (its title ends `· ungated`; a Doc is never approval, FLOW-2), and report its Doc URL or its
+one line saying there is no Google Drive connection. Then say which questions still need the human, and what would answer each: a page you can fetch (a URL), or its text with the date it was read.
+A reviewer's comment is recorded as a pointer note, never as a fact (Step 2b), so only a source you can fetch and quote clears a question. Stop there. The human comments in the Doc and runs `writer-plugin:sync <slug> research`, and
+this stage runs again with those comments. A human who wants the gate anyway says so, and you run Step 4.
+
 ## Step 4 — Check the quotes, then run the gate and save the verdict
 
 0. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py <slug>` **without** `--record` (the argument is the slug, not a path). It fetches each source and looks

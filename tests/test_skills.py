@@ -988,3 +988,12 @@ def test_copy_and_sync_resolve_a_missing_slug_without_guessing(d):
                  'more than four', 'cannot be asked', 'one of the listed folders', 'no articles in this workspace', 'Never guess it from the newest folder'):
         assert part in text, f'{d} must say: {part}'
     assert {'Glob', 'AskUserQuestion'} <= allowed_tools(d)
+
+
+def test_research_stops_before_the_gate_and_makes_the_ungated_copy_when_coverage_cannot_pass():
+    """FT-17: the field-test actor stopped before G1 because the dossier answered under half the questions, and made no Doc."""
+    text = flat('research')
+    for part in ('Step 3b', 'fewer than half of the brief\'s questions are answered by fact rows', 'do not run the gate',
+                 'Invoke `writer-plugin:publish <slug> research` through the Skill tool once', 'its title ends `· ungated`',
+                 'only a source you can fetch and quote clears a question', 'A human who wants the gate anyway says so'):
+        assert part in text, f'research must say: {part}'
