@@ -40,3 +40,10 @@ What the top-ranking articles for the primary keyword already say.
 ## Open gaps
 - {{a question the research could not answer, and what that means for the outline; or "none"}}
 - <Can't be verified. Reason: reason sentence here> {{what is needed and where a human could get it}}
+
+## Questions for the human
+<!-- One plain-text question per marker under Open gaps and per decision the human owes: no Q or F ids, no comment numbers. Say what would answer it:
+     a URL a run can fetch, the page's text with the date it was read, or a yes/no. Start each line with [OPEN]; change it to [RESOLVED] only when a
+     fact row now answers it or a reviewer's comment settles a decision, and add one sentence saying how. Keep resolved lines. Write "none" when nothing is owed. -->
+1. [OPEN] {{the question, in a sentence the human can answer without opening this file's tables, and what would answer it}}
+2. [RESOLVED] {{an earlier question, and how it was settled}}

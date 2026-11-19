@@ -68,7 +68,10 @@ read it for the age limit on statistics and any source preferences; if not, say 
    what a human would need, never the claim itself, and holds no `<`, `>` or `|`. You never invent a claim or soften one to
    fit; a marker lets the flow go on without one. The gate advises, without blocking, when fewer than half of the brief's
    questions are answered (FACT-6, ADR-021), so before you move a question to Open gaps try another source for it (a search result, another
-   copy of the page), and say plainly which questions still need the human's material.
+   copy of the page). Then write the last section, `## Questions for the human`: one plain-text question per marker under Open gaps
+   and per decision the human owes, with no `Q`, `F` or comment ids, each saying what would answer it and each starting `[OPEN]`. When `research.md` already
+   has the section, keep every earlier line: change `[OPEN]` to `[RESOLVED]` only when a fact row now answers it or a reviewer's comment settles a decision,
+   and add one plain sentence saying how. Write `none` when nothing is owed.
 7. The template ships an empty `Approved-by:` line: leave `Approved-by:` empty; approval is the human's (FLOW-2).
 8. Leave no `{{placeholder}}`.
 
@@ -100,7 +103,7 @@ row. A row you cannot repair is removed, and its question moves to Open gaps wit
 ## Step 6 — On PASS
 
 Report in a few lines: the research path, the verdict path, the gate's `Coverage:` line as it printed it (a PASS does
-not mean the brief is answered), how many facts and sources, the open gaps (each with what would answer it: a URL a run can fetch, or a page's text with the date it was read; a reviewer's comment is only a pointer note, Step 2b), a **Blocked sources** line (each URL that stayed blocked, with what you tried, so the human can open it by hand), and that the
+not mean the brief is answered), how many facts and sources, the counts of the `## Questions for the human` list (for example `3 open, 2 resolved`) and a pointer to it, without repeating the questions (a reviewer's comment is only a pointer note, Step 2b), a **Blocked sources** line (each URL that stayed blocked, with what you tried, so the human can open it by hand), and that the
 next stage is the outline stage. Then invoke `writer-plugin:publish <slug> research` through the Skill tool for the review copy, and report the Doc URL it gives, or its one line saying there is no Google Drive connection. Do not start the outline yourself.
 
 ## After the gate

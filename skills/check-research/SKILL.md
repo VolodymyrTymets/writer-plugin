@@ -39,13 +39,14 @@ Line 1 is the heading and nothing comes before it; line 2 is `Artifact:`; line 3
 checklist says (it is for people, no parser reads it). A PASS has `0 blocking`; a BLOCK has at least one. Every fact you could not open counts as one blocking FACT-2 finding. Both forms below are literal examples.
 
 ```markdown
-## G1 research gate: PASS (0 blocking, 2 advisory)
+## G1 research gate: PASS (0 blocking, 3 advisory)
 Artifact: articles/<slug>/research.md
 Coverage: 3 answered, 7 open (of 10)
 
 ### Advisory
 1. [FACT-2] F3: the page shows 2023-02-01, the row says 2023-02-10; the age check is unaffected. Fix: correct the published date.
 2. [FACT-6] Coverage floor: 3 of 10 questions answered (open: Q2, Q4 to Q9 and Q10). Fix: try other sources, or a human supplies the material; the open questions stay as markers.
+3. [FACT-6] Questions for the human: line 2 carries the id "Q4" and line 3 has no `[OPEN]` or `[RESOLVED]` mark; the marker about Reply.io pricing has no `[OPEN]` question. Fix: write each line as a plain sentence with its mark.
 
 ### Not checked
 - <anything you could not verify, and why>

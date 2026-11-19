@@ -124,6 +124,17 @@ def test_research_template_open_gaps_carries_the_marker():
     assert UNVERIFIED_MARKER.search(text[text.index('## Open gaps'):]), 'Open gaps must show the marker form'
 
 
+def test_research_template_ends_with_a_marked_list_of_questions_for_the_human():
+    """FT-20: the last section lists what the human owes in plain text, each line marked [OPEN] or [RESOLVED], with no Q or F ids."""
+    text = read(TEMPLATES / 'research.md')
+    headings = re.findall(r'^## (.+)$', text, re.M)
+    assert headings[-2:] == ['Open gaps', 'Questions for the human'], 'the list must be the last section, after Open gaps'
+    section = text[text.index('## Questions for the human'):]
+    assert re.search(r'^1\. \[OPEN\] ', section, re.M) and re.search(r'^2\. \[RESOLVED\] ', section, re.M)
+    assert 'no Q' in section and 'F ids' in section, 'the section must say the lines carry no question or fact ids'
+    assert 'none' in section, 'the section must allow "none" when nothing is owed'
+
+
 def test_constitution_flow_6_blocks_publication_while_a_marker_remains():
     text = ' '.join(read(CONSTITUTION).split())
     flow_6 = re.search(r'\*\*FLOW-6\*\*(.*?)(?= - \*\*|## )', text).group(1)
