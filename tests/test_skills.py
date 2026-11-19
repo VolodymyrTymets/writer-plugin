@@ -996,6 +996,15 @@ def test_research_runs_the_gate_on_a_thin_dossier_and_reports_what_would_answer_
     """FT-19: no stop before G1 (the FT-17 Step 3b is gone); the gaps travel as markers and the report says what answers them."""
     text = flat('research')
     assert 'Step 3b' not in text and 'do not run the gate' not in text
-    for part in ('advises, without blocking, when fewer than half', 'each with what would answer it',
-                 'a reviewer\'s comment is only a pointer note'):
+    for part in ('advises, without blocking, when fewer than half', 'a reviewer\'s comment is only a pointer note'):
+        assert part in text, f'research must say: {part}'
+
+
+def test_research_writes_a_marked_list_of_questions_for_the_human_and_reports_its_counts():
+    """FT-20: one plain-text question per gap and owed decision, no ids, [OPEN]/[RESOLVED], earlier lines kept, counts in the report."""
+    text = flat('research')
+    for part in ('write the last section, `## Questions for the human`', 'one plain-text question per marker under Open gaps',
+                 'with no `Q`, `F` or comment ids', 'each saying what would answer it and each starting `[OPEN]`',
+                 'keep every earlier line', 'change `[OPEN]` to `[RESOLVED]` only when a fact row now answers it or a reviewer\'s comment settles a decision',
+                 'Write `none` when nothing is owed', 'the counts of the `## Questions for the human` list', 'without repeating the questions'):
         assert part in text, f'research must say: {part}'
