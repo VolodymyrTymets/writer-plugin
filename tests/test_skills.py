@@ -960,6 +960,14 @@ def test_actor_makes_one_review_copy_before_it_stops_on_a_second_block(d):
     assert 'after one review copy of the blocked artifact' in text
 
 
+@pytest.mark.parametrize('d', ACTORS)
+def test_actor_makes_the_review_copy_also_when_it_finds_the_article_already_stopped(d):
+    """FT-16: an article stopped on an earlier run reaches Step 2, not the second-BLOCK step; it still gets its ungated Doc."""
+    text = flat(d)
+    want = f'first invoke `writer-plugin:publish <slug> {ACTOR_STAGE[d]}` through the Skill tool once, when `{ACTOR_STAGE[d]}.md` exists'
+    assert want in text and 'it skips a copy that is already recorded' in text
+
+
 def test_orchestrator_tells_the_human_where_the_blocked_copy_is():
     text = flat(ORCHESTRATOR)
     assert 'made one review copy of the blocked artifact (title ends `· ungated`)' in text

@@ -23,7 +23,7 @@ context and opens every source you cite.
 - **FLOW-2:** `articles/<slug>/brief.md` must have a non-empty value after `Approved-by:`. An empty line is not approval. If it is
   empty, stop and say a human approves it in the brief's Google Doc and runs `writer-plugin:sync`, or writes a name in the file. Never fill it yourself.
 - **FLOW-3:** count `articles/<slug>/gates/G1-research.r*.md` whose line 1 contains `BLOCK`. If there are
-  two or more, stop, name both files and hand the article to the human. This holds across runs. A human resumes the article by moving **every** `G1-research.r*.md` file, PASS ones too, into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
+  two or more, first invoke `writer-plugin:publish <slug> research` through the Skill tool once, when `research.md` exists (it skips a copy that is already recorded and gives its URL; a Doc is never approval, FLOW-2), and report the Doc URL or its one line saying there is no Google Drive connection; then stop, name both files and hand the article to the human. This holds across runs. A human resumes the article by moving **every** `G1-research.r*.md` file, PASS ones too, into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
 
 ## Step 2b — Pending reviewer comments
 

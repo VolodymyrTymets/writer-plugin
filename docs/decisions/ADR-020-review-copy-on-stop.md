@@ -25,7 +25,7 @@ make their copy only on a PASS. The human wanted to resolve the blockers in a Do
 
 ## Consequences
 - A blocked article has a Doc to review. The first rerun after archiving still needs a human.
-- A stage that was already stopped before this change has no Doc: run `writer-plugin:publish <slug> <stage>` by hand.
+- A stage that finds its article already stopped (FLOW-3 in Step 2, on a later run) makes the same copy before it stops (FT-16). The copy skill skips a copy that is already recorded, so a rerun reports its URL instead of making a second Doc. The first version of this ADR covered only the stop inside the run, so an article stopped before it had no Doc.
 
 ## Revisit when
 A first-BLOCK review is wanted, or an approval typed in an ungated Doc is carried into a blocked artifact in practice.

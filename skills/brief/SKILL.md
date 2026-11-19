@@ -30,7 +30,7 @@ done, the brief gate judges it in a fresh context, and you save its verdict.
 ## Step 2 — Stop if the human is already owed a decision (FLOW-3)
 
 Count the BLOCK verdict files for this artifact: `articles/<slug>/gates/G0-brief.r*.md` whose line 1 contains `BLOCK`.
-If there are two or more, stop. Name both files, say what they blocked on, and hand the article to the human. Do not
+If there are two or more, first invoke `writer-plugin:publish <slug> brief` through the Skill tool once, when `brief.md` exists (it skips a copy that is already recorded and gives its URL; a Doc is never approval, FLOW-2), and report the Doc URL or its one line saying there is no Google Drive connection; then stop. Name both files, say what they blocked on, and hand the article to the human. Do not
 try a third time; this holds across runs, not only within this one. A human resumes the article by moving **every** `G0-brief.r*.md` file, PASS ones too, into `articles/<slug>/gates/archive/`; you never move or edit a verdict yourself.
 
 ## Step 3 — Fill the template

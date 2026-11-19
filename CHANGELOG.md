@@ -8,6 +8,7 @@ Format: **Deleted** first — a smaller plugin each release is the goal.
 - Nothing yet.
 
 ### Changed
+- A stage that finds its article already stopped (FLOW-3, two BLOCKs on disk from an earlier run) makes the same ungated review copy before it stops, or reports the one already recorded (FT-16, ADR-020). **Upgrading:** this replaces the manual `writer-plugin:publish` step the FT-15 entry below asks for.
 - A stage that stops on its second BLOCK first makes one review copy of the blocked artifact (title ends `· ungated`), so reviewers can comment on the blockers in a Google Doc (FT-15, ADR-020; refines ADR-012). The stage still runs again only after a human archives its verdicts. **Upgrading:** an article already stopped has no such Doc; run `writer-plugin:publish <slug> <stage>` once.
 - A `<Can't be verified. Reason: …>` marker is bold in every Doc copy, so a reviewer can find the gaps to fill (FT-14). The Doc text changes for an article with markers, so its next copy is a new revision. A highlight colour is not attempted.
 - A saved verdict keeps its header: the guard refuses a new verdict whose line 2 is not `Artifact: <path>` or whose line 3 (G1 `Coverage:`, G2 and G4 `Markers:`, G3 `Outline:`) lacks the gate's label, and the five actor skills say to save lines 1 to 3 as printed or rerun the gate (FT-13, ADR-019; refines ADR-004). **Upgrading:** verdicts already saved are not re-checked.
