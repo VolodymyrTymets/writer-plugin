@@ -74,7 +74,7 @@ hand-edited draft must not be lost. Then write the result to `articles/<slug>/dr
 
 ## Step 5 — On BLOCK
 
-Fix only what the findings name, in `draft.md`. Before you repeat Step 4, read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4. After the second BLOCK on disk, stop as in Step 2.
+Fix only what the findings name, in `draft.md`. Before you repeat Step 4, read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4. After the second BLOCK on disk, first invoke `writer-plugin:publish <slug> draft` through the Skill tool once, so reviewers can comment on the blockers in a Doc whose title ends `· ungated` (a Doc is never approval, FLOW-2), and report its Doc URL or its one line saying there is no Google Drive connection; then stop as in Step 2.
 
 ## Step 6 — On PASS
 
@@ -94,4 +94,4 @@ counts toward FLOW-3 like any other BLOCK. When you replace an artifact and a la
 - [ ] Every marker is the outline's, unchanged; the report lists them
 - [ ] `prose-lint.py` ran without `--record` before the gate
 - [ ] The gate ran in a fork and its verdict is saved as `G3-draft.r<k>.md` with a valid first line
-- [ ] On a second BLOCK the run stopped and named the verdict files
+- [ ] On a second BLOCK the run stopped and named the verdict files, after one review copy of the blocked artifact
