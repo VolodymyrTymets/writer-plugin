@@ -56,11 +56,11 @@ the number of questions in `brief.md`. A question is **answered** when its Quest
 that supports it and no Open gaps entry names it; otherwise it is **open**. There is no "partial": a question with facts
 and an Open gaps entry counts as open. Count it the same way every run; do not use judgement beyond "supports".
 
-**Coverage floor (FACT-6).** A dossier that answers fewer than half of the brief's questions is blocking: when
-`answered x 2 < m` (1 of 10, 4 of 9; 5 of 10 passes), add one blocking FACT-6 finding that names the numbers and the open
-questions. The fix is to try other sources for them, or to ask the human for the material; not to list more gaps. This
-finding comes on top of any per-question finding. A dossier at or over the floor with open questions still passes: those
-questions stay under Open gaps (ADR-014).
+**Coverage floor (FACT-6).** A dossier that answers fewer than half of the brief's questions is advised, not blocked: when
+`answered x 2 < m` (1 of 10, 4 of 9; 5 of 10 is at the floor), add one advisory FACT-6 finding that names the numbers and the open
+questions. The fix is to try other sources for them, or to ask the human for the material; not to list more gaps. The open
+questions stay under Open gaps as markers and travel to the outline, draft and final, where a human fills them; a final with a marker
+cannot be signed off. The human sees the floor when approving the research (ADR-021, which supersedes ADR-014).
 
 ## Do not
 - Judge style, structure or the quality of the gap statement; those are other gates' work.

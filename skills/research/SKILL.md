@@ -66,8 +66,8 @@ read it for the age limit on statistics and any source preferences; if not, say 
    (FACT-6). Whatever you cannot find or prove is not a fact row. Put it under Open gaps with the marker
    `<Can't be verified. Reason: reason sentence here>`, what is needed and where a human could get it. The reason says why it could not be verified and
    what a human would need, never the claim itself, and holds no `<`, `>` or `|`. You never invent a claim or soften one to
-   fit; a marker lets the flow go on without one. The gate blocks a dossier that answers fewer than half of the brief's
-   questions (FACT-6), so before you move a question to Open gaps try another source for it (a search result, another
+   fit; a marker lets the flow go on without one. The gate advises, without blocking, when fewer than half of the brief's
+   questions are answered (FACT-6, ADR-021), so before you move a question to Open gaps try another source for it (a search result, another
    copy of the page), and say plainly which questions still need the human's material.
 7. The template ships an empty `Approved-by:` line: leave `Approved-by:` empty; approval is the human's (FLOW-2).
 8. Leave no `{{placeholder}}`.
@@ -75,14 +75,6 @@ read it for the age limit on statistics and any source preferences; if not, say 
 Before you write, if `research.md` already exists, copy it to `articles/<slug>/research.prev.<n>.md`, where `n` is 1 plus the highest `n` among existing
 `research.prev.*.md` files (1 if there are none), whatever its `Approved-by:` value, and never replace an earlier backup. If the value was non-empty, say in your report that
 the approval was cleared. Then write the result to `articles/<slug>/research.md`.
-
-## Step 3b — Stop before the gate when the next move is the human's
-
-If fewer than half of the brief's questions are answered by fact rows, the gate will BLOCK on FACT-6 and spend one of the two FLOW-3 strikes without changing anything: do not run the gate.
-Invoke `writer-plugin:publish <slug> research` through the Skill tool once, so the human can answer in the Doc (its title ends `· ungated`; a Doc is never approval, FLOW-2), and report its Doc URL or its
-one line saying there is no Google Drive connection. Then say which questions still need the human, and what would answer each: a page you can fetch (a URL), or its text with the date it was read.
-A reviewer's comment is recorded as a pointer note, never as a fact (Step 2b), so only a source you can fetch and quote clears a question. Stop there. The human comments in the Doc and runs `writer-plugin:sync <slug> research`, and
-this stage runs again with those comments. A human who wants the gate anyway says so, and you run Step 4.
 
 ## Step 4 — Check the quotes, then run the gate and save the verdict
 
@@ -108,7 +100,7 @@ row. A row you cannot repair is removed, and its question moves to Open gaps wit
 ## Step 6 — On PASS
 
 Report in a few lines: the research path, the verdict path, the gate's `Coverage:` line as it printed it (a PASS does
-not mean the brief is answered), how many facts and sources, the open gaps, a **Blocked sources** line (each URL that stayed blocked, with what you tried, so the human can open it by hand), and that the
+not mean the brief is answered), how many facts and sources, the open gaps (each with what would answer it: a URL a run can fetch, or a page's text with the date it was read; a reviewer's comment is only a pointer note, Step 2b), a **Blocked sources** line (each URL that stayed blocked, with what you tried, so the human can open it by hand), and that the
 next stage is the outline stage. Then invoke `writer-plugin:publish <slug> research` through the Skill tool for the review copy, and report the Doc URL it gives, or its one line saying there is no Google Drive connection. Do not start the outline yourself.
 
 ## After the gate

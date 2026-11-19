@@ -39,12 +39,13 @@ Line 1 is the heading and nothing comes before it; line 2 is `Artifact:`; line 3
 checklist says (it is for people, no parser reads it). A PASS has `0 blocking`; a BLOCK has at least one. Every fact you could not open counts as one blocking FACT-2 finding. Both forms below are literal examples.
 
 ```markdown
-## G1 research gate: PASS (0 blocking, 1 advisory)
+## G1 research gate: PASS (0 blocking, 2 advisory)
 Artifact: articles/<slug>/research.md
-Coverage: 3 answered, 0 open (of 3)
+Coverage: 3 answered, 7 open (of 10)
 
 ### Advisory
 1. [FACT-2] F3: the page shows 2023-02-01, the row says 2023-02-10; the age check is unaffected. Fix: correct the published date.
+2. [FACT-6] Coverage floor: 3 of 10 questions answered (open: Q2, Q4 to Q9 and Q10). Fix: try other sources, or a human supplies the material; the open questions stay as markers.
 
 ### Not checked
 - <anything you could not verify, and why>
@@ -60,8 +61,8 @@ Coverage: 2 answered, 1 open (of 3)
 2. [FACT-2] F5: the URL returns 404. Fix: find a live source for the claim or drop the row.
 ```
 
-Coverage floor: when fewer than half the questions are answered, add `[FACT-6] Coverage floor: 1 of 10 questions answered
-(open: Q2 to Q10). Fix: ...` as a blocking finding, with the counting rule in the checklist.
+Coverage floor: when fewer than half the questions are answered, add `[FACT-6] Coverage floor: 3 of 10 questions answered
+(open: ...). Fix: ...` as an **advisory** finding (never blocking, ADR-021), with the counting rule in the checklist.
 
 A BLOCK is actionable: every item names the fix. Never pad with advisory findings. List the sources you opened and
 the ones you did not under Not checked. Do not write any file; the caller saves the verdict.

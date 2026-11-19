@@ -3,6 +3,7 @@
 - **Date:** 2026-11-16
 - **Status:** accepted
 - **Deciders:** Volodymyr Tymets
+- **Superseded by:** ADR-021 (the floor is an advisory finding).
 - **Ticket:** none (field-test finding FT-2)
 
 ## Context
