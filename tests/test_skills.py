@@ -219,12 +219,14 @@ def test_research_template_notes_the_live_page_option_on_both_published_columns(
     assert text.count(LIVE_PAGE) >= 2, 'both the Sources and the Fact bank tables must mention it'
 
 
-def test_g1_blocks_a_dossier_below_the_coverage_floor_and_research_knows_it():
+def test_g1_advises_on_a_dossier_below_the_coverage_floor_and_research_knows_it():
+    """ADR-021 supersedes ADR-014: the floor is an advisory finding, so a thin dossier passes with its gaps as markers."""
     text = checklist_text('check-research')
-    assert re.search(r'FACT-6.*fewer than half.*is blocking', text), 'G1 must block when fewer than half the questions are answered'
+    assert re.search(r'FACT-6.*fewer than half.*is advised, not blocked', text, re.S), 'G1 must advise, not block, below the floor'
     assert 'answered x 2 < m' in text, 'state the floor as arithmetic on the Coverage numbers, so every run counts it the same way'
-    assert 'fewer than half' in skill_text('research'), 'the research stage must know the floor, or it learns it only from a BLOCK'
-    assert 'Coverage floor' in skill_text('check-research'), 'the gate skill must show a BLOCK example for the floor'
+    assert 'is blocking' not in text.split('Coverage floor (FACT-6)')[1].split('## Do not')[0]
+    assert 'fewer than half' in skill_text('research'), 'the research stage must know the floor'
+    assert '**advisory** finding (never blocking, ADR-021)' in skill_text('check-research')
 
 
 def test_research_tries_fallbacks_for_a_blocked_source_and_reports_what_stayed_blocked():
@@ -990,10 +992,10 @@ def test_copy_and_sync_resolve_a_missing_slug_without_guessing(d):
     assert {'Glob', 'AskUserQuestion'} <= allowed_tools(d)
 
 
-def test_research_stops_before_the_gate_and_makes_the_ungated_copy_when_coverage_cannot_pass():
-    """FT-17: the field-test actor stopped before G1 because the dossier answered under half the questions, and made no Doc."""
+def test_research_runs_the_gate_on_a_thin_dossier_and_reports_what_would_answer_each_open_question():
+    """FT-19: no stop before G1 (the FT-17 Step 3b is gone); the gaps travel as markers and the report says what answers them."""
     text = flat('research')
-    for part in ('Step 3b', 'fewer than half of the brief\'s questions are answered by fact rows', 'do not run the gate',
-                 'Invoke `writer-plugin:publish <slug> research` through the Skill tool once', 'its title ends `· ungated`',
-                 'only a source you can fetch and quote clears a question', 'A human who wants the gate anyway says so'):
+    assert 'Step 3b' not in text and 'do not run the gate' not in text
+    for part in ('advises, without blocking, when fewer than half', 'each with what would answer it',
+                 'a reviewer\'s comment is only a pointer note'):
         assert part in text, f'research must say: {part}'
