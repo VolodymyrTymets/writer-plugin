@@ -5,6 +5,7 @@
 - **Deciders:** Volodymyr Tymets
 - **Ticket:** none (`docs/features/phase-7-publish-sync-setup/plan.md`, part 7b)
 - **Refined by:** ADR-016 (approval typed in the Doc, the guard on Docs and connector tools; a headless session can have the Drive connector, so decision 7's "without a connection" path is not only for headless runs).
+- **Refined by:** ADR-020 (a stage that stops on its second BLOCK makes one ungated copy; decision 7 is no longer PASS-only).
 - **Refines:** ADR-001 (local Markdown stays the source of truth; a Doc is a review copy), ADR-009 (one more guarded path and the
   first MCP tool in the guard's matcher).
 

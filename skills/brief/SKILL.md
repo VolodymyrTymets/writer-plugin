@@ -57,7 +57,7 @@ Write the result to `articles/<slug>/brief.md`.
 ## Step 5 — On BLOCK
 
 Fix only what the findings name, in `brief.md`; ask the user for any information you lack (it counts against the two
-question rounds). Before you repeat Step 4, read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4. After the second BLOCK on disk, stop as in Step 2.
+question rounds). Before you repeat Step 4, read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4. After the second BLOCK on disk, first invoke `writer-plugin:publish <slug> brief` through the Skill tool once, so reviewers can comment on the blockers in a Doc whose title ends `· ungated` (a Doc is never approval, FLOW-2), and report its Doc URL or its one line saying there is no Google Drive connection; then stop as in Step 2.
 
 ## Step 6 — On PASS
 
@@ -78,4 +78,4 @@ one thing a human writes after a PASS; it does not change what the verdict cover
 - [ ] `brief.source.md` and `brief.md` exist; no `{{` is left
 - [ ] The gate ran in a fork and its verdict is saved as `G0-brief.r<k>.md` with a valid first line
 - [ ] At most two question rounds were used; assumptions are written in the brief
-- [ ] On a second BLOCK the run stopped and named the verdict files
+- [ ] On a second BLOCK the run stopped and named the verdict files, after one review copy of the blocked artifact

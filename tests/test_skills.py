@@ -950,6 +950,22 @@ def test_actor_makes_its_doc_copy_through_the_copy_skill_after_a_pass(d):
     assert 'Skill' in allowed_tools(d)
 
 
+@pytest.mark.parametrize('d', ACTORS)
+def test_actor_makes_one_review_copy_before_it_stops_on_a_second_block(d):
+    """FT-15 (ADR-020): a stopped stage still gives reviewers a Doc, labelled ungated by the script, and approval stays in FLOW-2."""
+    text = flat(d)
+    want = (f'After the second BLOCK on disk, first invoke `writer-plugin:publish <slug> {ACTOR_STAGE[d]}` through the Skill tool once, '
+            'so reviewers can comment on the blockers in a Doc whose title ends `· ungated`')
+    assert want in text and 'then stop as in Step 2' in text, f'{d} must publish an ungated copy before it stops'
+    assert 'after one review copy of the blocked artifact' in text
+
+
+def test_orchestrator_tells_the_human_where_the_blocked_copy_is():
+    text = flat(ORCHESTRATOR)
+    assert 'made one review copy of the blocked artifact (title ends `· ungated`)' in text
+    assert 'the stage runs again only after a human archives its verdicts' in text
+
+
 def test_orchestrator_relays_the_doc_copies_and_names_the_publish_ready_step():
     text = flat(ORCHESTRATOR)
     assert 'Doc copies: as each actor reported' in text and 'not yet available' not in text

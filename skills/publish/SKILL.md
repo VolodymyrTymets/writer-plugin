@@ -1,6 +1,6 @@
 ---
 name: publish
-description: Copies one article artifact (brief, research, outline, draft or final) to a new Google Doc revision for review and comments, and records it in docs.json. Use after a stage passes its gate, or after sign-off for the publish-ready copy. The local Markdown stays the source of truth.
+description: Copies one article artifact (brief, research, outline, draft or final) to a new Google Doc revision for review and comments, and records it in docs.json. Use after a stage passes its gate, after its second BLOCK (an ungated copy for reviewers to comment on), or after sign-off for the publish-ready copy. The local Markdown stays the source of truth.
 argument-hint: "[article slug] [stage: brief | research | outline | draft | final]"
 allowed-tools: Read, Write, Glob, AskUserQuestion, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/doc-copy.py *), mcp__claude_ai_Google_Drive__create_file, mcp__claude_ai_Google_Drive__search_files
 ---

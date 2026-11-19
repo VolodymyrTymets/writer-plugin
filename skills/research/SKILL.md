@@ -95,8 +95,7 @@ the approval was cleared. Then write the result to `articles/<slug>/research.md`
 ## Step 5 — On BLOCK
 
 Fix only what the findings name, in `research.md`: re-fetch and correct the quote, replace a dead source, or drop the
-row. A row you cannot repair is removed, and its question moves to Open gaps with the marker. Before you repeat Step 4 (which runs the quote check again, with `--record` last), read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4. After the second
-BLOCK on disk, stop as in Step 2.
+row. A row you cannot repair is removed, and its question moves to Open gaps with the marker. Before you repeat Step 4 (which runs the quote check again, with `--record` last), read the file back and check that every fix is in it: a refused or failed edit leaves the file unchanged, and gating an unchanged file spends a BLOCK for nothing. If a fix cannot be made, stop and report it instead of running the gate again. Then repeat Step 4. After the second BLOCK on disk, first invoke `writer-plugin:publish <slug> research` through the Skill tool once, so reviewers can comment on the blockers in a Doc whose title ends `· ungated` (a Doc is never approval, FLOW-2), and report its Doc URL or its one line saying there is no Google Drive connection; then stop as in Step 2.
 
 ## Step 6 — On PASS
 
@@ -117,4 +116,4 @@ one thing a human writes after a PASS; it does not change what the verdict cover
 - [ ] Every fact-bank row was fetched by you and its quote copied from the page
 - [ ] Every brief question is answered or listed under Open gaps; no `{{` is left
 - [ ] The gate ran in a fork and its verdict is saved as `G1-research.r<k>.md` with a valid first line
-- [ ] On a second BLOCK the run stopped and named the verdict files
+- [ ] On a second BLOCK the run stopped and named the verdict files, after one review copy of the blocked artifact
