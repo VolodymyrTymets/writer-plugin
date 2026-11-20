@@ -927,6 +927,122 @@ def fact_rows(text: str) -> List[Dict[str, str]]:
     return rows
 
 
+# ---------------- the questions list (FT-22, ADR-023) ----------------
+QUESTIONS_HEADING = re.compile(r'^##\s+(Questions for the human|Open questions for the human)\s*$')
+OLD_QUESTIONS_HEADING = 'Open questions for the human'
+EXACT_MARKER = re.compile(r"<Can't be verified\. Reason: [^<>|\s][^<>|\n]*>")  # the one form of ADR-008, found in a line of text
+_ANY_HEADING = re.compile(r'^#{1,6}\s+\S')
+_LIST_PREFIX = re.compile(r'^\s*(?:[-*+]|\d+[.)])\s+')
+# An id is how the older lists pointed at a row: `[F7]`, `(Q4)`, a leading `Q4`, or `comment 3`. A business quarter in a question ("Q3 2026 revenue") is not one, so a bare Q or F
+# number inside a sentence is left to the gate's judgement.
+_QUESTION_ID = re.compile(r'\[[QF]\d+(?:,\s*[QF]\d+)*\]|\([QF]\d+\)|^[QF]\d+\b|\bcomment\s+\d+\b', re.I)
+_QUESTION_MARK = re.compile(r'^\[(OPEN|RESOLVED)\]\s*(.*)$')
+_HTML_COMMENT = re.compile(r'<!--.*?-->', re.S)
+
+
+def _questions_section(lines: List[str]) -> Optional[Tuple[int, int, bool]]:
+    """(index of the heading line, index after the section's last line, old heading) or None. The section runs to the next heading or the end."""
+    fenced = False
+    for i, line in enumerate(lines):
+        if re.match(r'^\s*(```|~~~)', line):
+            fenced = not fenced
+        m = None if fenced else QUESTIONS_HEADING.match(line)
+        if m:
+            end, inside = len(lines), False
+            for j in range(i + 1, len(lines)):
+                if re.match(r'^\s*(```|~~~)', lines[j]):
+                    inside = not inside
+                elif not inside and _ANY_HEADING.match(lines[j]):
+                    end = j
+                    break
+            return i, end, m.group(1) == OLD_QUESTIONS_HEADING
+    return None
+
+
+questions_section = _questions_section  # the lint blanks the section; one finder, not a second pattern
+
+
+def _question_lines(lines: List[str]) -> List[Tuple[int, str]]:
+    """(1-based line number, text with its list prefix removed) of every non-blank line of a section body, HTML comments dropped."""
+    body = '\n'.join(lines)
+    body = _HTML_COMMENT.sub(lambda m: re.sub(r'[^\n]', ' ', m.group(0)), body)  # keeps the line numbers
+    out = []
+    for n, line in enumerate(body.split('\n')):
+        if line.strip():
+            out.append((n, _LIST_PREFIX.sub('', line.strip(), count=1)))
+    return out
+
+
+def _question_key(text: str) -> str:
+    return re.sub(r'[^a-z0-9 ]+', '', re.sub(r'\s+', ' ', text.lower())).strip()
+
+
+def _question_head(text: str) -> str:
+    """The key of a question's first sentence: an upstream `[RESOLVED]` line adds how it was settled after the question, so the whole line never matches."""
+    return _question_key(re.split(r'[?;]|\.\s', text, maxsplit=1)[0])
+
+
+def resolved_questions(text: str) -> set:
+    """The normalised text of every `[RESOLVED]` line in a questions list, to tell a repeat from a new question."""
+    lines = text.replace('\r\n', '\n').split('\n')
+    sec = _questions_section(lines)
+    if not sec:
+        return set()
+    out = set()
+    for _, t in _question_lines(lines[sec[0] + 1:sec[1]]):
+        m = _QUESTION_MARK.match(t)
+        if m and m.group(1) == 'RESOLVED':
+            out.add(_question_key(m.group(2)))
+            out.add(_question_head(m.group(2)))
+    return out
+
+
+def questions_findings(text: str, upstream_text: Optional[str]) -> List[Dict[str, object]]:
+    """FACT-6 advisory findings, form only (ADR-023.4): {rule, line, message}. It never matches a marker to a question: no ids link them,
+    and one question may cover several markers about the same page. `upstream_text` is the previous stage's artifact, or None for research."""
+    lines = text.replace('\r\n', '\n').split('\n')
+    found: List[Dict[str, object]] = []
+
+    def add(line: int, message: str) -> None:
+        found.append({'rule': 'FACT-6', 'line': line, 'message': message})
+
+    sec = _questions_section(lines)
+    outside = lines if not sec else lines[:sec[0]] + lines[sec[1]:]
+    markers = sum(len(EXACT_MARKER.findall(x)) for x in outside)
+    if not sec:
+        if markers:
+            add(1, f'no "## Questions for the human" section, but {markers} marker(s) wait for a human')
+        return found
+    start, end, old = sec
+    tail = '\n'.join(lines[end:])
+    # the section is last: after it only an approval line (or blank lines) may follow; a heading after it already ended it
+    if _ANY_HEADING.search(tail) or strip_approval(tail).strip():
+        add(end + 1, 'the questions section is not the last section: text follows it')
+    if old:
+        return found  # an outline built before FT-22: placement only, until it is rebuilt (ADR-023.5)
+    marks = [(n, t) for n, t in _question_lines(lines[start + 1:end]) if not APPROVAL_LINE.match(t)]  # an approval line may close the file
+    base = start + 1
+    opens = 0
+    seen = resolved_questions(upstream_text) if upstream_text is not None else set()
+    for n, t in marks:
+        at = base + n + 1
+        if t.strip().rstrip('.').lower() == 'none':
+            continue
+        m = _QUESTION_MARK.match(t)
+        if not m:
+            add(at, 'a question line does not start with [OPEN] or [RESOLVED]')
+            continue
+        if m.group(1) == 'OPEN':
+            opens += 1
+        if _question_key(m.group(2)) in seen or _question_head(m.group(2)) in seen:
+            add(at, 'a question the previous stage already resolved is repeated')
+        if _QUESTION_ID.search(m.group(2)):
+            add(at, 'a question line carries a Q or F id or a comment number')
+    if markers and not opens:
+        add(start + 1, f'{markers} marker(s) wait for a human but no [OPEN] question is listed')
+    return found
+
+
 _QUOTE_MARKS = str.maketrans({'\u2018': "'", '\u2019': "'", '\u201a': "'", '\u201b': "'", '\u201c': '"', '\u201d': '"',
                               '\u201e': '"', '\u201f': '"', '\u2013': '-', '\u2014': '-', '\u2012': '-', '\u2015': '-'})
 _INVISIBLE = dict.fromkeys(map(ord, '\u00ad\u200b\u200c\u200d\ufeff'))

@@ -42,12 +42,13 @@ says (people only, no parser reads it). A PASS has `0 blocking`; a BLOCK has at 
 examples.
 
 ```markdown
-## G3 draft gate: PASS (0 blocking, 1 advisory)
+## G3 draft gate: PASS (0 blocking, 2 advisory)
 Artifact: articles/<slug>/draft.md
 Outline: 9 of 9 sections present
 
 ### Advisory
 1. [STR-6] The draft looks about a fifth under the brief's target. Fix: G4 measures it; expand "How to choose" if it is short.
+2. [FACT-6] Questions for the human: a `[RESOLVED]` line repeats a question the outline already resolved. Fix: drop the line; a resolved question is not repeated.
 
 ### Not checked
 - <anything you could not verify, and why>

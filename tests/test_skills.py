@@ -36,9 +36,9 @@ VERDICT_LINE = re.compile(
 GATES = {
     'check-brief': ('G0 brief', 'gate', {f'BRF-{n}' for n in range(1, 7)}),
     'check-research': ('G1 research', 'fact-gate', {f'FACT-{n}' for n in range(1, 7)}),
-    'check-outline': ('G2 outline', 'gate', {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'}),
-    'check-final': ('G4 final', 'fact-gate', {f'FACT-{n}' for n in range(1, 6)} | {'STR-4', 'STR-6', 'SEO-1', 'SEO-2', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'} | {f'VOI-{n}' for n in range(1, 6)}),
-    'check-draft': ('G3 draft', 'gate', {'STR-1', 'STR-2', 'STR-5', 'STR-6', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5'}),
+    'check-outline': ('G2 outline', 'gate', {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1', 'FACT-6'}),
+    'check-final': ('G4 final', 'fact-gate', {f'FACT-{n}' for n in range(1, 6)} | {'STR-4', 'STR-6', 'SEO-1', 'SEO-2', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'} | {f'VOI-{n}' for n in range(1, 6)} | {'STR-7'}),
+    'check-draft': ('G3 draft', 'gate', {'STR-1', 'STR-2', 'STR-5', 'STR-6', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5', 'FACT-6'}),
 }
 # actor skill dir -> (stage, gate it invokes)
 ACTORS = {
@@ -52,9 +52,9 @@ ACTORS = {
 MUST_CITE = {
     'check-brief': {f'BRF-{n}' for n in range(1, 7)},
     'check-research': {'FACT-2', 'FACT-3', 'FACT-5', 'FACT-6'},
-    'check-outline': {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'},
-    'check-final': {'FACT-1', 'FACT-2', 'FACT-3', 'FACT-4', 'FACT-5', 'STR-4', 'STR-6', 'VOI-1', 'VOI-5', 'SEO-1', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'},
-    'check-draft': {'STR-1', 'STR-2', 'STR-5', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5'},
+    'check-outline': {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1', 'FACT-6'},
+    'check-final': {'FACT-1', 'FACT-2', 'FACT-3', 'FACT-4', 'FACT-5', 'STR-4', 'STR-6', 'STR-7', 'VOI-1', 'VOI-5', 'SEO-1', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'},
+    'check-draft': {'STR-1', 'STR-2', 'STR-5', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5', 'FACT-6'},
 }
 RULE_ID = re.compile(r'\b(?:BRF|FACT|STR|VOI|SEO|FLOW|PLG)-\d+\b')
 
@@ -240,6 +240,7 @@ def test_research_tries_fallbacks_for_a_blocked_source_and_reports_what_stayed_b
 
 
 QUOTE_CHECK_RULE = 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py *)'
+QUESTIONS_CHECK_RULE = 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/questions-check.py *)'  # FT-22, ADR-023
 
 
 def test_research_stage_records_the_quote_check_last_and_never_writes_the_record():
@@ -251,8 +252,9 @@ def test_research_stage_records_the_quote_check_last_and_never_writes_the_record
     assert 'Write nothing to `research.md` between this run and the gate' in text
     assert 'Never write `.quote-check.json` yourself' in text
     assert '`not-found`' in text and 'word for word' in text
-    # WHY: research now also reads pending comments through article-status.py (ADR-016, R6); its Bash rules are exactly these two
-    assert 'Bash' not in ''.join(l for l in front.split('\n') if l.startswith('allowed-tools:')).replace(QUOTE_CHECK_RULE, '').replace(STATUS_RULE, '')
+    # WHY: research reads pending comments through article-status.py (ADR-016, R6) and checks the questions list with questions-check.py (FT-22, ADR-023); its Bash rules are exactly these three
+    assert QUESTIONS_CHECK_RULE in front
+    assert 'Bash' not in ''.join(l for l in front.split('\n') if l.startswith('allowed-tools:')).replace(QUOTE_CHECK_RULE, '').replace(QUESTIONS_CHECK_RULE, '').replace(STATUS_RULE, '')
 
 
 def test_g1_reads_the_recorded_quote_check_and_has_no_shell():
@@ -456,8 +458,8 @@ def test_research_stage_marks_what_it_cannot_prove_and_never_invents():
 def test_outline_stage_replaces_the_claim_with_the_marker_and_collects_them():
     text = flat('outline')
     assert 'replaces the claim' in text
-    assert 'Open questions for the human' in text
-    assert 'every marker in a cell appears in that section and nothing else does' in text
+    assert '## Questions for the human' in text and 'one plain-text question per marker still in a cell' in text
+    assert 'never repeat one it marks `[RESOLVED]`' in text and 'questions-check.py <slug> outline' in text
 
 
 def test_outline_stage_writes_only_the_marker_and_a_neutral_label_in_a_marked_cell():
@@ -478,7 +480,7 @@ def test_outline_stage_gives_one_open_gap_one_marker():
     text = flat('outline')
     for needle in ('A marker is only for a point that `research.md` lists under Open gaps',
                    'One open gap gets at most one marker', 'drops that point instead of repeating the marker',
-                   'never holds more markers outside "Open questions for the human" than `research.md` holds under Open gaps'):
+                   'never holds more markers than `research.md` holds under Open gaps'):
         assert needle in text, needle
 
 
@@ -506,6 +508,7 @@ def test_g2_prints_a_markers_line():
         assert re.fullmatch(r'Markers: \d+', lines[i + 2]), f'line 3 of an example must be Markers: {lines[i + 2]!r}'
     assert 'Markers: n/a' in gate
     assert 'outside the "Open questions for the human" section' in checklist_text('check-outline')
+    assert 'outside the "Questions for the human" section' in checklist_text('check-outline'), 'both headings are left out of the marker count (ADR-023.5)'
 
 
 # ---------------- verdicts are saved with the Write tool; a hand edit is re-gated (ADR-009) ----------------
@@ -1006,7 +1009,7 @@ def test_research_writes_a_marked_list_of_questions_for_the_human_and_reports_it
     for part in ('write the last section, `## Questions for the human`', 'one plain-text question per marker under Open gaps',
                  'with no `Q`, `F` or comment ids', 'each saying what would answer it and each starting `[OPEN]`',
                  'keep every earlier line', 'change `[OPEN]` to `[RESOLVED]` only when a fact row now answers it or a reviewer\'s comment settles a decision',
-                 'Write `none` when nothing is owed', 'the counts of the `## Questions for the human` list', 'without repeating the questions'):
+                 'Leave the section out when nothing was ever owed', 'a section of only `[RESOLVED]` lines, or the one word `none`, is fine', 'the counts of the `## Questions for the human` list', 'without repeating the questions'):
         assert part in text, f'research must say: {part}'
 
 
@@ -1018,3 +1021,63 @@ def test_g1_advises_on_the_list_of_questions_for_the_human():
                    'a `[RESOLVED]` question whose marker is still under Open gaps', 'never blocks'):
         assert needle in part, f'the checklist must say: {needle}'
     assert '[FACT-6] Questions for the human' in skill_text('check-research'), 'the gate skill must show the advisory line'
+
+
+# ---------------- the questions list is judged the same way at three gates (FT-22, ADR-023) ----------------
+def _shared_questions_paragraph(d: str) -> str:
+    text = checklist_text(d)
+    start = text.index('**Questions for the human (FACT-6, ADR-023).**')
+    end = text.index('It never blocks.', start) + len('It never blocks.')  # checklist_text collapses whitespace, so cut at the closing sentence
+    return text[start:end]
+
+
+def test_three_gates_carry_the_same_questions_paragraph():
+    paragraphs = {d: _shared_questions_paragraph(d) for d in ('check-research', 'check-outline', 'check-draft')}
+    assert len(set(paragraphs.values())) == 1, 'G1, G2 and G3 must carry one wording for the questions-list advisory'
+    p = paragraphs['check-research']
+    for part in ('bin/questions-check.py', 'It is the last section', 'starts `[OPEN]` or `[RESOLVED]`', 'no line carries a `Q<n>` or `F<n>` id',
+                 "a line the previous stage's list marks `[RESOLVED]` is not repeated, as `[OPEN]` or in any form", 'has at least one `[OPEN]` line somewhere in the list', 'old heading `Open questions for the human` is exempt from every rule but placement',
+                 'It never blocks'):
+        assert part in p, f'the shared paragraph lost: {part}'
+
+
+def test_g2_and_g3_may_cite_fact_6_and_show_it_as_advisory():
+    for d in ('check-outline', 'check-draft'):
+        assert 'FACT-6' in checklist_text(d).split('\n\n')[0], f'{d}: FACT-6 must be in the allowed-IDs line'
+        assert '[FACT-6] Questions for the human' in skill_text(d), f'{d}: the example verdict must show the advisory line'
+
+
+def test_research_runs_the_questions_checker_before_the_quote_check():
+    text = flat('research')
+    assert 'bin/questions-check.py <slug> research' in text and 'until it is empty' in text
+    assert text.index('questions-check.py <slug> research') < text.index('quote-check.py <slug>` **without**'), \
+        'the list is fixed before the quote check, which must be the last action on research.md'
+
+
+def test_outline_stage_may_run_the_questions_checker():
+    """FT-22: without the pre-approval a headless run is denied the command (as the outline's edits once were, see the test above)."""
+    front = skill_text('outline').split('---', 2)[1]
+    assert QUESTIONS_CHECK_RULE in front and STATUS_RULE in front
+
+
+def test_draft_stage_writes_and_checks_the_questions_list():
+    front = skill_text('draft').split('---', 2)[1]
+    assert QUESTIONS_CHECK_RULE in front and STATUS_RULE in front
+    text = flat('draft')
+    for part in ('end the draft with `## Questions for the human`', 'never repeat a line it marks `[RESOLVED]`', 'outside the word count and the number check',
+                 'the edit stage drops it from the final', 'questions-check.py <slug> draft'):
+        assert part in text, f'draft must say: {part}'
+
+
+def test_g3_and_g2_do_not_read_the_list_as_article_text_and_g4_blocks_on_it():
+    g3, g2, g4 = checklist_text('check-draft'), checklist_text('check-outline'), checklist_text('check-final')
+    assert 'is not an article section' in g3 and 'outside STR-2' in g3 and 'outside FACT-1' in g3 and 'outside the `Outline: <a> of <m>` count' in g3
+    assert 'is not a section of the plan' in g2 and 'outside STR-2 and FACT-1' in g2
+    row = g4[g4.index('A STR-4, STR-6, STR-7'):][:90]
+    assert 'STR-7' in row, 'G4 must block on a leftover section (the mechanical row), not leave it advisory'
+    assert 'STR-7' in g4.split('Structure and argument')[0], 'the allowed-IDs line must list STR-7'
+
+
+def test_edit_stage_drops_the_questions_list_from_the_final():
+    text = flat('edit')
+    assert 'Do not copy the draft\'s `## Questions for the human` section into `final.md`' in text and 'STR-7' in text

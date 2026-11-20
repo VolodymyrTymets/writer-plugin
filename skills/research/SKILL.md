@@ -2,7 +2,7 @@
 name: research
 description: Stage 1 actor. Use after the brief gate has passed, to research the brief's questions on the web and write research.md - sources, a fact bank with verbatim quotes, competitor coverage and the gap - then run the research gate.
 argument-hint: "[article slug, defaults to the most recently changed brief]"
-allowed-tools: Read, Write, Edit, Glob, Grep, Skill, WebSearch, WebFetch, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py *), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py *)
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill, WebSearch, WebFetch, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py *), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/questions-check.py *), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py *)
 ---
 
 # Research stage
@@ -71,7 +71,7 @@ read it for the age limit on statistics and any source preferences; if not, say 
    copy of the page). Then write the last section, `## Questions for the human`: one plain-text question per marker under Open gaps
    and per decision the human owes, with no `Q`, `F` or comment ids, each saying what would answer it and each starting `[OPEN]`. When `research.md` already
    has the section, keep every earlier line: change `[OPEN]` to `[RESOLVED]` only when a fact row now answers it or a reviewer's comment settles a decision,
-   and add one plain sentence saying how. Write `none` when nothing is owed.
+   and add one plain sentence saying how. Leave the section out when nothing was ever owed; once it exists, keep its earlier lines even when nothing is owed any more (a section of only `[RESOLVED]` lines, or the one word `none`, is fine). The format is shared with the outline and the draft (ADR-023).
 7. The template ships an empty `Approved-by:` line: leave `Approved-by:` empty; approval is the human's (FLOW-2).
 8. Leave no `{{placeholder}}`.
 
@@ -81,7 +81,8 @@ the approval was cleared. Then write the result to `articles/<slug>/research.md`
 
 ## Step 4 — Check the quotes, then run the gate and save the verdict
 
-0. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py <slug>` **without** `--record` (the argument is the slug, not a path). It fetches each source and looks
+A. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/questions-check.py <slug> research`. It writes nothing and prints `{"findings": [...]}`: fix each finding in the list's lines (a missing mark, an id, a marker with no `[OPEN]` question) and run it again until it is empty. The gate advises on the same rules.
+B. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py <slug>` **without** `--record` (the argument is the slug, not a path). It fetches each source and looks
    for each quote word for word in the page's text. A row it prints as `not-found` has a quote that is not on the page: fetch the
    page again and copy the page's real words, or drop the row; never edit a quote to make the check pass without reading the page.
    A `found-elided` row passes the check but is not settled: read what the `...` hides on the page and make sure it does not change the meaning.

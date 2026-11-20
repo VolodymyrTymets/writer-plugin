@@ -43,5 +43,5 @@ Arithmetic: target 450 → 405 to 495; sum 50+80+90+100+90+50 = 460.
 ## Call to action
 The last section ends with one sentence asking the reader to download the example server config at https://example.com/caching-config.
 
-## Open questions for the human
+## Questions for the human
 - none

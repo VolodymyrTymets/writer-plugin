@@ -1,7 +1,7 @@
 # G2 checklist
 
 Judge `outline.md` against `brief.md` and the fact bank in `research.md`. Rule IDs allowed at this gate: STR-2, STR-3,
-STR-5, SEO-1, FACT-1. Blocking means the draft would be built on it wrongly; wording polish is advisory and rare.
+STR-5, SEO-1, FACT-1, FACT-6. Blocking means the draft would be built on it wrongly; wording polish is advisory and rare.
 
 | ID | Blocking when | Passes when |
 |----|---------------|-------------|
@@ -25,11 +25,15 @@ A marker is `<Can't be verified. Reason: reason sentence here>`. It stands in fo
   FACT-1 finding with the fix "rewrite it in the exact form". It is not counted.
 - A marker on a point the bank supports is a FACT-1 finding; the fix is "cite the fact ID instead".
 - **One marker per open gap (ADR-017).** Count the exact-form markers under "## Open gaps" in `research.md`. If the exact-form
-  markers counted for line 3 (outside "Open questions for the human") outnumber them, that is one blocking FACT-1 finding with the fix "keep one marker per open gap,
+  markers counted for line 3 (outside the "Questions for the human" section and the older "Open questions for the human" section) outnumber them, that is one blocking FACT-1 finding with the fix "keep one marker per open gap,
   in one row, and drop the claim from the other rows". Name both counts. Do not guess which marker is the extra one: say the
   count and quote two that look like the same gap.
-- Line 3 of your verdict is `Markers: <n>`: the exact-form markers in `outline.md` outside the "Open questions for the human"
-  section (that section only collects them, so counting it would count each twice). Count it the same way every run.
+- Line 3 of your verdict is `Markers: <n>`: the exact-form markers in `outline.md` outside the "Open questions for the human" section and outside the "Questions for the human" section (the older
+  section collected the markers, so counting it would count each twice; the newer one lists plain questions and is not article text, so STR-2 and FACT-1 skip it). Count it the same way every run.
+
+The closing `## Questions for the human` (or the older `## Open questions for the human`) is not a section of the plan: it is outside STR-2 and FACT-1, and only the FACT-6 advisory below judges it.
+
+**Questions for the human (FACT-6, ADR-023).** The same advisory at research, outline and draft: the closing `## Questions for the human` follows one form, which the actor checks with `bin/questions-check.py`. It is the last section (only an approval line may follow it); each line starts `[OPEN]` or `[RESOLVED]` (a leading `- ` or `1. ` is ignored); no line carries a `Q<n>` or `F<n>` id or a comment number; a line the previous stage's list marks `[RESOLVED]` is not repeated, as `[OPEN]` or in any form; a marker in the text has at least one `[OPEN]` line somewhere in the list (one question may cover several markers about the same page); and the section is `none`, or absent, when nothing is owed. A section under the old heading `Open questions for the human` is exempt from every rule but placement. Add one advisory FACT-6 finding naming the lines. It never blocks.
 
 ## Do not
 

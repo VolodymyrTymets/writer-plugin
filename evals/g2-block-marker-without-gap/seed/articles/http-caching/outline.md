@@ -43,6 +43,6 @@ Arithmetic: target 450 → 405 to 495; sum 50+80+90+100+90+50 = 460.
 ## Call to action
 The last section ends with one sentence asking the reader to download the example server config at https://example.com/caching-config.
 
-## Open questions for the human
-- Default lifetime of a CDN: vendor documentation.
+## Questions for the human
+- [OPEN] What is the default lifetime of a CDN? The vendor documentation would answer it.
 

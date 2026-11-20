@@ -44,6 +44,6 @@ What the top-ranking articles for the primary keyword already say.
 ## Questions for the human
 <!-- One plain-text question per marker under Open gaps and per decision the human owes: no Q or F ids, no comment numbers. Say what would answer it:
      a URL a run can fetch, the page's text with the date it was read, or a yes/no. Start each line with [OPEN]; change it to [RESOLVED] only when a
-     fact row now answers it or a reviewer's comment settles a decision, and add one sentence saying how. Keep resolved lines. Write "none" when nothing is owed. -->
+     fact row now answers it or a reviewer's comment settles a decision, and add one sentence saying how. Keep resolved lines. Omit this section when nothing was ever owed; once it exists keep its earlier lines (only [RESOLVED] lines, or "none", is fine). The outline and the draft use the same format. -->
 1. [OPEN] {{the question, in a sentence the human can answer without opening this file's tables, and what would answer it}}
 2. [RESOLVED] {{an earlier question, and how it was settled}}

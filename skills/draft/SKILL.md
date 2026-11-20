@@ -2,7 +2,7 @@
 name: draft
 description: Stage 3 actor. Use after a human has approved the outline, to write draft.md section by section from it, every factual claim tagged with its fact ID and every unverified marker carried through unchanged, then run the draft gate. It never edits the outline or the research.
 argument-hint: "[article slug, defaults to the most recently changed outline]"
-allowed-tools: Read, Write, Edit, Glob, Grep, Skill, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py *), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py *)
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py *), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/questions-check.py *), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py *)
 ---
 
 # Draft stage
@@ -52,6 +52,7 @@ say so in your report. Write the article from the outline's Structure table, row
 - **Markers:** where the outline holds `<Can't be verified. Reason: reason sentence here>` in a cell, write that exact marker in the
   draft in place of the claim, character for character, and keep the section. Never rewrite it, never explain it, never state the
   claim beside it. Add none of your own. Your report lists every marker and the count.
+- **Questions for the human (FT-22, ADR-023).** Before the `Approved-by:` line, end the draft with `## Questions for the human`, the same format as `outline.md`: one plain-text question per marker still in the text and per decision the draft itself owes, no ids, each starting `[OPEN]` and saying what would answer it. Take over from `outline.md` only what is still `[OPEN]` there and never repeat a line it marks `[RESOLVED]`. When the draft already has the section, keep its earlier lines, but drop one the previous stage now marks `[RESOLVED]` and change `[OPEN]` to `[RESOLVED]` only for a question this stage itself owns, when a fact row now answers it. Leave the section out when nothing was ever owed (a section of only `[RESOLVED]` lines, or the one word `none`, is fine). It is a working list for the reviewer, not article text: it is outside the word count and the number check, and the edit stage drops it from the final.
 - **Links:** internal links only from the style guide's list; external links only to sources in the fact bank.
 - **The close** delivers the brief's one CTA as the outline's Call to action section says. Nothing from the brief's "must avoid"
   appears; every "must include" does. Leave no `{{placeholder}}`.
@@ -63,6 +64,7 @@ hand-edited draft must not be lost. Then write the result to `articles/<slug>/dr
 
 ## Step 4 — Check mechanically, then run the gate and save the verdict
 
+0. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/questions-check.py <slug> draft`. It writes nothing and prints `{"findings": [...]}`: fix each finding in the list's lines and run it again until it is empty.
 1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/prose-lint.py articles/<slug>/draft.md` (no `--record`; it writes nothing). Fix what it
    reports on STR-4, STR-6 and FACT-1 in `draft.md` now; a FACT-1 hit may be a false positive (a number that is not a claim), and
    then you leave it and say so. This is before the gate: after a PASS you never edit.
@@ -92,6 +94,6 @@ counts toward FLOW-3 like any other BLOCK. When you replace an artifact and a la
 ## Definition of done
 - [ ] `draft.md` exists, no `{{` left, every outline row is a section, every factual sentence carries an `[F#]` that exists
 - [ ] Every marker is the outline's, unchanged; the report lists them
-- [ ] `prose-lint.py` ran without `--record` before the gate
+- [ ] `prose-lint.py` ran without `--record` before the gate, and `bin/questions-check.py <slug> draft` prints no finding
 - [ ] The gate ran in a fork and its verdict is saved as `G3-draft.r<k>.md` with a valid first line
 - [ ] On a second BLOCK the run stopped and named the verdict files, after one review copy of the blocked artifact

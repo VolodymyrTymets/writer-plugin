@@ -37,13 +37,14 @@ Line 1 is the heading and nothing comes before it; line 2 is `Artifact:`; line 3
 least one. Both forms below are literal examples.
 
 ```markdown
-## G2 outline gate: PASS (0 blocking, 1 advisory)
+## G2 outline gate: PASS (0 blocking, 2 advisory)
 Artifact: articles/<slug>/outline.md
 Markers: 2
 
 
 ### Advisory
 1. [STR-2] The "Common mistakes" section has a weak purpose line. Fix: say which part of the goal it serves.
+2. [FACT-6] Questions for the human: line 2 has no `[OPEN]` or `[RESOLVED]` mark and line 3 carries the id "F7". Fix: write each line as a plain sentence with its mark and no id.
 
 ### Not checked
 - <anything you could not verify, and why>

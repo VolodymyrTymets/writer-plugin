@@ -2,7 +2,7 @@
 name: outline
 description: Stage 2 actor. Use after the research gate has passed, to write outline.md - thesis, title options, intro hook, the H2 and H3 plan with purpose, fact IDs and word budget per section, the keyword map and the CTA - then run the outline gate. It never approves the outline.
 argument-hint: "[article slug, defaults to the most recently changed research]"
-allowed-tools: Read, Write, Edit, Glob, Grep, Skill, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py *)
+allowed-tools: Read, Write, Edit, Glob, Grep, Skill, Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/questions-check.py *), Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/article-status.py *)
 ---
 
 # Outline stage
@@ -58,9 +58,9 @@ Read `brief.md`, `research.md` and the template `${CLAUDE_PLUGIN_ROOT}/templates
   no fact ID is dropped from the outline, even if `research.md` mentions it in prose. A marker is only for a point that
   `research.md` lists under Open gaps (ADR-017). **One open gap gets at most one marker**, in the one row that would carry the
   claim; every other row that leans on the same gap drops that point instead of repeating the marker, so a human fills each
-  gap once. The outline never holds more markers outside "Open questions for the human" than `research.md` holds under Open gaps. Do not mark a point the bank
-  supports: cite the fact ID. Collect the markers in an "Open questions for the human" section: every marker in a cell appears
-  in that section and nothing else does. Your report lists every marker and the count.
+  gap once. The outline never holds more markers than `research.md` holds under Open gaps. Do not mark a point the bank
+  supports: cite the fact ID. Your report lists every marker and the count.
+- **Questions for the human (FT-22, ADR-023).** End the outline with `## Questions for the human`, the same format as `research.md`: one plain-text question per marker still in a cell and per decision the outline itself owes, no ids, each starting `[OPEN]` and saying what would answer it. Take over from `research.md` only what is still `[OPEN]` there and never repeat one it marks `[RESOLVED]`. When the outline already has the section, keep its earlier lines, but drop one the previous stage now marks `[RESOLVED]` and change `[OPEN]` to `[RESOLVED]` only for a question this stage itself owns, when a fact row now answers it. Leave the section out when nothing was ever owed (a section of only `[RESOLVED]` lines, or the one word `none`, is fine). Then run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/questions-check.py <slug> outline`, which writes nothing: fix each finding it prints and run it again until it is empty.
 - Nothing in the brief's "must avoid" appears. Every "must include" does. Leave no `{{placeholder}}`.
 - Leave `Approved-by:` exactly as the template ships it: empty.
 
@@ -102,7 +102,7 @@ one thing a human writes after a PASS; it does not change what the verdict cover
 
 ## Definition of done
 - [ ] `outline.md` exists, no `{{` left, and `Approved-by:` is still empty
-- [ ] Every marker in a cell is in "Open questions for the human" and nothing else is; each is in the exact form
+- [ ] Every marker is in the exact form, and `bin/questions-check.py <slug> outline` prints no finding
 - [ ] Every fact ID cited exists in the research bank; the word budgets sum within 10% of the target
 - [ ] The gate ran in a fork and its verdict is saved as `G2-outline.r<k>.md` with a valid first line
 - [ ] On a second BLOCK the run stopped and named the verdict files, after one review copy of the blocked artifact
