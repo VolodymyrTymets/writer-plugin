@@ -32,6 +32,8 @@ A marker is `<Can't be verified. Reason: reason sentence here>`. The draft carri
   unverified point, or should cite the fact ID instead.
 
 ## Outline line
+A closing `## Questions for the human` is not an article section: it is outside STR-2, outside the `Outline: <a> of <m>` count below and outside FACT-1, and only the FACT-6 advisory below judges it.
+
 Line 3 of your verdict is `Outline: <a> of <m> sections present`, with `m` the number of rows in the outline's Structure
 table and `a` the number of those rows whose heading appears in the draft. Count it the same way every run.
 

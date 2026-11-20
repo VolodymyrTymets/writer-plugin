@@ -53,6 +53,7 @@ but `final.md` because a comment asks, whatever its wording.
   lacks is not applied: list it for the human as needing research.
 - **Markers are frozen.** Every `<Can't be verified. Reason: reason sentence here>` stays character for character, in the same place. Add none.
   Your report lists every marker and the count.
+- **The questions list stays out of the final (STR-7).** Do not copy the draft's `## Questions for the human` section into `final.md`; the markers it listed stay where they are in the text. Your report names how many `[OPEN]` questions the draft's list held, so the human knows what is left to fill.
 - **Front matter**, the first lines of the file:
   `---`, then `title:` (60 characters or fewer, the primary keyword in it), `meta_description:` (120 to 155 characters, one
   line), `slug:` (the SEO slug: lowercase kebab-case from the title or primary keyword, `[a-z0-9]+(-[a-z0-9]+)*`; a value of its own, never copied from the folder name, SEO-6), then `---`. After it the article starts with one H1, then the body. The primary keyword is in
@@ -101,7 +102,7 @@ one thing a human writes after a PASS; it does not change what the verdict cover
 
 ## Definition of done
 - [ ] `final.md` exists with the front matter, no `{{`, and `Signed-off-by:` empty
-- [ ] Every `[F#]` and every marker from the draft is still there, unchanged
+- [ ] Every `[F#]` and every marker from the draft is still there, unchanged, and no `## Questions for the human` section is in `final.md`
 - [ ] `prose-lint.py --record` was the last action on `final.md` before the gate
 - [ ] The gate ran in a fork and its verdict is saved as `G4-final.r<k>.md` with a valid first line
 - [ ] On a second BLOCK the run stopped and named the verdict files, after one review copy of the blocked artifact

@@ -313,3 +313,41 @@ def test_record_keeps_the_printed_finding_lines_for_a_gate_that_cannot_run_the_s
     r = lint(ws / 'final.md', '--record')
     rec = json.loads((ws / '.prose-lint.json').read_text())
     assert rec['lines'] == findings(r) and rec['findings'] == len(rec['lines'])
+
+
+# ---------------- the questions list (FT-22, ADR-023) ----------------
+QUESTIONS = ('\n## Questions for the human\n'
+             '1. [OPEN] Which page shows the 2026 price, and what is its date?\n'
+             '2. [RESOLVED] The standard is named; a fact row now says so.\n')
+
+
+def draft_with(questions):
+    body = f'# {TITLE}\n\nChoosing a {KEYWORD} is simple when you measure first. {filler(20)}\n\n## Measure for a {KEYWORD}\n\n{filler(150)}\n\n## Close\n\n{filler(20)}\n'
+    return body + questions + '\nApproved-by:\n'
+
+
+def test_the_questions_section_is_outside_the_word_count_and_the_number_check_in_a_draft(ws):
+    (ws / 'draft.md').write_text(draft_with(''))
+    plain = lint(ws / 'draft.md')
+    (ws / 'draft.md').write_text(draft_with(QUESTIONS + '3. [OPEN] ' + 'word ' * 120 + 'costs 40 dollars?\n'))
+    with_list = lint(ws / 'draft.md')
+    assert findings(plain) == findings(with_list) == [], 'a list of 120 extra words and a bare number must change nothing in a draft'
+
+
+def test_a_questions_section_left_in_a_final_is_str_7(ws):
+    (ws / 'final.md').write_text(final_text(extra=QUESTIONS))
+    r = lint(ws / 'final.md')
+    assert rules(r) == ['STR-7'] and r.code == 1, r.out
+    assert 'working list' in r.out
+
+
+def test_a_final_without_the_section_is_clean_of_str_7(ws):
+    (ws / 'final.md').write_text(final_text())
+    assert 'STR-7' not in rules(lint(ws / 'final.md'))
+
+
+def test_the_doc_copy_of_a_draft_keeps_the_section(tmp_path):
+    art = tmp_path / 'articles' / 'a'
+    art.mkdir(parents=True)
+    text = draft_with(QUESTIONS)
+    assert '## Questions for the human' in writer.doc_text(text, 'draft')

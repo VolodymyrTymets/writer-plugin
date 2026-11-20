@@ -951,6 +951,9 @@ def _questions_section(lines: List[str]) -> Optional[Tuple[int, int, bool]]:
     return None
 
 
+questions_section = _questions_section  # the lint blanks the section; one finder, not a second pattern
+
+
 def _question_lines(lines: List[str]) -> List[Tuple[int, str]]:
     """(1-based line number, text with its list prefix removed) of every non-blank line of a section body, HTML comments dropped."""
     body = '\n'.join(lines)

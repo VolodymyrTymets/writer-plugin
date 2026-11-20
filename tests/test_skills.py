@@ -53,7 +53,7 @@ MUST_CITE = {
     'check-brief': {f'BRF-{n}' for n in range(1, 7)},
     'check-research': {'FACT-2', 'FACT-3', 'FACT-5', 'FACT-6'},
     'check-outline': {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1', 'FACT-6'},
-    'check-final': {'FACT-1', 'FACT-2', 'FACT-3', 'FACT-4', 'FACT-5', 'STR-4', 'STR-6', 'VOI-1', 'VOI-5', 'SEO-1', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'},
+    'check-final': {'FACT-1', 'FACT-2', 'FACT-3', 'FACT-4', 'FACT-5', 'STR-4', 'STR-6', 'STR-7', 'VOI-1', 'VOI-5', 'SEO-1', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'},
     'check-draft': {'STR-1', 'STR-2', 'STR-5', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5', 'FACT-6'},
 }
 RULE_ID = re.compile(r'\b(?:BRF|FACT|STR|VOI|SEO|FLOW|PLG)-\d+\b')
@@ -1058,3 +1058,26 @@ def test_outline_stage_may_run_the_questions_checker():
     """FT-22: without the pre-approval a headless run is denied the command (as the outline's edits once were, see the test above)."""
     front = skill_text('outline').split('---', 2)[1]
     assert QUESTIONS_CHECK_RULE in front and STATUS_RULE in front
+
+
+def test_draft_stage_writes_and_checks_the_questions_list():
+    front = skill_text('draft').split('---', 2)[1]
+    assert QUESTIONS_CHECK_RULE in front and STATUS_RULE in front
+    text = flat('draft')
+    for part in ('end the draft with `## Questions for the human`', 'never repeat a line it marks `[RESOLVED]`', 'outside the word count and the number check',
+                 'the edit stage drops it from the final', 'questions-check.py <slug> draft'):
+        assert part in text, f'draft must say: {part}'
+
+
+def test_g3_and_g2_do_not_read_the_list_as_article_text_and_g4_blocks_on_it():
+    g3, g2, g4 = checklist_text('check-draft'), checklist_text('check-outline'), checklist_text('check-final')
+    assert 'is not an article section' in g3 and 'outside STR-2' in g3 and 'outside FACT-1' in g3 and 'outside the `Outline: <a> of <m>` count' in g3
+    assert 'is not a section of the plan' in g2 and 'outside STR-2 and FACT-1' in g2
+    row = g4[g4.index('A STR-4, STR-6, STR-7'):][:90]
+    assert 'STR-7' in row, 'G4 must block on a leftover section (the mechanical row), not leave it advisory'
+    assert 'STR-7' in g4.split('Structure and argument')[0], 'the allowed-IDs line must list STR-7'
+
+
+def test_edit_stage_drops_the_questions_list_from_the_final():
+    text = flat('edit')
+    assert 'Do not copy the draft\'s `## Questions for the human` section into `final.md`' in text and 'STR-7' in text

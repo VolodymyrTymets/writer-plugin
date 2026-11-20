@@ -8,7 +8,7 @@ Exits 0 with no findings and 1 with any. Without `--record` it writes nothing, s
 with `--record` (the edit stage) it writes `.prose-lint.json` beside the file (the printed findings too, so a write-free gate can read them): `verify-final` and the
 guard look at it. Only this script writes that file (ADR-010).
 
-Checks (rule IDs are the constitution's): STR-4 headings (any file); STR-6 length against the brief's target (draft, final);
+Checks (rule IDs are the constitution's): STR-4 headings (any file); STR-7 a questions section left in a final (the section is outside the STR-6 count and FACT-1 in a draft); STR-6 length against the brief's target (draft, final);
 FACT-1 a number with no [F#] in its sentence (draft, final; a heuristic); and for a final only: SEO-1/2/3 from the front matter
 and the brief's keyword, VOI-2/3 from the style guide, FLOW-6 a marker left in the text (loose pattern).
 """
@@ -86,6 +86,16 @@ def prose_words(body: str) -> List[str]:
     return words
 
 
+def without_questions(body: str) -> Tuple[str, Optional[int]]:
+    """The body with the `## Questions for the human` section blanked line by line (so line numbers hold), and the 1-based line of its heading or None.
+    The list is for the human reviewing the Doc, not article text: it is outside the word count and the number check (FT-22, ADR-023)."""
+    lines = body.split('\n')
+    sec = w.questions_section(lines)
+    if not sec:
+        return body, None
+    return '\n'.join(['' if sec[0] <= i < sec[1] else line for i, line in enumerate(lines)]), sec[0] + 1
+
+
 def find_style(path: str) -> Optional[str]:
     d = os.path.dirname(os.path.abspath(path))
     while True:
@@ -146,10 +156,13 @@ def lint(path: str, brief_path: Optional[str], style_path: Optional[str]) -> Tup
         add('STR-4', 1, f'expected one H1, found {h1}')
 
     if kind in ('draft', 'final'):
+        article, questions_at = without_questions(body)
+        if kind == 'final' and questions_at:
+            add('STR-7', questions_at, 'a "## Questions for the human" section is still in the final; it is a working list and must not be published')
         brief_text = read(brief_path or os.path.join(os.path.dirname(os.path.abspath(path)), 'brief.md'))
         bounds = length_bounds(brief_text) if brief_text else None
         if bounds:
-            n_words = len(prose_words(body))
+            n_words = len(prose_words(article))
             if not bounds[0] <= n_words <= bounds[1]:
                 add('STR-6', 1, f'{n_words} words, but the brief\'s target is {bounds[0]} to {bounds[1]}')
         else:
@@ -171,7 +184,7 @@ def lint(path: str, brief_path: Optional[str], style_path: Optional[str]) -> Tup
                     add('FACT-1', para[0][0], f'a number with no [F#] in its sentence: "{sentence.strip()[:70]}"')
             para.clear()
 
-        for n, line, fenced in body_lines(body):
+        for n, line, fenced in body_lines(article):
             if fenced or HEADING.match(line) or line.lstrip().startswith('|') or not line.strip():
                 flush()
                 continue

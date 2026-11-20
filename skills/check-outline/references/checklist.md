@@ -31,6 +31,8 @@ A marker is `<Can't be verified. Reason: reason sentence here>`. It stands in fo
 - Line 3 of your verdict is `Markers: <n>`: the exact-form markers in `outline.md` outside the "Open questions for the human" section and outside the "Questions for the human" section (the older
   section collected the markers, so counting it would count each twice; the newer one lists plain questions and is not article text, so STR-2 and FACT-1 skip it). Count it the same way every run.
 
+The closing `## Questions for the human` (or the older `## Open questions for the human`) is not a section of the plan: it is outside STR-2 and FACT-1, and only the FACT-6 advisory below judges it.
+
 **Questions for the human (FACT-6, ADR-023).** The same advisory at research, outline and draft: the closing `## Questions for the human` follows one form, which the actor checks with `bin/questions-check.py`. It is the last section (only an approval line may follow it); each line starts `[OPEN]` or `[RESOLVED]` (a leading `- ` or `1. ` is ignored); no line carries a `Q<n>` or `F<n>` id or a comment number; a `[RESOLVED]` line of the previous stage's list is not repeated; and the section is `none`, or absent, when nothing is owed. A section under the old heading `Open questions for the human` is exempt from every rule but placement. Add one advisory FACT-6 finding naming the lines. It never blocks.
 
 ## Do not
