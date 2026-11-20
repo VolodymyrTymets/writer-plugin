@@ -240,6 +240,7 @@ def test_research_tries_fallbacks_for_a_blocked_source_and_reports_what_stayed_b
 
 
 QUOTE_CHECK_RULE = 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py *)'
+QUESTIONS_CHECK_RULE = 'Bash(python3 ${CLAUDE_PLUGIN_ROOT}/bin/questions-check.py *)'  # FT-22, ADR-023
 
 
 def test_research_stage_records_the_quote_check_last_and_never_writes_the_record():
@@ -251,8 +252,9 @@ def test_research_stage_records_the_quote_check_last_and_never_writes_the_record
     assert 'Write nothing to `research.md` between this run and the gate' in text
     assert 'Never write `.quote-check.json` yourself' in text
     assert '`not-found`' in text and 'word for word' in text
-    # WHY: research now also reads pending comments through article-status.py (ADR-016, R6); its Bash rules are exactly these two
-    assert 'Bash' not in ''.join(l for l in front.split('\n') if l.startswith('allowed-tools:')).replace(QUOTE_CHECK_RULE, '').replace(STATUS_RULE, '')
+    # WHY: research reads pending comments through article-status.py (ADR-016, R6) and checks the questions list with questions-check.py (FT-22, ADR-023); its Bash rules are exactly these three
+    assert QUESTIONS_CHECK_RULE in front
+    assert 'Bash' not in ''.join(l for l in front.split('\n') if l.startswith('allowed-tools:')).replace(QUOTE_CHECK_RULE, '').replace(QUESTIONS_CHECK_RULE, '').replace(STATUS_RULE, '')
 
 
 def test_g1_reads_the_recorded_quote_check_and_has_no_shell():
@@ -1006,7 +1008,7 @@ def test_research_writes_a_marked_list_of_questions_for_the_human_and_reports_it
     for part in ('write the last section, `## Questions for the human`', 'one plain-text question per marker under Open gaps',
                  'with no `Q`, `F` or comment ids', 'each saying what would answer it and each starting `[OPEN]`',
                  'keep every earlier line', 'change `[OPEN]` to `[RESOLVED]` only when a fact row now answers it or a reviewer\'s comment settles a decision',
-                 'Write `none` when nothing is owed', 'the counts of the `## Questions for the human` list', 'without repeating the questions'):
+                 'Leave the section out when nothing was ever owed', 'a section of only `[RESOLVED]` lines, or the one word `none`, is fine', 'the counts of the `## Questions for the human` list', 'without repeating the questions'):
         assert part in text, f'research must say: {part}'
 
 
@@ -1042,3 +1044,10 @@ def test_g2_and_g3_may_cite_fact_6_and_show_it_as_advisory():
     for d in ('check-outline', 'check-draft'):
         assert 'FACT-6' in checklist_text(d).split('\n\n')[0], f'{d}: FACT-6 must be in the allowed-IDs line'
         assert '[FACT-6] Questions for the human' in skill_text(d), f'{d}: the example verdict must show the advisory line'
+
+
+def test_research_runs_the_questions_checker_before_the_quote_check():
+    text = flat('research')
+    assert 'bin/questions-check.py <slug> research' in text and 'until it is empty' in text
+    assert text.index('questions-check.py <slug> research') < text.index('quote-check.py <slug>` **without**'), \
+        'the list is fixed before the quote check, which must be the last action on research.md'
