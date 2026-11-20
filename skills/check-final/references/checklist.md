@@ -51,7 +51,7 @@ no style guide and stays active.
   blocking. A missing internal link the outline planned: advisory.
 
 ## Markers
-A marker is `<Can't be verified. Reason: reason sentence here>`.
+A marker is `<Can't be verified. Reason: reason sentence here>` or `<Needs to be written by a human. Reason: reason sentence here>` (ADR-023): text a human has not supplied yet. Both are counted and both stop the sign-off.
 - FACT-1 does not apply to a marker: it replaces a claim, it is not one.
 - A claim written beside a marker or inside its reason still blocks (FACT-1).
 - A marker not in the exact form (ASCII apostrophe; a non-empty one-line reason with no `<`, `>` or `|`) is a blocking FACT-1

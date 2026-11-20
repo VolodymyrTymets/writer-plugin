@@ -1,7 +1,7 @@
 # ADR-023 — One questions-for-the-human list at research, outline and draft, and a human-written marker
 
 - **Date:** 2026-11-20
-- **Status:** accepted for the list, FACT-6 and STR-7 (PR 1). The skip marker and the FLOW-6 change **ship with PR 2**; PR 2 sets them to done.
+- **Status:** accepted and built. The list, FACT-6 and STR-7 shipped with PR 1; the skip marker and the FLOW-6 change shipped with PR 2.
 - **Deciders:** Volodymyr Tymets
 - **Ticket:** none (`docs/features/FT-22/plan.md`, finding FT-22)
 - **Refines:** ADR-008 (a second marker form), ADR-017 (one marker per open gap still holds; a skip swaps a gap's marker, it adds none), ADR-021
@@ -31,7 +31,7 @@ a reviewer of the outline or draft Doc decoded markers again and could not tell 
 7. **STR-7 (new): no working section in the final.** `final.md` holds no `## Questions for the human`. `prose-lint.py` reports one that does, and G4 blocks on it
    (it is in the blocking mechanical row), because the section would otherwise be published. `/edit` drops the draft's section and keeps every marker.
 
-## Decision (ships with PR 2)
+## Decision (PR 2)
 8. **A human-written marker.** `<Needs to be written by a human. Reason: reason sentence here>`, the exact form of ADR-008. A reviewer's comment asks to skip one
    question; the outline or draft then marks its line `[SKIPPED]` with the reason and swaps that gap's marker for this one. Research keeps its open gap.
 9. **FLOW-6 changes.** Both markers stop sign-off and the `publish-ready` label. The loose pattern becomes `(?:<Can.t be verified|<Needs to be written by a human)`.

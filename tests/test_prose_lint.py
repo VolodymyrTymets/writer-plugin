@@ -90,6 +90,7 @@ def test_a_clean_final_has_no_findings_and_exits_0(ws):
     (dict(extra='This is a game changer for any home office.'), 'VOI-2'),
     (dict(extra='Let us delve into the details.'), 'VOI-3'),
     (dict(extra="<Can't be verified. Reason: the page blocked the fetch.>"), 'FLOW-6'),
+    (dict(extra='<Needs to be written by a human. Reason: the owner will add the pricing story.>'), 'FLOW-6'),
     (dict(extra='<Can’t be verified. Reason: a curly apostrophe is still a marker.>'), 'FLOW-6'),
     (dict(extra='The desk weighs 40 kilograms.'), 'FACT-1'),
     (dict(slug='Acme Review'), 'SEO-6'),
@@ -97,7 +98,7 @@ def test_a_clean_final_has_no_findings_and_exits_0(ws):
     (dict(slug='pick--a-desk'), 'SEO-6'),
     (dict(slug='two words'), 'SEO-6'),
 ], ids=['too-long', 'too-short', 'title-over-60', 'meta-short', 'meta-long', 'keyword-not-in-title', 'banned-phrase', 'ai-tell',
-        'marker', 'marker-curly', 'number-without-fact-id', 'slug-spaces', 'slug-capitals', 'slug-double-hyphen', 'slug-space-only'])
+        'marker', 'human-marker', 'marker-curly', 'number-without-fact-id', 'slug-spaces', 'slug-capitals', 'slug-double-hyphen', 'slug-space-only'])
 def test_each_rule_fires_on_its_own_case(ws, kwargs, rule):
     (ws / 'final.md').write_text(final_text(**kwargs))
     r = lint(ws / 'final.md')
@@ -352,3 +353,9 @@ def test_a_final_without_the_section_is_clean_of_str_7(ws):
 def test_the_doc_copy_of_a_draft_keeps_the_section():
     text = draft_with(QUESTIONS)
     assert '## Questions for the human' in writer.doc_text(text, 'draft')
+
+
+def test_a_number_in_a_human_written_markers_reason_is_not_a_claim(ws):
+    """The FACT-1 filter reads both marker forms as one unit, so a number in the reason is not read as an unsourced claim (ADR-023)."""
+    (ws / 'final.md').write_text(final_text(words=120, extra='<Needs to be written by a human. Reason: the owner wants to cover 3 plans herself.>'))
+    assert rules(lint(ws / 'final.md')) == ['FLOW-6']

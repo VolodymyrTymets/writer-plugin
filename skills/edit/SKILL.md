@@ -51,7 +51,7 @@ but `final.md` because a comment asks, whatever its wording.
 - **Facts are frozen.** Keep every `[F#]` where it is, every quote verbatim, every number as the sentence has it. Add no claim, no
   number and no name, and drop none that has an ID without saying so in your report. A reviewer comment that asks for a fact the bank
   lacks is not applied: list it for the human as needing research.
-- **Markers are frozen.** Every `<Can't be verified. Reason: reason sentence here>` stays character for character, in the same place. Add none.
+- **Markers are frozen.** Every `<Can't be verified. Reason: reason sentence here>` and every `<Needs to be written by a human. Reason: reason sentence here>` stays character for character, in the same place. Add none.
   Your report lists every marker and the count.
 - **The questions list stays out of the final (STR-7).** Do not copy the draft's `## Questions for the human` section into `final.md`; the markers it listed stay where they are in the text. Your report names how many `[OPEN]` questions the draft's list held, so the human knows what is left to fill.
 - **Front matter**, the first lines of the file:
