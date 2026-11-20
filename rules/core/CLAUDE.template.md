@@ -27,7 +27,8 @@ Style guide for this workspace: `{{STYLE_GUIDE_PATH}}`. Every gate cites a rule 
 - **FACT-4** A statistic older than the style guide's age limit is flagged, not silently used. A fact from a live page is
   aged by its accessed date, and any later statement of it says "checked <month year>".
 - **FACT-5** No claim is stronger than its source.
-- **FACT-6** Every question the brief raises is answered by a fact or listed under Open gaps; the gate advises when fewer than half are answered (ADR-021).
+- **FACT-6** Every question the brief raises is answered by a fact or listed under Open gaps; the gate advises when fewer than half are answered (ADR-021). The closing
+  `## Questions for the human` of the research, the outline and the draft follows one form; the gates advise on it and never block (ADR-023).
 
 ## STR — structure
 
@@ -37,6 +38,7 @@ Style guide for this workspace: `{{STYLE_GUIDE_PATH}}`. Every gate cites a rule 
 - **STR-4** One H1 and no skipped heading levels.
 - **STR-5** The close delivers the CTA.
 - **STR-6** The article's length is within the brief's target, plus or minus 10%. A range target widens by 10% at each end.
+- **STR-7** The final holds no working section: no `## Questions for the human` (ADR-023).
 
 ## VOI — voice
 

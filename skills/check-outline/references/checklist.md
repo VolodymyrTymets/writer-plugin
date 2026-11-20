@@ -1,7 +1,7 @@
 # G2 checklist
 
 Judge `outline.md` against `brief.md` and the fact bank in `research.md`. Rule IDs allowed at this gate: STR-2, STR-3,
-STR-5, SEO-1, FACT-1. Blocking means the draft would be built on it wrongly; wording polish is advisory and rare.
+STR-5, SEO-1, FACT-1, FACT-6. Blocking means the draft would be built on it wrongly; wording polish is advisory and rare.
 
 | ID | Blocking when | Passes when |
 |----|---------------|-------------|
@@ -30,6 +30,8 @@ A marker is `<Can't be verified. Reason: reason sentence here>`. It stands in fo
   count and quote two that look like the same gap.
 - Line 3 of your verdict is `Markers: <n>`: the exact-form markers in `outline.md` outside the "Open questions for the human"
   section (that section only collects them, so counting it would count each twice). Count it the same way every run.
+
+**Questions for the human (FACT-6, ADR-023).** The same advisory at research, outline and draft: the closing `## Questions for the human` follows one form, which the actor checks with `bin/questions-check.py`. It is the last section (only an approval line may follow it); each line starts `[OPEN]` or `[RESOLVED]` (a leading `- ` or `1. ` is ignored); no line carries a `Q<n>` or `F<n>` id or a comment number; a `[RESOLVED]` line of the previous stage's list is not repeated; and the section is `none`, or absent, when nothing is owed. A section under the old heading `Open questions for the human` is exempt from every rule but placement. Add one advisory FACT-6 finding naming the lines. It never blocks.
 
 ## Do not
 

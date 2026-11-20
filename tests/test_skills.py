@@ -36,9 +36,9 @@ VERDICT_LINE = re.compile(
 GATES = {
     'check-brief': ('G0 brief', 'gate', {f'BRF-{n}' for n in range(1, 7)}),
     'check-research': ('G1 research', 'fact-gate', {f'FACT-{n}' for n in range(1, 7)}),
-    'check-outline': ('G2 outline', 'gate', {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'}),
-    'check-final': ('G4 final', 'fact-gate', {f'FACT-{n}' for n in range(1, 6)} | {'STR-4', 'STR-6', 'SEO-1', 'SEO-2', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'} | {f'VOI-{n}' for n in range(1, 6)}),
-    'check-draft': ('G3 draft', 'gate', {'STR-1', 'STR-2', 'STR-5', 'STR-6', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5'}),
+    'check-outline': ('G2 outline', 'gate', {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1', 'FACT-6'}),
+    'check-final': ('G4 final', 'fact-gate', {f'FACT-{n}' for n in range(1, 6)} | {'STR-4', 'STR-6', 'SEO-1', 'SEO-2', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'} | {f'VOI-{n}' for n in range(1, 6)} | {'STR-7'}),
+    'check-draft': ('G3 draft', 'gate', {'STR-1', 'STR-2', 'STR-5', 'STR-6', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5', 'FACT-6'}),
 }
 # actor skill dir -> (stage, gate it invokes)
 ACTORS = {
@@ -52,9 +52,9 @@ ACTORS = {
 MUST_CITE = {
     'check-brief': {f'BRF-{n}' for n in range(1, 7)},
     'check-research': {'FACT-2', 'FACT-3', 'FACT-5', 'FACT-6'},
-    'check-outline': {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1'},
+    'check-outline': {'STR-2', 'STR-3', 'STR-5', 'SEO-1', 'FACT-1', 'FACT-6'},
     'check-final': {'FACT-1', 'FACT-2', 'FACT-3', 'FACT-4', 'FACT-5', 'STR-4', 'STR-6', 'VOI-1', 'VOI-5', 'SEO-1', 'SEO-3', 'SEO-5', 'SEO-6', 'FLOW-6'},
-    'check-draft': {'STR-1', 'STR-2', 'STR-5', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5'},
+    'check-draft': {'STR-1', 'STR-2', 'STR-5', 'SEO-4', 'FACT-1', 'FACT-5', 'BRF-5', 'FACT-6'},
 }
 RULE_ID = re.compile(r'\b(?:BRF|FACT|STR|VOI|SEO|FLOW|PLG)-\d+\b')
 
@@ -1018,3 +1018,27 @@ def test_g1_advises_on_the_list_of_questions_for_the_human():
                    'a `[RESOLVED]` question whose marker is still under Open gaps', 'never blocks'):
         assert needle in part, f'the checklist must say: {needle}'
     assert '[FACT-6] Questions for the human' in skill_text('check-research'), 'the gate skill must show the advisory line'
+
+
+# ---------------- the questions list is judged the same way at three gates (FT-22, ADR-023) ----------------
+def _shared_questions_paragraph(d: str) -> str:
+    text = checklist_text(d)
+    start = text.index('**Questions for the human (FACT-6, ADR-023).**')
+    end = text.index('It never blocks.', start) + len('It never blocks.')  # checklist_text collapses whitespace, so cut at the closing sentence
+    return text[start:end]
+
+
+def test_three_gates_carry_the_same_questions_paragraph():
+    paragraphs = {d: _shared_questions_paragraph(d) for d in ('check-research', 'check-outline', 'check-draft')}
+    assert len(set(paragraphs.values())) == 1, 'G1, G2 and G3 must carry one wording for the questions-list advisory'
+    p = paragraphs['check-research']
+    for part in ('bin/questions-check.py', 'It is the last section', 'starts `[OPEN]` or `[RESOLVED]`', 'no line carries a `Q<n>` or `F<n>` id',
+                 "a `[RESOLVED]` line of the previous stage's list is not repeated", 'old heading `Open questions for the human` is exempt from every rule but placement',
+                 'It never blocks'):
+        assert part in p, f'the shared paragraph lost: {part}'
+
+
+def test_g2_and_g3_may_cite_fact_6_and_show_it_as_advisory():
+    for d in ('check-outline', 'check-draft'):
+        assert 'FACT-6' in checklist_text(d).split('\n\n')[0], f'{d}: FACT-6 must be in the allowed-IDs line'
+        assert '[FACT-6] Questions for the human' in skill_text(d), f'{d}: the example verdict must show the advisory line'
