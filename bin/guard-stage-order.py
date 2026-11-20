@@ -12,7 +12,7 @@ by quote-check.py.
 
 Phase 5 adds (ADR-010): a G4 verdict is saved only against a lint record that matches final.md; `.prose-lint.json` is written
 only by prose-lint.py; a non-empty `Signed-off-by:` is written only against a current G4 PASS on the content the write produces,
-and never beside an unverified-claim marker (FLOW-6).
+and never beside a marker (FLOW-6: an unverified claim, or text a human asked to write herself, ADR-023).
 
 Path-based, so it needs no branch or ticket: it acts only on `articles/<slug>/...` inside the workspace.
 - Writing research.md, outline.md, draft.md or final.md needs the previous gate's latest verdict to be a PASS on what is on disk
@@ -178,8 +178,8 @@ def check_signoff(root, slug, text):
     if not w.is_signed(text):
         return
     if w.MARKER_LOOSE.search(text):
-        w.block('FLOW-6', f'articles/{slug}/final.md may not be signed off while an unverified-claim marker (<Can\'t be verified ...>) is in it.',
-                'resolve every marker in the text (a human supplies the fact or removes the claim), rerun the edit stage and its gate, then sign off.')
+        w.block('FLOW-6', f'articles/{slug}/final.md may not be signed off while a marker (<Can\'t be verified ...> or <Needs to be written by a human ...>) is in it.',
+                'resolve every marker in the text (a human supplies the fact, writes the passage, or removes the claim), rerun the edit stage and its gate, then sign off.')
     name = w.latest(root, slug, 'final')
     why = None
     if not name or w.read_sidecar(root, slug, name) is None:
@@ -229,7 +229,7 @@ def check_docs(root, slug, rel, tool, tool_input):
                     'record it with "publish_ready": false, exactly as the doc-copy script printed it.')
         if not w.publish_ready_or_false(root, slug):
             w.block('FLOW-6', f'articles/{slug}/final.md is not publish-ready: it needs a non-empty Signed-off-by on a current G4 PASS '
-                    'and no unverified-claim marker.', 'record the copy with "publish_ready": false, or sign off a final that qualifies.')
+                    'and no marker (<Can\'t be verified ...> or <Needs to be written by a human ...>).', 'record the copy with "publish_ready": false, or sign off a final that qualifies.')
         if e.get('sha256') != w.artifact_hash(root, slug, 'final'):
             w.block('FLOW-6', 'this publish-ready entry records a hash that is not the final on disk.',
                     'run doc-copy.py again and record its sha256 unchanged.')
@@ -314,7 +314,7 @@ def check_drive_create(root, tool_input):
                 'use the title the doc-copy script prints: <slug> · final · r<k> · publish-ready.')
     if not w.publish_ready_or_false(root, slug):
         w.block('FLOW-6', f'articles/{slug}/final.md is not publish-ready (it needs a non-empty Signed-off-by on a current G4 PASS and no '
-                'unverified-claim marker), so no Doc may be labelled publish-ready.',
+                'marker: <Can\'t be verified ...> or <Needs to be written by a human ...>), so no Doc may be labelled publish-ready.',
                 'make the copy under the title the doc-copy script prints now, which carries no publish-ready label.')
     expected = w.doc_text(w.read_text(os.path.join(w.article_dir(root, slug), 'final.md')), 'final', keep_signoff=True)
     if tool_input.get('base64Content') is not None or tool_input.get('textContent') != expected:

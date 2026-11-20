@@ -36,6 +36,16 @@ def test_no_section_but_markers_is_one_finding():
     assert len(out) == 1 and '2 marker(s)' in out[0]
 
 
+HUMAN = '<Needs to be written by a human. Reason: the owner will write this part herself>'
+
+
+def test_a_skipped_line_covers_the_human_written_marker_and_a_marker_with_no_line_is_one_finding():
+    text = f'# T\n\nA part: {HUMAN}\n\n## Questions for the human\n1. [SKIPPED] The pricing story is left for the owner to write.\n'
+    assert rules(text) == []
+    assert any('no "## Questions for the human" section' in m for m in rules(f'# T\n\nA part: {HUMAN}\n'))
+    assert any('no [OPEN] or [SKIPPED] question' in m for m in rules(f'# T\n\nA part: {HUMAN}\n\n## Questions for the human\n1. [RESOLVED] something else settled\n'))
+
+
 def test_marker_count_is_not_matched_to_lines():
     # three markers and no [OPEN] line is one finding; one [OPEN] line covers them (one question may cover several markers about one page)
     assert len(rules(doc('1. [RESOLVED] something settled earlier', 3))) == 1
@@ -43,7 +53,7 @@ def test_marker_count_is_not_matched_to_lines():
 
 
 @pytest.mark.parametrize('line,fragment', [
-    ('1. What is the price?', 'does not start with [OPEN] or [RESOLVED]'),
+    ('1. What is the price?', 'does not start with [OPEN], [RESOLVED] or [SKIPPED]'),
     ('1. [OPEN] Q4: what is the price?', 'Q or F id'),
     ('1. [OPEN] Is the price (Q4) right?', 'Q or F id'),
     ('1. [OPEN] Is [F7] still right?', 'Q or F id'),

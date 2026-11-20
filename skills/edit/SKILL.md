@@ -51,9 +51,9 @@ but `final.md` because a comment asks, whatever its wording.
 - **Facts are frozen.** Keep every `[F#]` where it is, every quote verbatim, every number as the sentence has it. Add no claim, no
   number and no name, and drop none that has an ID without saying so in your report. A reviewer comment that asks for a fact the bank
   lacks is not applied: list it for the human as needing research.
-- **Markers are frozen.** Every `<Can't be verified. Reason: reason sentence here>` stays character for character, in the same place. Add none.
+- **Markers are frozen.** Every `<Can't be verified. Reason: reason sentence here>` and every `<Needs to be written by a human. Reason: reason sentence here>` stays character for character, in the same place. Add none.
   Your report lists every marker and the count.
-- **The questions list stays out of the final (STR-7).** Do not copy the draft's `## Questions for the human` section into `final.md`; the markers it listed stay where they are in the text. Your report names how many `[OPEN]` questions the draft's list held, so the human knows what is left to fill.
+- **The questions list stays out of the final (STR-7).** Do not copy the draft's `## Questions for the human` section into `final.md`; the markers it listed stay where they are in the text. Your report names how many `[OPEN]` and `[SKIPPED]` questions the draft's list held, so the human knows what is left to fill.
 - **Front matter**, the first lines of the file:
   `---`, then `title:` (60 characters or fewer, the primary keyword in it), `meta_description:` (120 to 155 characters, one
   line), `slug:` (the SEO slug: lowercase kebab-case from the title or primary keyword, `[a-z0-9]+(-[a-z0-9]+)*`; a value of its own, never copied from the folder name, SEO-6), then `---`. After it the article starts with one H1, then the body. The primary keyword is in
@@ -88,7 +88,7 @@ Fix only what the findings name, in `final.md`. Before you repeat Step 4, read t
 
 Report in a few lines: the final path, the verdict path, the gate's advisory findings, and the markers (each, and the count). Then say
 plainly: **the final is not signed off.** A human reads it and writes a name after `Signed-off-by:` in `final.md`. While a
-marker remains the sign-off is refused (FLOW-6): a human supplies the fact or removes the claim first, which means rerunning this
+marker remains the sign-off is refused (FLOW-6): a human supplies the fact, writes the passage or removes the claim first, which means rerunning this
 stage and its gate. Then invoke `writer-plugin:publish <slug> final` through the Skill tool for the review copy, and report the Doc URL it gives, or its one line saying there is no Google Drive connection; this copy is not the publish-ready one, which needs the sign-off first. Do not write the sign-off yourself. If the human changes `final.md` by hand, the verdict no longer covers it: run `prose-lint.py --record` on the edited file, then ask for the final gate to be rerun and its verdict saved with the Write tool as the next verdict. A re-gate saves its verdict whether PASS or BLOCK, and a BLOCK counts toward FLOW-3.
 
 ## After the gate

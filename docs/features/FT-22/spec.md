@@ -20,7 +20,7 @@ checkpoint (FLOW-2) works only if the human can see exactly what is still theirs
   to G1's coverage floor (ADR-021), to the fact bank, to Doc copies other than the section, to `/sync` or to the approval flow. Replying to comments (BUSINESS_MODEL).
 
 ## Acceptance criteria
-- [ ] AC1 (`[OPEN]`/`[RESOLVED]` in PR 1; `[SKIPPED]` and the human-written marker in PR 2) Given a `research.md`, `outline.md` or `draft.md`, when `bin/questions-check.py` runs, then it prints JSON findings for: section not last; a line without
+- [x] AC1 (`[OPEN]`/`[RESOLVED]` in PR 1; `[SKIPPED]` and the human-written marker in PR 2) Given a `research.md`, `outline.md` or `draft.md`, when `bin/questions-check.py` runs, then it prints JSON findings for: section not last; a line without
       `[OPEN]`, `[RESOLVED]` or `[SKIPPED]`; a `Q<n>`, `F<n>` or comment id in a line; an exact-form marker in the artifact with no `[OPEN]` or `[SKIPPED]` line.
 - [x] AC2 Given research answered every question and the artifact holds no marker, when the stage writes the artifact, then it has no `## Questions for the human`
       section and no finding (omitted when no line was ever owed; a section holding only `[RESOLVED]` lines or `none` is also accepted, FT-20).
@@ -31,7 +31,7 @@ checkpoint (FLOW-2) works only if the human can see exactly what is still theirs
 - [x] AC5 Given G1, G2 or G3 reads an artifact, when the list breaks a rule of AC1 or AC3, then the verdict has one advisory FACT-6 finding (FACT-6 now covers the questions list at all three stages) and still PASSes.
 - [x] AC6 Given a draft with a list, when `prose-lint.py` runs, then the section is outside the word count (STR-6) and FACT-1; the Doc copy keeps it; `final.md`
       does not contain it, and the lint reports one that does as STR-7 (new rule: no working section in the final).
-- [ ] AC7 (phase 2) Given a reviewer's comment asks to skip one question, when the owning stage reruns, then that question's line is `[SKIPPED]` with the reason and, at
+- [x] AC7 (phase 2) Given a reviewer's comment asks to skip one question, when the owning stage reruns, then that question's line is `[SKIPPED]` with the reason and, at
       outline and draft, the cell holds the human-written marker; the guard refuses sign-off while the marker remains (FLOW-6).
 - [x] AC8 An ADR (ADR-023) records the format, the skip marker and the sign-off rule; DESIGN.md FT-22 row, glossary and CHANGELOG match.
 

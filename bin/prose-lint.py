@@ -24,7 +24,7 @@ FENCE = re.compile(r'^\s*(```|~~~)')
 HEADING = re.compile(r'^(#{1,6})\s+(\S.*)$')
 FACT_REF = w.FACT_REF
 # What the number check (FACT-1) skips: forms that make no claim a fact ID could source (field-test finding FT-4).
-MARKER_TEXT = re.compile(r"<Can.t be verified\.[^<>]*>")  # the reason inside a marker ("HTTP 403") is not a claim
+MARKER_TEXT = re.compile(r"<(?:Can.t be verified|Needs to be written by a human)\.[^<>]*>")  # the reason inside a marker ("HTTP 403") is not a claim
 MD_TARGET = re.compile(r'\]\([^)]*\)')  # `![Screenshot](shots/2.png)`: the path is not prose
 LABEL = re.compile(r'\b(?:screenshots?|figures?|fig|images?|illustrations?|diagrams?|charts?|tables?|photos?|steps?|tips?|reasons?|examples?|'
                    r'parts?|sections?|chapters?|options?)\.?\s+\d+\b', re.I)
@@ -32,7 +32,7 @@ CHECKED_DATE = re.compile(r'\bchecked\s+(?:in\s+|on\s+)?(?:\d{1,2}\s+)?(?:jan|fe
                           r'(?:\d{1,2},?\s+)?\d{4}\b', re.I)  # "checked in November 2026" is the method note FACT-4 asks for
 URL = re.compile(r'https?://\S+')
 LIST_PREFIX = re.compile(r'^\s*(?:[-*+]|\d+[.)])\s+')
-MARKER_LOOSE = re.compile(r'<Can.t be verified')
+MARKER_LOOSE = w.MARKER_LOOSE  # FLOW-6: the one loose pattern, shared with the guard (ADR-023)
 WORD = re.compile(r"\w[\w'’-]*")
 
 
@@ -238,7 +238,7 @@ def lint(path: str, brief_path: Optional[str], style_path: Optional[str]) -> Tup
                         add(rule, n, f'{what} "{phrase}"')
         for i, line in enumerate(text.split('\n'), 1):
             if MARKER_LOOSE.search(line):
-                found.append(f'FLOW-6 {path}:{i} an unverified-claim marker is still in the final')
+                found.append(f'FLOW-6 {path}:{i} a marker (an unverified claim, or text for a human to write) is still in the final')
     return found, notes
 
 

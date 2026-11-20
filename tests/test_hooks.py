@@ -576,6 +576,7 @@ def test_a_redirect_sign_inside_quotes_is_text_not_a_write(ws, command):
 
 # ---------------- Phase 5 (ADR-010): the G4 save, the lint record and the sign-off ----------------
 MARKER = "<Can't be verified. Reason: no source covers it.>"
+HUMAN_MARKER = '<Needs to be written by a human. Reason: the owner asked to write this part herself.>'
 FINAL = '# T\n\nBody text.\n\nSigned-off-by:{who}\n'
 
 
@@ -685,6 +686,22 @@ def test_a_sign_off_is_blocked_while_a_marker_remains_even_with_a_g4_pass(ws):
     ws.verdict('final', 1, PASS['final'], sidecar=True)
     r = guard(ws.root, write_payload(ws.rel('final.md'), body.replace('Signed-off-by:', 'Signed-off-by: Test Human')))
     assert r.code == 2 and 'marker' in r.err
+
+
+def test_a_sign_off_is_blocked_while_a_human_written_marker_remains(ws):
+    """ADR-023: a skipped question leaves `<Needs to be written by a human ...>` in the text, and it stops sign-off like the other marker."""
+    body = final_ready(ws, text=f'# T\n\nBody {HUMAN_MARKER}\n\nSigned-off-by:\n')
+    ws.verdict('final', 1, PASS['final'], sidecar=True)
+    r = guard(ws.root, write_payload(ws.rel('final.md'), body.replace('Signed-off-by:', 'Signed-off-by: Test Human')))
+    assert r.code == 2 and 'Needs to be written by a human' in r.err, r.err
+
+
+@pytest.mark.parametrize('text', ['<Needs to be written by the human. Reason: x>', '<Needs To Be Written by a Human. Reason: x>', '<Needs  to be\u00a0written by me. Reason: x>'],
+                         ids=['the-human', 'capitals', 'spacing'])
+def test_a_paraphrased_human_written_marker_still_blocks_the_sign_off(ws, text):
+    body = final_ready(ws, text=f'# T\n\nBody {text}\n\nSigned-off-by:\n')
+    ws.verdict('final', 1, PASS['final'], sidecar=True)
+    assert guard(ws.root, write_payload(ws.rel('final.md'), body.replace('Signed-off-by:', 'Signed-off-by: Test Human'))).code == 2
 
 
 def test_a_mangled_marker_still_blocks_the_sign_off(ws):
@@ -811,10 +828,11 @@ def build_state(ws, state):
         ws.chain('outline')
         drop('outline', 'draft', 'final')
         ws.verdict('brief', 2, PASS['brief'], sidecar=True)
-    elif state in ('final-unsigned', 'signed', 'marker-final', 'malformed-marker-final', 'fenced-sign-off'):
+    elif state in ('final-unsigned', 'signed', 'marker-final', 'human-marker-final', 'malformed-marker-final', 'fenced-sign-off'):
         body = {'final-unsigned': '# T\n\nBody.\n\nSigned-off-by:\n',
                 'signed': '# T\n\nBody.\n\nSigned-off-by: Test Human\n',
                 'marker-final': f'# T\n\nBody {MARKER}\n\nSigned-off-by:\n',
+                'human-marker-final': f'# T\n\nBody {HUMAN_MARKER}\n\nSigned-off-by:\n',
                 'malformed-marker-final': f'# T\n\nBody {CURLY_MARKER}\n\nSigned-off-by:\n',
                 'fenced-sign-off': '# T\n\n```\ngit commit -s\nSigned-off-by: A Committer\n```\n\nSigned-off-by:\n'}[state]
         ws.approve()
@@ -827,7 +845,7 @@ def build_state(ws, state):
 
 R1_STATES = ['nothing', 'brief-only', 'brief-passed', 'one-block', 'two-blocks', 'two-blocks-then-pass', 'stale', 'unapproved', 'approved',
              'approved-no-draft', 'stale-unapproved', 'stale-next-missing', 'markers-outline', 'final-unsigned', 'signed',
-             'marker-final', 'malformed-marker-final', 'fenced-sign-off']
+             'marker-final', 'human-marker-final', 'malformed-marker-final', 'fenced-sign-off']
 _STALE = 'STALE: G1-research.r1.md is stale: it relied on G0-brief.r1.md but the latest G0-brief verdict is G0-brief.r2.md'
 # The briefing line per state, exactly as session-context prints it. Pinned before article_state() replaced the logic behind
 # it, so the refactor cannot change what a writer reads by accident.
@@ -849,6 +867,7 @@ BRIEFING = {
     # WHY: once a final exists its markers are what blocks the sign-off (FLOW-6), so they are counted there, with the guard's
     # own loose pattern, not in the outline (ADR-011). This line said nothing about the marker before.
     'marker-final': "final passed G4, waiting for a human's Signed-off-by · 1 marker to resolve",
+    'human-marker-final': "final passed G4, waiting for a human's Signed-off-by · 1 marker to resolve",
     'malformed-marker-final': "final passed G4, waiting for a human's Signed-off-by · 1 marker to resolve",
     # WHY: sign-off is read with the guard's fence-aware is_signed; a commit trailer quoted in a code block is not a sign-off
     # (ADR-011). This line called the article signed off before.
@@ -884,6 +903,7 @@ EXPECTED_STATE = {
     'final-unsigned': ('sign-off', 'final', []),
     'signed': ('done', 'final', []),
     'marker-final': ('sign-off', 'final', [MARKER]),
+    'human-marker-final': ('sign-off', 'final', [HUMAN_MARKER]),
     'malformed-marker-final': ('sign-off', 'final', [CURLY_MARKER]),
     'fenced-sign-off': ('sign-off', 'final', []),
 }
@@ -1050,12 +1070,19 @@ def test_the_next_revision_is_per_stage_and_one_past_the_highest(ws):
 
 
 @pytest.mark.parametrize('state,ready', [
-    ('signed', True), ('final-unsigned', False), ('marker-final', False), ('malformed-marker-final', False),
+    ('signed', True), ('final-unsigned', False), ('marker-final', False), ('human-marker-final', False), ('malformed-marker-final', False),
     ('fenced-sign-off', False), ('stale', False),
 ])
 def test_publish_ready_needs_done_and_no_marker_in_the_final(ws, state, ready):
     build_state(ws, state)
     assert writer.publish_ready(str(ws.root), ws.slug) is ready
+
+
+def test_a_hand_signed_final_with_a_human_written_marker_is_not_publish_ready(ws):
+    build_state(ws, 'signed')
+    (ws.art / 'final.md').write_text(f'# T\n\nBody {HUMAN_MARKER}\n\nSigned-off-by: Test Human\n')
+    writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')
+    assert (writer.article_state(str(ws.root), ws.slug)['next'], writer.publish_ready(str(ws.root), ws.slug)) == ('done', False)
 
 
 def test_a_hand_signed_final_with_a_marker_is_not_publish_ready(ws):
@@ -1205,9 +1232,9 @@ def drive_create(ws, title):
                            'tool_input': {'title': title, 'textContent': text, 'contentMimeType': 'text/markdown'}})
 
 
-def signed_with_marker(ws):
+def signed_with_marker(ws, marker=MARKER):
     build_state(ws, 'signed')
-    (ws.art / 'final.md').write_text(f'# T\n\nBody {MARKER}\n\nSigned-off-by: Test Human\n')
+    (ws.art / 'final.md').write_text(f'# T\n\nBody {marker}\n\nSigned-off-by: Test Human\n')
     writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')
 
 
@@ -1218,8 +1245,9 @@ def test_a_publish_ready_entry_needs_a_publish_ready_final(ws, state, code):
     assert docs_write(ws, [entry(ws)]).code == code
 
 
-def test_a_hand_signed_final_with_a_marker_cannot_be_recorded_publish_ready(ws):
-    signed_with_marker(ws)
+@pytest.mark.parametrize('marker', [MARKER, HUMAN_MARKER], ids=['unverified', 'human-written'])
+def test_a_hand_signed_final_with_a_marker_cannot_be_recorded_publish_ready(ws, marker):
+    signed_with_marker(ws, marker)
     r = docs_write(ws, [entry(ws)])
     assert (r.code, 'FLOW-6' in r.err) == (2, True)
 
@@ -1294,8 +1322,9 @@ def test_a_doc_titled_publish_ready_is_created_only_for_a_publish_ready_final(ws
     assert drive_create(ws, title).code == code
 
 
-def test_a_marker_blocks_the_publish_ready_doc_even_when_signed_by_hand(ws):
-    signed_with_marker(ws)
+@pytest.mark.parametrize('marker', [MARKER, HUMAN_MARKER], ids=['unverified', 'human-written'])
+def test_a_marker_blocks_the_publish_ready_doc_even_when_signed_by_hand(ws, marker):
+    signed_with_marker(ws, marker)
     r = drive_create(ws, 'demo · final · r2 · publish-ready')
     assert (r.code, 'FLOW-6' in r.err) == (2, True)
 
@@ -1395,6 +1424,12 @@ def test_marker_is_bold_in_the_doc_copy_and_a_second_pass_changes_nothing():
     out = writer.doc_text(f'# T\n\nPrice is {MARK} today [F1].\n')
     assert out == f'# T\n\nPrice is **{MARK}** today.\n'
     assert writer.bold_markers(out) == out
+
+
+def test_the_human_written_marker_is_bold_whole_and_a_second_pass_changes_nothing():
+    out = writer.doc_text(f'# T\n\nA part: {HUMAN_MARKER} then more.\n')
+    assert f'**{HUMAN_MARKER}**' in out and writer.bold_markers(out) == out
+    assert f'**{MARK}**' in writer.doc_text(f'# T\n\nPrice is {MARK} today.\n'), "the Can't form is still bolded whole"
 
 
 def test_marker_in_a_code_fence_stays_plain_and_front_matter_body_is_bolded():

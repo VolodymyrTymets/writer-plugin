@@ -19,6 +19,7 @@ STR-5, SEO-1, FACT-1, FACT-6. Blocking means the draft would be built on it wron
 ## The marker
 A marker is `<Can't be verified. Reason: reason sentence here>`. It stands in for a claim the research could not support.
 - FACT-1 does not apply to a marker: it replaces a claim, it is not one.
+- **The second form (ADR-023).** `<Needs to be written by a human. Reason: reason sentence here>` replaces a gap's marker when a reviewer asked to skip that question. It has the same exact-form rules, it is not a claim, and a skip swaps a marker for it, so the one-marker-per-open-gap count below covers both forms together. Its question line in the list is `[SKIPPED]`; a skipped marker whose list holds no `[OPEN]` or `[SKIPPED]` line at all is a FACT-6 advisory.
 - A claim written beside a marker or inside its reason still blocks (FACT-1): the reason says why it could not be verified,
   never what the claim is.
 - A marker not in the exact form (ASCII apostrophe; a non-empty one-line reason with no `<`, `>` or `|`) is a blocking
@@ -33,7 +34,7 @@ A marker is `<Can't be verified. Reason: reason sentence here>`. It stands in fo
 
 The closing `## Questions for the human` (or the older `## Open questions for the human`) is not a section of the plan: it is outside STR-2 and FACT-1, and only the FACT-6 advisory below judges it.
 
-**Questions for the human (FACT-6, ADR-023).** The same advisory at research, outline and draft: the closing `## Questions for the human` follows one form, which the actor checks with `bin/questions-check.py`. It is the last section (only an approval line may follow it); each line starts `[OPEN]` or `[RESOLVED]` (a leading `- ` or `1. ` is ignored); no line carries a `Q<n>` or `F<n>` id or a comment number; a line the previous stage's list marks `[RESOLVED]` is not repeated, as `[OPEN]` or in any form; a marker in the text has at least one `[OPEN]` line somewhere in the list (one question may cover several markers about the same page); and the section is `none`, or absent, when nothing is owed. A section under the old heading `Open questions for the human` is exempt from every rule but placement. Add one advisory FACT-6 finding naming the lines. It never blocks.
+**Questions for the human (FACT-6, ADR-023).** The same advisory at research, outline and draft: the closing `## Questions for the human` follows one form, which the actor checks with `bin/questions-check.py`. It is the last section (only an approval line may follow it); each line starts `[OPEN]`, `[RESOLVED]` or `[SKIPPED]` (a skipped question is one a reviewer asked to leave for the human, ADR-023; a leading `- ` or `1. ` is ignored); no line carries a `Q<n>` or `F<n>` id or a comment number; a line the previous stage's list marks `[RESOLVED]` is not repeated, as `[OPEN]` or in any form; a marker in the text has at least one `[OPEN]` or `[SKIPPED]` line somewhere in the list (one question may cover several markers about the same page); and the section is `none`, or absent, when nothing is owed. A section under the old heading `Open questions for the human` is exempt from every rule but placement. Add one advisory FACT-6 finding naming the lines. It never blocks.
 
 ## Do not
 

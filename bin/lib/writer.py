@@ -356,7 +356,10 @@ def bash_targets(command: str) -> List[Tuple[str, str]]:
 
 
 # ---------------- session state (a temp file keyed by session id, never inside the workspace) ----------------
-MARKER_LOOSE = re.compile(r'<Can.t be verified')
+# Two marker forms stand for text that is not there yet (ADR-008, ADR-023): a claim research could not support, and text a human asked to write herself.
+# One loose pattern for both, a non-capturing group so MARKER_TEXT below still covers each whole marker; FLOW-6 reads this one.
+# The second form is matched loosely (case, spacing, "the human"): an actor writes it from a reviewer's comment, and a paraphrase that escaped this pattern would let a sign-off through.
+MARKER_LOOSE = re.compile(r"(?:<Can.t be verified|(?i:<\s*needs\s+to\s+be\s+written\b))")
 
 
 def state_path(session_id: str) -> str:
@@ -930,13 +933,13 @@ def fact_rows(text: str) -> List[Dict[str, str]]:
 # ---------------- the questions list (FT-22, ADR-023) ----------------
 QUESTIONS_HEADING = re.compile(r'^##\s+(Questions for the human|Open questions for the human)\s*$')
 OLD_QUESTIONS_HEADING = 'Open questions for the human'
-EXACT_MARKER = re.compile(r"<Can't be verified\. Reason: [^<>|\s][^<>|\n]*>")  # the one form of ADR-008, found in a line of text
+EXACT_MARKER = re.compile(r"<(?:Can't be verified|Needs to be written by a human)\. Reason: [^<>|\s][^<>|\n]*>")  # the two exact forms (ADR-008, ADR-023), found in a line of text
 _ANY_HEADING = re.compile(r'^#{1,6}\s+\S')
 _LIST_PREFIX = re.compile(r'^\s*(?:[-*+]|\d+[.)])\s+')
 # An id is how the older lists pointed at a row: `[F7]`, `(Q4)`, a leading `Q4`, or `comment 3`. A business quarter in a question ("Q3 2026 revenue") is not one, so a bare Q or F
 # number inside a sentence is left to the gate's judgement.
 _QUESTION_ID = re.compile(r'\[[QF]\d+(?:,\s*[QF]\d+)*\]|\([QF]\d+\)|^[QF]\d+\b|\bcomment\s+\d+\b', re.I)
-_QUESTION_MARK = re.compile(r'^\[(OPEN|RESOLVED)\]\s*(.*)$')
+_QUESTION_MARK = re.compile(r'^\[(OPEN|RESOLVED|SKIPPED)\]\s*(.*)$')
 _HTML_COMMENT = re.compile(r'<!--.*?-->', re.S)
 
 
@@ -1030,16 +1033,16 @@ def questions_findings(text: str, upstream_text: Optional[str]) -> List[Dict[str
             continue
         m = _QUESTION_MARK.match(t)
         if not m:
-            add(at, 'a question line does not start with [OPEN] or [RESOLVED]')
+            add(at, 'a question line does not start with [OPEN], [RESOLVED] or [SKIPPED]')
             continue
-        if m.group(1) == 'OPEN':
+        if m.group(1) in ('OPEN', 'SKIPPED'):  # a skipped question is still the human's: it covers a marker like an open one
             opens += 1
         if _question_key(m.group(2)) in seen or _question_head(m.group(2)) in seen:
             add(at, 'a question the previous stage already resolved is repeated')
         if _QUESTION_ID.search(m.group(2)):
             add(at, 'a question line carries a Q or F id or a comment number')
     if markers and not opens:
-        add(start + 1, f'{markers} marker(s) wait for a human but no [OPEN] question is listed')
+        add(start + 1, f'{markers} marker(s) wait for a human but no [OPEN] or [SKIPPED] question is listed')
     return found
 
 

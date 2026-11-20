@@ -1035,8 +1035,8 @@ def test_three_gates_carry_the_same_questions_paragraph():
     paragraphs = {d: _shared_questions_paragraph(d) for d in ('check-research', 'check-outline', 'check-draft')}
     assert len(set(paragraphs.values())) == 1, 'G1, G2 and G3 must carry one wording for the questions-list advisory'
     p = paragraphs['check-research']
-    for part in ('bin/questions-check.py', 'It is the last section', 'starts `[OPEN]` or `[RESOLVED]`', 'no line carries a `Q<n>` or `F<n>` id',
-                 "a line the previous stage's list marks `[RESOLVED]` is not repeated, as `[OPEN]` or in any form", 'has at least one `[OPEN]` line somewhere in the list', 'old heading `Open questions for the human` is exempt from every rule but placement',
+    for part in ('bin/questions-check.py', 'It is the last section', 'starts `[OPEN]`, `[RESOLVED]` or `[SKIPPED]`', 'no line carries a `Q<n>` or `F<n>` id',
+                 "a line the previous stage's list marks `[RESOLVED]` is not repeated, as `[OPEN]` or in any form", 'has at least one `[OPEN]` or `[SKIPPED]` line somewhere in the list', 'old heading `Open questions for the human` is exempt from every rule but placement',
                  'It never blocks'):
         assert part in p, f'the shared paragraph lost: {part}'
 
@@ -1081,3 +1081,32 @@ def test_g3_and_g2_do_not_read_the_list_as_article_text_and_g4_blocks_on_it():
 def test_edit_stage_drops_the_questions_list_from_the_final():
     text = flat('edit')
     assert 'Do not copy the draft\'s `## Questions for the human` section into `final.md`' in text and 'STR-7' in text
+
+
+HUMAN_MARKER_FORM = '<Needs to be written by a human. Reason: reason sentence here>'
+
+
+def test_outline_and_draft_apply_a_skip_comment_by_swapping_a_marker():
+    """FT-22, ADR-023: a reviewer's comment that asks to skip a question marks it [SKIPPED] and swaps the gap's marker; it adds none."""
+    for d in ('outline', 'draft'):
+        text = flat(d)
+        for part in ('A comment that asks to skip a question', 'mark that question\'s line `[SKIPPED]`', HUMAN_MARKER_FORM, 'A skip swaps a marker, it adds none',
+                     'A comment that merely gives an answer with no source resolves nothing'):
+            assert part in text, f'{d} must say: {part}'
+
+
+def test_every_stage_that_carries_markers_names_the_human_written_form():
+    assert HUMAN_MARKER_FORM in flat('draft') and HUMAN_MARKER_FORM in flat('edit')
+    assert 'stays character for character' in flat('edit')
+    for d in ('check-outline', 'check-draft', 'check-final'):
+        assert HUMAN_MARKER_FORM in checklist_text(d), f'{d} must accept the second marker form'
+    assert 'both stop the sign-off' in checklist_text('check-final')
+    assert 'covers both forms together' in checklist_text('check-outline')
+    assert 'is not an invented one' in checklist_text('check-draft')
+
+
+def test_a_skip_survives_the_next_stage_and_a_rebuild():
+    """PR 2 review: the draft took over only [OPEN] lines, so a skipped question came back as open; a rebuilt outline went back to the old marker."""
+    d, o = flat('draft'), flat('outline')
+    assert 'what is still `[OPEN]` or `[SKIPPED]` there' in d and 'keeps its `[SKIPPED]` line and gets no `[OPEN]` one' in d
+    assert "stays `[SKIPPED]` and is not taken over again as `[OPEN]`" in o and 'on a rebuild its gap keeps' in o
