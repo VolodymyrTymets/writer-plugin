@@ -20,8 +20,7 @@ a reviewer of the outline or draft Doc decoded markers again and could not tell 
 3. **Resolved** means a fact row now answers it (from research or from a source a human supplied: a fetchable URL or a dated page text, ADR-020, ADR-021). A bare
    answer in a comment stays a pointer note and resolves nothing. This is an assumption the human may overturn before PR 2.
 4. **One checker for the form, the gates for the judgement.** `bin/questions-check.py <slug> <stage>` (stdlib, read-only, JSON findings) is run by the three actors.
-   It checks form only: section last, a mark on every line, no ids, an exact-form marker with no `[OPEN]` line at all, a `[RESOLVED]` line repeated from the upstream
-   list, text after the section. It does not match a marker to a question (no ids link them; one question may cover several markers about the same page, as G1
+   It checks form only: section last, a mark on every line, no ids (a bracketed or parenthesised `[F7]`, `(Q4)`, a leading `Q4`, or `comment 3`; a business quarter such as "Q3 2026" is not one), an exact-form marker with no `[OPEN]` line at all, a line, `[OPEN]` or `[RESOLVED]`, whose first sentence repeats a question the upstream list marks `[RESOLVED]`, text after the section. It does not match a marker to a question (no ids link them; one question may cover several markers about the same page, as G1
    allows). The semantic checks stay with the gates as text (a `[RESOLVED]` question whose marker is still under Open gaps; a question that does not say what would
    answer it). No gate runs a script.
 5. **Old outlines.** Under the old heading "Open questions for the human" the checker applies only the placement rule and G2 leaves out both headings when it counts

@@ -933,7 +933,9 @@ OLD_QUESTIONS_HEADING = 'Open questions for the human'
 EXACT_MARKER = re.compile(r"<Can't be verified\. Reason: [^<>|\s][^<>|\n]*>")  # the one form of ADR-008, found in a line of text
 _ANY_HEADING = re.compile(r'^#{1,6}\s+\S')
 _LIST_PREFIX = re.compile(r'^\s*(?:[-*+]|\d+[.)])\s+')
-_QUESTION_ID = re.compile(r'\b[QF]\d+\b|\bcomment\s+\d+\b', re.I)
+# An id is how the older lists pointed at a row: `[F7]`, `(Q4)`, a leading `Q4`, or `comment 3`. A business quarter in a question ("Q3 2026 revenue") is not one, so a bare Q or F
+# number inside a sentence is left to the gate's judgement.
+_QUESTION_ID = re.compile(r'\[[QF]\d+(?:,\s*[QF]\d+)*\]|\([QF]\d+\)|^[QF]\d+\b|\bcomment\s+\d+\b', re.I)
 _QUESTION_MARK = re.compile(r'^\[(OPEN|RESOLVED)\]\s*(.*)$')
 _HTML_COMMENT = re.compile(r'<!--.*?-->', re.S)
 
@@ -946,7 +948,13 @@ def _questions_section(lines: List[str]) -> Optional[Tuple[int, int, bool]]:
             fenced = not fenced
         m = None if fenced else QUESTIONS_HEADING.match(line)
         if m:
-            end = next((j for j in range(i + 1, len(lines)) if _ANY_HEADING.match(lines[j])), len(lines))
+            end, inside = len(lines), False
+            for j in range(i + 1, len(lines)):
+                if re.match(r'^\s*(```|~~~)', lines[j]):
+                    inside = not inside
+                elif not inside and _ANY_HEADING.match(lines[j]):
+                    end = j
+                    break
             return i, end, m.group(1) == OLD_QUESTIONS_HEADING
     return None
 
@@ -969,6 +977,11 @@ def _question_key(text: str) -> str:
     return re.sub(r'[^a-z0-9 ]+', '', re.sub(r'\s+', ' ', text.lower())).strip()
 
 
+def _question_head(text: str) -> str:
+    """The key of a question's first sentence: an upstream `[RESOLVED]` line adds how it was settled after the question, so the whole line never matches."""
+    return _question_key(re.split(r'[?;]|\.\s', text, maxsplit=1)[0])
+
+
 def resolved_questions(text: str) -> set:
     """The normalised text of every `[RESOLVED]` line in a questions list, to tell a repeat from a new question."""
     lines = text.replace('\r\n', '\n').split('\n')
@@ -980,6 +993,7 @@ def resolved_questions(text: str) -> set:
         m = _QUESTION_MARK.match(t)
         if m and m.group(1) == 'RESOLVED':
             out.add(_question_key(m.group(2)))
+            out.add(_question_head(m.group(2)))
     return out
 
 
@@ -1012,7 +1026,7 @@ def questions_findings(text: str, upstream_text: Optional[str]) -> List[Dict[str
     seen = resolved_questions(upstream_text) if upstream_text is not None else set()
     for n, t in marks:
         at = base + n + 1
-        if t.lower() == 'none':
+        if t.strip().rstrip('.').lower() == 'none':
             continue
         m = _QUESTION_MARK.match(t)
         if not m:
@@ -1020,7 +1034,7 @@ def questions_findings(text: str, upstream_text: Optional[str]) -> List[Dict[str
             continue
         if m.group(1) == 'OPEN':
             opens += 1
-        elif _question_key(m.group(2)) in seen:
+        if _question_key(m.group(2)) in seen or _question_head(m.group(2)) in seen:
             add(at, 'a question the previous stage already resolved is repeated')
         if _QUESTION_ID.search(m.group(2)):
             add(at, 'a question line carries a Q or F id or a comment number')

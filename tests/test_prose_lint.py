@@ -339,6 +339,9 @@ def test_a_questions_section_left_in_a_final_is_str_7(ws):
     r = lint(ws / 'final.md')
     assert rules(r) == ['STR-7'] and r.code == 1, r.out
     assert 'working list' in r.out
+    text = final_text(extra=QUESTIONS)
+    heading_line = text.split('\n').index('## Questions for the human') + 1
+    assert f'final.md:{heading_line} ' in r.out, 'STR-7 points at the section heading, front matter included'
 
 
 def test_a_final_without_the_section_is_clean_of_str_7(ws):
@@ -346,8 +349,6 @@ def test_a_final_without_the_section_is_clean_of_str_7(ws):
     assert 'STR-7' not in rules(lint(ws / 'final.md'))
 
 
-def test_the_doc_copy_of_a_draft_keeps_the_section(tmp_path):
-    art = tmp_path / 'articles' / 'a'
-    art.mkdir(parents=True)
+def test_the_doc_copy_of_a_draft_keeps_the_section():
     text = draft_with(QUESTIONS)
     assert '## Questions for the human' in writer.doc_text(text, 'draft')

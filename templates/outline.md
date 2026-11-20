@@ -38,6 +38,6 @@ Word budgets sum to the brief's target length, plus or minus 10% (STR-3).
 
 ## Questions for the human
 <!-- Same format as research.md. One plain-text question per marker still in a cell and per decision this outline owes: no Q or F ids. Start each line with [OPEN]
-     and say what would answer it. Take over only what research.md still marks [OPEN]; never repeat a [RESOLVED] one. Keep earlier lines on a rerun and change
-     [OPEN] to [RESOLVED] only when a fact row now answers it. Omit this section when nothing was ever owed (only [RESOLVED] lines, or "none", is fine). -->
+     and say what would answer it. Take over only what research.md still marks [OPEN]; never repeat a [RESOLVED] one. Keep earlier lines on a rerun, but drop one research.md now marks [RESOLVED], and change
+     [OPEN] to [RESOLVED] only for a question this outline owns, when a fact row now answers it. Omit this section when nothing was ever owed (only [RESOLVED] lines, or "none", is fine). -->
 1. [OPEN] {{the question, in a sentence the human can answer without opening the tables, and what would answer it}}

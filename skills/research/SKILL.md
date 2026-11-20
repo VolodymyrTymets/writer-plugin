@@ -81,8 +81,8 @@ the approval was cleared. Then write the result to `articles/<slug>/research.md`
 
 ## Step 4 — Check the quotes, then run the gate and save the verdict
 
--1. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/questions-check.py <slug> research`. It writes nothing and prints `{"findings": [...]}`: fix each finding in the list's lines (a missing mark, an id, a marker with no `[OPEN]` question) and run it again until it is empty. The gate advises on the same rules.
-0. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py <slug>` **without** `--record` (the argument is the slug, not a path). It fetches each source and looks
+A. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/questions-check.py <slug> research`. It writes nothing and prints `{"findings": [...]}`: fix each finding in the list's lines (a missing mark, an id, a marker with no `[OPEN]` question) and run it again until it is empty. The gate advises on the same rules.
+B. Run `python3 ${CLAUDE_PLUGIN_ROOT}/bin/quote-check.py <slug>` **without** `--record` (the argument is the slug, not a path). It fetches each source and looks
    for each quote word for word in the page's text. A row it prints as `not-found` has a quote that is not on the page: fetch the
    page again and copy the page's real words, or drop the row; never edit a quote to make the check pass without reading the page.
    A `found-elided` row passes the check but is not settled: read what the `...` hides on the page and make sure it does not change the meaning.

@@ -3,7 +3,7 @@
 
     python3 bin/questions-check.py [--root <workspace>] <slug> <stage>
 
-`stage` is research, outline or draft. Prints one JSON object, `{"findings": [{rule, line, message}]}`, and exits 0 even with findings (they are
+`stage` is research, outline or draft. Prints one JSON object, `{"findings": [{rule, line, message}], "notes": [...]}`, and exits 0 even with findings (they are
 advisory, FACT-6); a bad request prints `{"error": ...}` and exits 1. Read-only: it writes no file, so the actors that call it need no write access
 for it. It checks form only; the gates keep the judgement (does a question say what would answer it).
 """
@@ -50,18 +50,22 @@ def check(argv: Sequence[str]) -> Dict[str, object]:
     up_stage: Optional[str] = UPSTREAM[args.stage]
     upstream = None
     notes = []
+    try:
+        with open(path, encoding='utf-8') as fh:  # w.read_text returns '' on an unreadable file, which would read as a clean list
+            text = fh.read()
+    except OSError as exc:
+        return {'error': f'articles/{args.slug}/{args.stage}.md cannot be read ({exc})'}
     if up_stage:
         up_path = os.path.join(art, f'{up_stage}.md')
         try:
-            upstream = w.read_text(up_path) if os.path.isfile(up_path) else None
-        except OSError as exc:
-            upstream = None
-            notes.append(f'{up_stage}.md could not be read ({exc})')
-        if upstream is None:
+            with open(up_path, encoding='utf-8') as fh:
+                upstream = fh.read()
+        except FileNotFoundError:
             notes.append(f'{up_stage}.md is missing, so a repeated resolved question cannot be checked')
-    findings = w.questions_findings(w.read_text(path), upstream)
-    findings += [{'rule': 'FACT-6', 'line': 0, 'message': n} for n in notes]
-    return {'findings': findings}
+        except OSError as exc:
+            notes.append(f'{up_stage}.md could not be read ({exc}), so a repeated resolved question cannot be checked')
+    findings = w.questions_findings(text, upstream)
+    return {'findings': findings, 'notes': notes}
 
 
 def main() -> int:

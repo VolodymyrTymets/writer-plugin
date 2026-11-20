@@ -1036,7 +1036,7 @@ def test_three_gates_carry_the_same_questions_paragraph():
     assert len(set(paragraphs.values())) == 1, 'G1, G2 and G3 must carry one wording for the questions-list advisory'
     p = paragraphs['check-research']
     for part in ('bin/questions-check.py', 'It is the last section', 'starts `[OPEN]` or `[RESOLVED]`', 'no line carries a `Q<n>` or `F<n>` id',
-                 "a `[RESOLVED]` line of the previous stage's list is not repeated", 'old heading `Open questions for the human` is exempt from every rule but placement',
+                 "a line the previous stage's list marks `[RESOLVED]` is not repeated, as `[OPEN]` or in any form", 'has at least one `[OPEN]` line somewhere in the list', 'old heading `Open questions for the human` is exempt from every rule but placement',
                  'It never blocks'):
         assert part in p, f'the shared paragraph lost: {part}'
 
