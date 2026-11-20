@@ -696,6 +696,14 @@ def test_a_sign_off_is_blocked_while_a_human_written_marker_remains(ws):
     assert r.code == 2 and 'Needs to be written by a human' in r.err, r.err
 
 
+@pytest.mark.parametrize('text', ['<Needs to be written by the human. Reason: x>', '<Needs To Be Written by a Human. Reason: x>', '<Needs  to be\u00a0written by me. Reason: x>'],
+                         ids=['the-human', 'capitals', 'spacing'])
+def test_a_paraphrased_human_written_marker_still_blocks_the_sign_off(ws, text):
+    body = final_ready(ws, text=f'# T\n\nBody {text}\n\nSigned-off-by:\n')
+    ws.verdict('final', 1, PASS['final'], sidecar=True)
+    assert guard(ws.root, write_payload(ws.rel('final.md'), body.replace('Signed-off-by:', 'Signed-off-by: Test Human'))).code == 2
+
+
 def test_a_mangled_marker_still_blocks_the_sign_off(ws):
     body = final_ready(ws, text='# T\n\nBody <Can\u2019t be verified. Reason: x>\n\nSigned-off-by:\n')
     ws.verdict('final', 1, PASS['final'], sidecar=True)
@@ -1224,9 +1232,9 @@ def drive_create(ws, title):
                            'tool_input': {'title': title, 'textContent': text, 'contentMimeType': 'text/markdown'}})
 
 
-def signed_with_marker(ws):
+def signed_with_marker(ws, marker=MARKER):
     build_state(ws, 'signed')
-    (ws.art / 'final.md').write_text(f'# T\n\nBody {MARKER}\n\nSigned-off-by: Test Human\n')
+    (ws.art / 'final.md').write_text(f'# T\n\nBody {marker}\n\nSigned-off-by: Test Human\n')
     writer.write_sidecar(str(ws.root), ws.slug, 'G4-final.r1.md')
 
 
@@ -1237,8 +1245,9 @@ def test_a_publish_ready_entry_needs_a_publish_ready_final(ws, state, code):
     assert docs_write(ws, [entry(ws)]).code == code
 
 
-def test_a_hand_signed_final_with_a_marker_cannot_be_recorded_publish_ready(ws):
-    signed_with_marker(ws)
+@pytest.mark.parametrize('marker', [MARKER, HUMAN_MARKER], ids=['unverified', 'human-written'])
+def test_a_hand_signed_final_with_a_marker_cannot_be_recorded_publish_ready(ws, marker):
+    signed_with_marker(ws, marker)
     r = docs_write(ws, [entry(ws)])
     assert (r.code, 'FLOW-6' in r.err) == (2, True)
 
@@ -1313,8 +1322,9 @@ def test_a_doc_titled_publish_ready_is_created_only_for_a_publish_ready_final(ws
     assert drive_create(ws, title).code == code
 
 
-def test_a_marker_blocks_the_publish_ready_doc_even_when_signed_by_hand(ws):
-    signed_with_marker(ws)
+@pytest.mark.parametrize('marker', [MARKER, HUMAN_MARKER], ids=['unverified', 'human-written'])
+def test_a_marker_blocks_the_publish_ready_doc_even_when_signed_by_hand(ws, marker):
+    signed_with_marker(ws, marker)
     r = drive_create(ws, 'demo · final · r2 · publish-ready')
     assert (r.code, 'FLOW-6' in r.err) == (2, True)
 

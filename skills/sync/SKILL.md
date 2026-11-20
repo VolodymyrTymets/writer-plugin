@@ -84,7 +84,7 @@ Doc is not the latest copy the copy skill made) and stop. Then:
   - It already says that value: write nothing.
   - It already says a different value: the file already says `<old>` and the Doc says `<new>`; this skill does not overwrite a human's local
     approval, so report both and let the human clear one by hand.
-- The guard may refuse the Edit (FLOW-2, and FLOW-6 for the final, which also needs a current G4 PASS and no unverified-claim marker). Report its
+- The guard may refuse the Edit (FLOW-2, and FLOW-6 for the final, which also needs a current G4 PASS and no marker of either form (`<Can't be verified …>` or `<Needs to be written by a human …>`)). Report its
   message as it is and stop; never work around it, never write the file another way.
 
 ## Step 6 — Restart the stage when comments are waiting

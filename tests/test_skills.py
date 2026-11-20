@@ -1096,10 +1096,17 @@ def test_outline_and_draft_apply_a_skip_comment_by_swapping_a_marker():
 
 
 def test_every_stage_that_carries_markers_names_the_human_written_form():
-    assert HUMAN_MARKER_FORM in flat('draft') and 'carry' not in '' and HUMAN_MARKER_FORM in flat('edit')
+    assert HUMAN_MARKER_FORM in flat('draft') and HUMAN_MARKER_FORM in flat('edit')
     assert 'stays character for character' in flat('edit')
     for d in ('check-outline', 'check-draft', 'check-final'):
         assert HUMAN_MARKER_FORM in checklist_text(d), f'{d} must accept the second marker form'
     assert 'both stop the sign-off' in checklist_text('check-final')
     assert 'covers both forms together' in checklist_text('check-outline')
     assert 'is not an invented one' in checklist_text('check-draft')
+
+
+def test_a_skip_survives_the_next_stage_and_a_rebuild():
+    """PR 2 review: the draft took over only [OPEN] lines, so a skipped question came back as open; a rebuilt outline went back to the old marker."""
+    d, o = flat('draft'), flat('outline')
+    assert 'what is still `[OPEN]` or `[SKIPPED]` there' in d and 'keeps its `[SKIPPED]` line and gets no `[OPEN]` one' in d
+    assert "stays `[SKIPPED]` and is not taken over again as `[OPEN]`" in o and 'on a rebuild its gap keeps' in o

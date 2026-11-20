@@ -358,7 +358,8 @@ def bash_targets(command: str) -> List[Tuple[str, str]]:
 # ---------------- session state (a temp file keyed by session id, never inside the workspace) ----------------
 # Two marker forms stand for text that is not there yet (ADR-008, ADR-023): a claim research could not support, and text a human asked to write herself.
 # One loose pattern for both, a non-capturing group so MARKER_TEXT below still covers each whole marker; FLOW-6 reads this one.
-MARKER_LOOSE = re.compile(r"(?:<Can.t be verified|<Needs to be written by a human)")
+# The second form is matched loosely (case, spacing, "the human"): an actor writes it from a reviewer's comment, and a paraphrase that escaped this pattern would let a sign-off through.
+MARKER_LOOSE = re.compile(r"(?:<Can.t be verified|(?i:<\s*needs\s+to\s+be\s+written\b))")
 
 
 def state_path(session_id: str) -> str:

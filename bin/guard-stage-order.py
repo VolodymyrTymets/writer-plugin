@@ -179,7 +179,7 @@ def check_signoff(root, slug, text):
         return
     if w.MARKER_LOOSE.search(text):
         w.block('FLOW-6', f'articles/{slug}/final.md may not be signed off while a marker (<Can\'t be verified ...> or <Needs to be written by a human ...>) is in it.',
-                'resolve every marker in the text (a human supplies the fact or removes the claim), rerun the edit stage and its gate, then sign off.')
+                'resolve every marker in the text (a human supplies the fact, writes the passage, or removes the claim), rerun the edit stage and its gate, then sign off.')
     name = w.latest(root, slug, 'final')
     why = None
     if not name or w.read_sidecar(root, slug, name) is None:
