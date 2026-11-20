@@ -458,8 +458,8 @@ def test_research_stage_marks_what_it_cannot_prove_and_never_invents():
 def test_outline_stage_replaces_the_claim_with_the_marker_and_collects_them():
     text = flat('outline')
     assert 'replaces the claim' in text
-    assert 'Open questions for the human' in text
-    assert 'every marker in a cell appears in that section and nothing else does' in text
+    assert '## Questions for the human' in text and 'one plain-text question per marker still in a cell' in text
+    assert 'never repeat one it marks `[RESOLVED]`' in text and 'questions-check.py <slug> outline' in text
 
 
 def test_outline_stage_writes_only_the_marker_and_a_neutral_label_in_a_marked_cell():
@@ -480,7 +480,7 @@ def test_outline_stage_gives_one_open_gap_one_marker():
     text = flat('outline')
     for needle in ('A marker is only for a point that `research.md` lists under Open gaps',
                    'One open gap gets at most one marker', 'drops that point instead of repeating the marker',
-                   'never holds more markers outside "Open questions for the human" than `research.md` holds under Open gaps'):
+                   'never holds more markers than `research.md` holds under Open gaps'):
         assert needle in text, needle
 
 
@@ -508,6 +508,7 @@ def test_g2_prints_a_markers_line():
         assert re.fullmatch(r'Markers: \d+', lines[i + 2]), f'line 3 of an example must be Markers: {lines[i + 2]!r}'
     assert 'Markers: n/a' in gate
     assert 'outside the "Open questions for the human" section' in checklist_text('check-outline')
+    assert 'outside the "Questions for the human" section' in checklist_text('check-outline'), 'both headings are left out of the marker count (ADR-023.5)'
 
 
 # ---------------- verdicts are saved with the Write tool; a hand edit is re-gated (ADR-009) ----------------
@@ -1051,3 +1052,9 @@ def test_research_runs_the_questions_checker_before_the_quote_check():
     assert 'bin/questions-check.py <slug> research' in text and 'until it is empty' in text
     assert text.index('questions-check.py <slug> research') < text.index('quote-check.py <slug>` **without**'), \
         'the list is fixed before the quote check, which must be the last action on research.md'
+
+
+def test_outline_stage_may_run_the_questions_checker():
+    """FT-22: without the pre-approval a headless run is denied the command (as the outline's edits once were, see the test above)."""
+    front = skill_text('outline').split('---', 2)[1]
+    assert QUESTIONS_CHECK_RULE in front and STATUS_RULE in front

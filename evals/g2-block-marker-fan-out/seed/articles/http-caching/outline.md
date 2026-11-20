@@ -43,7 +43,7 @@ Arithmetic: target 450 → 405 to 495; sum 50+80+90+100+90+50 = 460.
 ## Call to action
 The last section ends with one sentence asking the reader to download the example server config at https://example.com/caching-config.
 
-## Open questions for the human
-- Browser support for immutable (four rows): a support table.
-- How common no-cache is: survey data.
+## Questions for the human
+- [OPEN] Which page shows browser support for immutable? A support table would answer it.
+- [OPEN] How common is no-cache? Survey data would answer it.
 

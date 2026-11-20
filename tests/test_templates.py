@@ -113,10 +113,13 @@ def test_constitution_has_the_edit_after_pass_hygiene_line():
     assert 'upstream ones included' in text, 'editing an upstream artifact stales the earlier gate that passed it'
 
 
-def test_outline_template_has_an_open_questions_section():
+def test_outline_template_ends_with_the_shared_questions_list():
+    """FT-22: the outline's list has research's format: the last section, an [OPEN] fill-in, no ids, and no copy of the markers."""
     text = read(TEMPLATES / 'outline.md')
-    section = text[text.index('## Open questions for the human'):]
-    assert '{{' in section and 'or "none"' in section, 'the section must ship with a fill-in that allows "none"'
+    section = text[text.index('## Questions for the human'):]
+    assert '## Open questions' not in text, 'the old heading is gone from the template'
+    assert '{{' in section and '[OPEN]' in section and 'never repeat a [RESOLVED] one' in section
+    assert [l for l in text.split('\n') if l.startswith('## ')][-1] == '## Questions for the human'
 
 
 def test_research_template_open_gaps_carries_the_marker():
